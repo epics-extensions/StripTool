@@ -141,7 +141,7 @@ typedef enum
   STRIPCFGMASK_CURVE_MIN		= (1 << 28),
   STRIPCFGMASK_CURVE_MAX		= (1 << 29),
   STRIPCFGMASK_CURVE_PENSTAT		= (1 << 30),
-  STRIPCFGMASK_CURVE_PLOTSTAT		= (1 << 31),
+  STRIPCFGMASK_CURVE_PLOTSTAT		= ((unsigned)1 << 31),
 }
 StripConfigMask;
 

@@ -80,6 +80,7 @@ StripDataBuffer	StripDataBuffer_init	(void)
 	  sdb->buffers[i].idx_t0	= 0;
 	}
     }
+    return sdb;
 }
 
 
