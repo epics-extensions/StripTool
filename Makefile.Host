@@ -1,0 +1,139 @@
+#
+# Makefile for StripTool
+#
+# Options:
+#
+# EPICS
+#	root directory of EPICS distribution
+#
+# HAVE_XPM
+#	YES	use xpm to create cute color icon
+#
+# USE_CLUES
+#	YES	use pop-up clues for buttons
+#
+# USE_ARCHIVE_DATASRC
+#	YES	uses archive data	(not yet implemented)
+#
+# PURIFY
+#	YES	Instruments code with purify
+#
+# LIBTYPE
+#	ARCHIVE		force archive libraries
+#	SHARED		force shared libraries
+#	NULL		(if not defined) default
+
+TOP	= ../../..
+include $(TOP)/config/CONFIG_EXTENSIONS
+
+# Can't use CMPLR=STRICT: uses non-ansi stdup,gcvt ecvt
+CMPLR = ANSI
+
+LIBTYPE		= DEFAULT
+USE_CLUES	= YES
+
+USR_CFLAGS	= -DUSE_CA
+USR_CFLAGS	+= -DUSE_PSPRINTER
+USR_CFLAGS 	+= -I$(MOTIF_INC)
+USR_CFLAGS	+= -I$(X11_INC)
+USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
+#USR_CFLAGS 	+= -DDEBUG_EVENT
+#USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\".\"
+#USR_CFLAGS 	+= -DDEBUG_COLORALLOC
+
+#CFLAGS          += -g
+#CFLAGS         += -pg
+#CFLAGS         += -p
+#CFLAGS         += -O
+
+
+#
+# the $(LINK.c) macro uses the c compiler for linking, so linker
+# options must be passed through the compiler via the -W switch
+#
+ifeq ($(LIBTYPE), ARCHIVE)
+	USR_LDFLAGS	+= -Wl,-a,archive
+endif
+ifeq ($(LIBTYPE), SHARED)
+	USR_LDFLAGS	+= -Wl,-a,shared
+endif
+
+ifeq ($(USE_ARCHIVE_DATASRC), YES)
+	USR_CFLAGS += -DUSE_ARCHIVE_DATASRC
+endif
+
+
+
+USR_LDFLAGS += -L$(EPICS_EXTENSIONS_LIB)
+USR_LDFLAGS	+= -L$(MOTIF_LIB)
+USR_LDFLAGS	+= -L$(X11_LIB) 
+
+USR_LIBS_DEFAULT += ca Db Com Xm Xt X11 Xext
+USR_LIBS_Linux += ca Db Com Xm Xt X11 Xext Xp
+
+Xp_DIR = $(MOTIF_LIB)
+#Xmu_DIR = $(X11_LIB)
+Xm_DIR = $(MOTIF_LIB)
+Xt_DIR = $(X11_LIB)
+X11_DIR = $(X11_LIB)
+Xext_DIR = $(X11_LIB)
+
+ifeq ($(EXCEED),Exceed5)
+USR_LIBS_WIN32 += XmStatic Xt XlibGUI Xlib
+else
+USR_LIBS_WIN32 += XmStatic HCLXt XlibGUI Xlib
+endif
+XmStatic_DIR = $(MOTIF_LIB)
+HCLXt_DIR = $(X11_LIB)
+XlibGUI_DIR = $(X11_LIB)
+Xlib_DIR = $(X11_LIB)
+
+ifeq ($(HAVE_XPM), YES)
+  XPM_INC	= $(HOME)/include
+  XPM_LIB	= $(HOME)/lib
+  USR_CFLAGS	+= -DUSE_XPM
+  USR_CFLAGS	+= -I$(XPM_INC)
+  USR_LDFLAGS	+= -L$(XPM_LIB) $(USR_LDFLAGS)
+  USR_LIBS	+= Xpm $(USR_LIBS)
+endif
+
+
+MODULES		= StripConfig
+MODULES		+= cColorManager
+MODULES		+= StripCurve
+MODULES		+= Strip
+MODULES		+= StripDialog
+MODULES		+= StripDataSource
+MODULES		+= StripHistory
+MODULES		+= StripGraph
+MODULES		+= StripMisc
+MODULES		+= ColorDialog
+MODULES		+= Axis
+MODULES		+= Legend
+MODULES		+= StripTool
+MODULES		+= StripCA
+
+# freeware components
+ifeq ($(USE_CLUES), YES)
+  USR_CFLAGS	+= -DUSE_CLUES
+  MODULES	+= LiteClue
+endif
+
+SRCS		= $(patsubst %, %.c, $(MODULES))
+
+PROD		= StripTool
+
+ifeq ($(PURIFY), YES)
+  PROD		= StripTool.purify
+  LINK.c	:= purify $(LINK.c)
+  HOST_OPT	= NO
+endif
+
+ifeq ($(QUANTIFY), YES)
+  PROD		= StripTool.quantify
+  LINK.c	:= quantify $(LINK.c)
+  HOST_OPT	= NO
+endif
+
+include $(TOP)/config/RULES.Host
+

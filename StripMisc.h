@@ -153,7 +153,7 @@ void	window_unmap		(Display *, Window);
 void	MessageBox_popup	(Widget,	/* parent */
 				 Widget *,	/* MessageBox */
 				 char *,	/* message */
-				 char *);	/* button label
+				 char *);	/* button label */
 
 /* ====== Miscellaneous ====== */
 
