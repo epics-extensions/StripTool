@@ -10,7 +10,7 @@
 \*************************************************************************/
 
 #define DEBUG_DISCONNECT 0
-#define DEBUG_ASSERT 1
+#define DEBUG_ASSERT 0
 #define PRINT_DESC_ERRORS
 
 #include "StripDAQ.h"

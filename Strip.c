@@ -114,10 +114,6 @@
 #include <Xm/ToggleB.h>
 
 #ifdef WIN32
-#elif 0
-/* KE: Don't know what this is used for and want to make unistd.h be
-the default.  So leave it out for now. */
-# include <vfork.h>
 #else
 # include <unistd.h>
 #endif
@@ -3475,8 +3471,9 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
 	  si->print_info.device,
 	  si->print_info.printer);
     /*printf(" cmd_buf=%s\n",cmd_buf );*/
-    if (pid = fork ())
+    if (!(pid = fork ()))
     {
+	/* Child (pid=0) */
 	execl ("/bin/sh", "sh", "-c", cmd_buf, 0);
 	exit (0);
     }
@@ -3508,12 +3505,13 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
 	    (int)XtWindow (si->graph_form),
 	    si->print_info.device,
 	    si->print_info.printer);
-    if ((pid = fork ()))
+    if (!(pid = fork ()))
     {
+	/* Child (pid=0) */
 	execl ("/bin/sh", "sh", "-c", cmd_buf, 0);
 	exit (0);
     }
-#endif /* DESY_PRINT */               
+#endif /* DESY_PRINT */
     break;
         
   case POPUPMENU_SNAPSHOT:
@@ -3531,8 +3529,9 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
 	(cmd_buf,
 	  "xwd -id %d | xwud -raw",
 	  (int)XtWindow (si->graph_form));
-    if ((pid = fork ()))
+    if (!(pid = fork ()))
     {
+	/* Child (pid=0) */
 	execl ("/bin/sh", "sh", "-c", cmd_buf, 0);
 	exit (0);
     }
