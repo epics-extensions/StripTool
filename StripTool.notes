@@ -42,3 +42,7 @@ Tue Oct 22 10:49:02 CDT 2002 - StripTool-2-5-1-1 - jba
 	This fixes problem that StripTool will be quirky with R3.13 on any network
 	that does not have very many IOCs. 
 
+Mon Oct 28 16:23:21 CST 2002 - StripTool-2-5-1-1
+	Reset curve order when new file loaded.
+	Fix for curve order plot data update.
+	Added pan mode indicator to history data.
