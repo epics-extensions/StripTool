@@ -108,3 +108,13 @@ Wed Nov 13, 2002 - StripTool-2-5-2-6 - evans
 	the problem of the window popping up in other CDE workspaces whenever
 	there is a reconnection.  It is not clear raising the window on
 	reconnection in any case was that desirable.
+
+Tue Nov 19, 2002 - StripTool-2-5-2-7 - evans
+	Added capability to call a browser from the Help menu.  Added
+	browserHelp.c.  Made PATH_MAX be used consistently, replacing MAX_PATH
+	in places.  (There is no clear standard.)  Fixed it to set the focus
+	to the Plot New Signal text box when the Controls Window starts.
+	Fixed it to not read the default configuration file if one was
+	specified on the command line and read successfully.  It was merging
+	the two.  Made changes to Makefile.Host to clean up the build and make
+	it easier to override defaults in StripDefines.h.
