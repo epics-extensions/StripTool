@@ -16,6 +16,8 @@
 
 #include <X11/Xlib.h>
 #include <stdarg.h>
+#include <time.h>
+#include <sys/time.h>
 
 #define	MAX_TICS		32
 #define DEF_AXIS_PRECISION	6

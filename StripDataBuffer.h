@@ -30,7 +30,6 @@ typedef enum
   DATASTAT_PLOTABLE	= 1,	/* the point is plotable */
 } DataStatus;
 
-
 /* ======= Attributes ======= */
 typedef enum
 {
@@ -125,6 +124,7 @@ size_t	StripDataBuffer_init_range	(StripDataBuffer,
  */
 size_t	StripDataBuffer_get_times	(StripDataBuffer, struct timeval **);
 
+
 /*
  * StripDataBuffer_get_data
  *
@@ -134,4 +134,20 @@ size_t	StripDataBuffer_get_times	(StripDataBuffer, struct timeval **);
 size_t	StripDataBuffer_get_data	(StripDataBuffer,
 					 StripCurve,
 					 DataPoint **);
+
+
+/*
+ * StripDataBuffer_dump
+ *
+ *	Causes all data for the specified curves, on the given time range,
+ *	to be dumped out to the specified file.  If the curves array is
+ *	NULL, all curves are assumed.  If begin and/or end times are NULL,
+ *	then all available data are dumped.
+ */
+int	StripDataBuffer_dump		(StripDataBuffer,
+					 StripCurve[],
+					 struct timeval *,	/* begin */
+					 struct timeval *,	/* end */
+					 FILE *);
+
 #endif

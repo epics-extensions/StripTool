@@ -177,6 +177,14 @@ void	Strip_clear	(Strip);
 
 
 /*
+ * Strip_dump
+ *
+ *	Dumps the data buffer to specified file.
+ */
+int	Strip_dumpdata	(Strip, char *);
+
+
+/*
  * Strip_writeconfig
  *
  *	Writes the current configuration to the specified stdio stream at the

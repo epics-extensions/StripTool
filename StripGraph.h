@@ -136,6 +136,15 @@ void 	StripGraph_draw		(StripGraph, SGComponentMask, Region *);
 
 
 /*
+ * StripGraph_dumpdata
+ *
+ *	Causes all data for the curves on the current time range, to be
+ *	dumped out to the specified file.
+ */
+int	StripGraph_dumpdata	(StripGraph, FILE *);
+
+
+/*
  * StripGraph_refresh
  *
  *	Draws the StripGraph by copying the internal pixmap --not putting

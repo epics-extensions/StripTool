@@ -13,8 +13,14 @@
 #include "StripDefines.h"
 #include "StripMisc.h"
 
+#define CURVE_DATA(C)	((CurveData *)((StripCurveInfo *)C)->id)
+
 #define SDB_LTE		0
 #define SDB_GTE 	1
+
+#define SDB_DUMP_FIELDWIDTH	30
+#define SDB_DUMP_NUMWIDTH	20
+#define SDB_DUMP_BADVALUESTR	"???"
 
 typedef struct
 {
@@ -80,7 +86,8 @@ StripDataBuffer	StripDataBuffer_init	(void)
 	  sdb->buffers[i].idx_t0	= 0;
 	}
     }
-    return sdb;
+
+  return sdb;
 }
 
 
@@ -195,7 +202,7 @@ int StripDataBuffer_addcurve	(StripDataBuffer 	the_sdb,
 	  sdb->buffers[i].idx_t1	= 0;
 
 	  /* use the id field of the strip curve to reference the buffer */
-	  ((StripCurveInfo *)the_curve)->id 	= &sdb->buffers[i];
+	  ((StripCurveInfo *)the_curve)->id = &sdb->buffers[i];
 	}
     }
 
@@ -213,7 +220,7 @@ int StripDataBuffer_removecurve	(StripDataBuffer the_sdb, StripCurve the_curve)
   CurveData		*cd;
   int			ret_val;
 
-  if ((cd = (CurveData *)((StripCurveInfo *)the_curve)->id) != NULL)
+  if ((cd = CURVE_DATA(the_curve)) != NULL)
     {
       cd->curve = NULL;
       free (cd->data);
@@ -243,17 +250,6 @@ void	StripDataBuffer_sample	(StripDataBuffer the_sdb)
 	      gettimeofday (&sdb->times[sdb->cur_idx], &tz);
 	      sdb->count = min ((sdb->count+1), sdb->buf_size);
 	      need_time = 0;
-/*	      
-	      fprintf
-		(stdout,
-		 "StripDataBuffer_sample():\n"
-		 "sdb		= %p\n"
-		 "sdb->cur_idx	= %u\n"
-		 "sdb->buf_size	= %u\n"
-		 "time          = %s\n",
-		 sdb, sdb->cur_idx, sdb->buf_size,
-		 time_str (&sdb->times[sdb->cur_idx]));
-*/		 
 	    }
 	  if ((c->status & STRIPCURVE_CONNECTED) &&
 	      (!(c->status & STRIPCURVE_WAITING) &&
@@ -347,7 +343,7 @@ size_t	StripDataBuffer_get_data	(StripDataBuffer	the_sdb,
 					 DataPoint		**values)
 {
   StripDataBufferInfo	*sdb = (StripDataBufferInfo *)the_sdb;
-  CurveData		*cd = (CurveData *)((StripCurveInfo *)the_curve)->id;
+  CurveData		*cd = CURVE_DATA(the_curve);
 
   size_t		ret_val = 0;
 
@@ -370,6 +366,117 @@ size_t	StripDataBuffer_get_data	(StripDataBuffer	the_sdb,
   
   return ret_val;
 }
+
+
+/*
+ * StripDataBuffer_dump
+ */
+int	StripDataBuffer_dump	(StripDataBuffer	the_sdb,
+				 StripCurve		curves[],
+				 struct timeval 	*begin,
+				 struct timeval 	*end,	
+				 FILE 			*outfile)
+{
+  StripDataBufferInfo	*sdb = (StripDataBufferInfo *)the_sdb;
+  struct timeval	*times;
+  int			n_curves;
+  int			n, i, j;
+  int			msec;
+  time_t		tt;
+  char			buf[SDB_DUMP_FIELDWIDTH+1];
+  int			ret_val = 0;
+  struct		_cv
+  {
+    CurveData	*cd;
+    DataPoint	*dp;
+  }
+  cv[STRIP_MAX_CURVES];
+
+  /* first build the array of curves to dump */
+  if (curves[0])
+    {
+      /* get curves from array */
+      for (n = 0; curves[n]; n++)
+	if ((cv[n].cd = CURVE_DATA(curves[n])) == NULL)
+	  {
+	    fprintf (stderr, "StripDataBuffer_dump(): bad curve descriptor\n");
+	    return 0;
+	  }
+    }
+  else for (i = 0, n = 0; i < STRIP_MAX_CURVES; i++)	/* all curves */
+    {
+      if (sdb->buffers[i].curve != NULL)
+	{
+	  cv[n].cd = &sdb->buffers[i];
+	  n++;
+	}
+    }
+  n_curves = n;
+
+  /* now set the begin, end times */
+  if (!begin) begin = &sdb->times[sdb->idx_t0];
+  if (!end) end = &sdb->times[sdb->idx_t1];
+
+  /* now get the data */
+  if (StripDataBuffer_init_range (the_sdb, begin, end) > 0)
+    {
+      /* first print out the curve names along the top */
+      fprintf (outfile, "%-*s", SDB_DUMP_FIELDWIDTH, "Sample Time");
+      for (i = 0; i < n_curves; i++)
+	fprintf
+	  (outfile, "%*s", SDB_DUMP_FIELDWIDTH,
+	   cv[i].cd->curve->details->name);
+      fprintf (outfile, "\n");
+      
+      while ((n = StripDataBuffer_get_times (the_sdb, &times)) > 0)
+	{
+	  /* get the value array for each curve */
+	  for (i = 0; i < n_curves; i++)
+	    if (StripDataBuffer_get_data
+		(the_sdb, (StripCurve)cv[i].cd->curve, &cv[i].dp)
+		!= n)
+	      {
+		fprintf
+		  (stderr, "StripDataBuffer_dump(): unexpected data count!\n");
+		return 0;
+	      }
+
+	  /* write out the samples */
+	  for (i = 0; i < n; i++)
+	    {
+	      /* sample time */
+	      tt = (time_t)times[i].tv_sec;
+	      msec = times[i].tv_usec / ONE_THOUSAND;
+	      strftime
+		(buf, SDB_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
+		 localtime (&tt));
+	      j = strlen (buf);
+	      buf[j++] = '.';
+	      int2str (msec, &buf[j], 3);
+	      fprintf (outfile, "%-*s", SDB_DUMP_FIELDWIDTH, buf);
+
+	      /* sampled values */
+	      for (j = 0; j < n_curves; j++)
+		{
+		  if (cv[j].dp[i].status & DATASTAT_PLOTABLE)
+		    dbl2str
+		      (cv[j].dp[i].value, cv[j].cd->curve->details->precision,
+		       buf, SDB_DUMP_NUMWIDTH);
+		  else strcpy (buf, SDB_DUMP_BADVALUESTR);
+		  fprintf (outfile, "%*s", SDB_DUMP_FIELDWIDTH, buf);
+		}
+	      
+	      /* finally, the end-line */
+	      fprintf (outfile, "\n");
+	    }
+	}
+      
+      fflush (outfile);
+    }
+
+  return ret_val;
+}
+
 
 
 /* ====== Static Functions ====== */
@@ -611,16 +718,6 @@ static int StripDataBuffer_resize (StripDataBufferInfo *sdb, size_t buf_size)
   sdb->buf_size = buf_size;
   sdb->count = new_count;
   sdb->cur_idx = new_cur_idx;
-
-  fprintf
-    (stdout,
-     "end StripDataBuffer_resize():\n"
-      "  sdb		= %p\n"
-      "  sdb->cur_idx	= %u\n"
-      "  sdb->buf_size	= %u\n"
-      "  sdb->count	= %d\n",
-     sdb, sdb->cur_idx, sdb->buf_size, sdb->count);
-  fflush (stdout);
 }
 
 

@@ -22,27 +22,26 @@
 #	SHARED	for shared libraries
 #	NULL	(if not defined) default
 
+EPICS         = ../../../..
 include Target.include
-EPICS		= ../../../..
-
 include $(EPICS)/config/CONFIG_EXTENSIONS
 
 
 STRIP_DATASRC	= CA
-CDEV		= /home/phoebus/JBA/cdev/cdev1.3
-#LIBDIR		= $(HOST_ARCH)
+#CDEV		= XXX
+#LIBDIR		= XXX
 LIBTYPE		= ARCHIVE
 
 
 USR_CFLAGS 	= -I$(MOTIF_INC)
 USR_CFLAGS	+= -I$(X11_INC)
 USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
-#CFLAGS         	+= -g
+#CFLAGS          += -g
 #CFLAGS         += -pg
 #CFLAGS         += -p
 #CFLAGS         += +O4
 #CFLAGS         += -O2
-CFLAGS         += -O
+#CFLAGS         += -O
 #CFLAGS         += -DDEBUG_EVENT
 UNIX_OPT_FLAGS  =
 
@@ -51,13 +50,14 @@ UNIX_OPT_FLAGS  =
 # the $(LINK.c) macro uses the c compiler for linking, so linker
 # options must be passed through the compiler via the -W switch
 #
-ifeq ($(HOST_ARCH),hp700)
+
 ifeq ($(LIBTYPE), ARCHIVE)
-#	USR_LDFLAGS	+= -Wl,-a,archive
+	ifeq ($(HOST_ARCH),hp700)
+		USR_LDFLAGS	+= -Wl,-a,archive
+	endif
 endif
 ifeq ($(LIBTYPE), SHARED)
 	USR_LDFLAGS	+= -Wl,-a,shared
-endif
 endif
 
 

@@ -14,7 +14,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/time.h>
 
 #define STRIP_MAX_FONTS 16
 
@@ -22,8 +21,6 @@
 #define MAX_LEN		64
 #define EXP_DIGITS	3	/* digits in exp numerical portion */
 #define EXP_LEN		(2+EXP_DIGITS)	/* length of exponent string */
-
-char	*int2str	(int x, char buf[], int n);
 
 
 static XFontStruct 	*font_table[STRIP_MAX_FONTS];

@@ -16,8 +16,8 @@
 #include <X11/Intrinsic.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include <float.h>
 #include <limits.h>
+#include <float.h>
 
 #include "StripDefines.h"
 #include "StripMisc.h"

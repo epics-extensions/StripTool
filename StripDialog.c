@@ -29,6 +29,7 @@
 #include <Xm/SeparatoG.h>
 #include <Xm/PushBG.h>
 #include <Xm/FileSB.h>
+#include <Xm/Scale.h>
 
 #define DEF_WOFFSET		3
 #define COLOR_BTN_STR		"  "
@@ -84,6 +85,7 @@ typedef enum
   SDGROPT_GRIDX,
   SDGROPT_GRIDY,
   SDGROPT_YAXISCLR,
+  SDGROPT_LINEWIDTH,
   SDGROPT_YAXISNUM,
   SDGROPT_XAXISNUM,
   SDGROPT_MODIFY,
@@ -293,6 +295,7 @@ static void	setwidgetval_gr_fg		(StripDialogInfo *, Pixel);
 static void	setwidgetval_gr_bg		(StripDialogInfo *, Pixel);
 static void	setwidgetval_gr_gridclr		(StripDialogInfo *, Pixel);
 static void	setwidgetval_gr_lgndclr		(StripDialogInfo *, Pixel);
+static void	setwidgetval_gr_linewidth	(StripDialogInfo *, int);
 static void	setwidgetval_gr_gridx		(StripDialogInfo *, int);
 static void	setwidgetval_gr_gridy		(StripDialogInfo *, int);
 static void	setwidgetval_gr_yaxisclr	(StripDialogInfo *, int);
@@ -304,6 +307,7 @@ static Pixel	getwidgetval_gr_fg		(StripDialogInfo *);
 static Pixel	getwidgetval_gr_bg		(StripDialogInfo *);
 static Pixel	getwidgetval_gr_gridclr		(StripDialogInfo *);
 static Pixel	getwidgetval_gr_lgndclr		(StripDialogInfo *);
+static int	getwidgetval_gr_linewidth	(StripDialogInfo *);
 static int	getwidgetval_gr_gridx		(StripDialogInfo *);
 static int	getwidgetval_gr_gridy		(StripDialogInfo *);
 static int	getwidgetval_gr_yaxisclr	(StripDialogInfo *);
@@ -327,6 +331,7 @@ static void	tmcancel_btn_cb	(Widget, XtPointer, XtPointer);
 static void	grmodify_btn_cb	(Widget, XtPointer, XtPointer);
 static void	grcancel_btn_cb	(Widget, XtPointer, XtPointer);
 static void	grcolor_btn_cb	(Widget, XtPointer, XtPointer);
+static void	gropt_slider_cb	(Widget, XtPointer, XtPointer);
 static void	gropt_tgl_cb	(Widget, XtPointer, XtPointer);
 
 static void	filemenu_cb	(Widget, XtPointer, XtPointer);
@@ -1183,12 +1188,17 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	("form",
 	 xmFormWidgetClass,		frame,
 	 XmNchildType,			XmFRAME_WORKAREA_CHILD,
+	 XmNfractionBase,		2,
 	 NULL);
 
       sd->graph_info.widgets[SDGROPT_FG] = btn = XtVaCreateManagedWidget
 	(COLOR_BTN_STR,
 	 xmPushButtonWidgetClass,	form,
+         /*
 	 XmNrightAttachment,		XmATTACH_FORM,
+	 */
+	 XmNleftAttachment,		XmATTACH_POSITION,
+	 XmNleftPosition,		1,
 	 XmNbackground,			sd->config->Color.foreground,
 	 NULL);
       sd->graph_info.cb_info[SDGROPT_FG].str = "Graph Foreground";
@@ -1206,12 +1216,17 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNbottomWidget,		btn,
 	 NULL);
       w = btn;
+      
       sd->graph_info.widgets[SDGROPT_BG] = btn = XtVaCreateManagedWidget
 	(COLOR_BTN_STR,
 	 xmPushButtonWidgetClass,	form,
 	 XmNtopAttachment,		XmATTACH_WIDGET,
 	 XmNtopWidget,			w,
+         /*
 	 XmNrightAttachment,		XmATTACH_FORM,
+	 */
+	 XmNleftAttachment,		XmATTACH_POSITION,
+	 XmNleftPosition,		1,
 	 XmNbackground,			sd->config->Color.background,
 	 XmNuserData,			sd,
 	 NULL);
@@ -1230,12 +1245,17 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNbottomWidget,		btn,
 	 NULL);
       w = btn;
+      
       sd->graph_info.widgets[SDGROPT_GRIDCLR] = btn = XtVaCreateManagedWidget
 	(COLOR_BTN_STR,
 	 xmPushButtonWidgetClass,	form,
 	 XmNtopAttachment,		XmATTACH_WIDGET,
 	 XmNtopWidget,			w,
+         /*
 	 XmNrightAttachment,		XmATTACH_FORM,
+	 */
+	 XmNleftAttachment,		XmATTACH_POSITION,
+	 XmNleftPosition,		1,
 	 XmNbackground,			sd->config->Color.grid,
 	 XmNuserData,			sd,
 	 NULL);
@@ -1254,12 +1274,17 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNbottomWidget,		btn,
 	 NULL);
       w = btn;
+      
       sd->graph_info.widgets[SDGROPT_LGNDCLR] = btn = XtVaCreateManagedWidget
 	(COLOR_BTN_STR,
 	 xmPushButtonWidgetClass,	form,
 	 XmNtopAttachment,		XmATTACH_WIDGET,
 	 XmNtopWidget,			w,
+         /*
 	 XmNrightAttachment,		XmATTACH_FORM,
+	 */
+	 XmNleftAttachment,		XmATTACH_POSITION,
+	 XmNleftPosition,		1,
 	 XmNbackground,			sd->config->Color.legendtext,
 	 XmNuserData,			sd,
 	 NULL);
@@ -1278,6 +1303,7 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNbottomWidget,		btn,
 	 NULL);
       w = btn;
+      
       sd->graph_info.widgets[SDGROPT_GRIDX] = btn = XtVaCreateManagedWidget
 	("on",
 	 xmToggleButtonWidgetClass,	form,
@@ -1285,7 +1311,11 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNset,			True,
 	 XmNtopAttachment,		XmATTACH_WIDGET,
 	 XmNtopWidget,			w,
+         /*
 	 XmNrightAttachment,		XmATTACH_FORM,
+	 */
+	 XmNleftAttachment,		XmATTACH_POSITION,
+	 XmNleftPosition,		1,
 	 NULL);
       XtAddCallback (btn, XmNvalueChangedCallback, gropt_tgl_cb, sd);
       lbl = XtVaCreateManagedWidget
@@ -1298,6 +1328,7 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNbottomWidget,		btn,
 	 NULL);
       w = btn;
+      
       sd->graph_info.widgets[SDGROPT_GRIDY] = btn = XtVaCreateManagedWidget
 	("on",
 	 xmToggleButtonWidgetClass,	form,
@@ -1305,7 +1336,11 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNset,			True,
 	 XmNtopAttachment,		XmATTACH_WIDGET,
 	 XmNtopWidget,			w,
+         /*
 	 XmNrightAttachment,		XmATTACH_FORM,
+	 */
+	 XmNleftAttachment,		XmATTACH_POSITION,
+	 XmNleftPosition,		1,
 	 NULL);
       XtAddCallback (btn, XmNvalueChangedCallback, gropt_tgl_cb, sd);
       lbl = XtVaCreateManagedWidget
@@ -1318,6 +1353,7 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNbottomWidget,		btn,
 	 NULL);
       w = lbl;
+      
       sd->graph_info.widgets[SDGROPT_YAXISCLR] = btn = XtVaCreateManagedWidget
 	("selected curve",
 	 xmToggleButtonWidgetClass,	form,
@@ -1325,7 +1361,11 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNset,			True,
 	 XmNtopAttachment,		XmATTACH_WIDGET,
 	 XmNtopWidget,			w,
+         /*
 	 XmNrightAttachment,		XmATTACH_FORM,
+	 */
+	 XmNleftAttachment,		XmATTACH_POSITION,
+	 XmNleftPosition,		1,
 	 NULL);
       XtAddCallback (btn, XmNvalueChangedCallback, gropt_tgl_cb, sd);
       lbl = XtVaCreateManagedWidget
@@ -1338,6 +1378,35 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNbottomWidget,		btn,
 	 NULL);
       w = btn;
+      
+/* ====== New  ====== */
+      sd->graph_info.widgets[SDGROPT_LINEWIDTH] = tmp = XtVaCreateManagedWidget
+	("slider",
+	 xmScaleWidgetClass,		form,
+	 XmNorientation,		XmHORIZONTAL,
+	 XmNminimum,			STRIPMIN_OPTION_GRAPH_LINEWIDTH,
+	 XmNmaximum,			STRIPMAX_OPTION_GRAPH_LINEWIDTH,
+	 XmNtopAttachment,		XmATTACH_WIDGET,
+	 XmNtopWidget,			w,
+         /*
+	 XmNrightAttachment,		XmATTACH_FORM,
+	 */
+	 XmNleftAttachment,		XmATTACH_POSITION,
+	 XmNleftPosition,		1,
+	 NULL);
+      XtAddCallback (tmp, XmNvalueChangedCallback, gropt_slider_cb, sd);
+      lbl = XtVaCreateManagedWidget
+	("data line-width: ",
+	 xmLabelWidgetClass,		form,
+	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+	 XmNtopWidget,			tmp,
+	 XmNleftAttachment,		XmATTACH_FORM,
+	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+	 XmNbottomWidget,		tmp,
+	 NULL);
+      w = tmp;
+/* ====== New  ====== */
+	
       sd->graph_info.ynum_txt = txt = XtVaCreateManagedWidget
 	("text",
 	 xmTextWidgetClass,		form,
@@ -1345,7 +1414,11 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNmappedWhenManaged,		False,
 	 XmNtopAttachment,		XmATTACH_WIDGET,
 	 XmNtopWidget,			w,
+         /*
 	 XmNrightAttachment,		XmATTACH_FORM,
+	 */
+	 XmNleftAttachment,		XmATTACH_POSITION,
+	 XmNleftPosition,		1,
 	 NULL);
       XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
       sd->graph_info.ynum_lbl = XtVaCreateManagedWidget
@@ -1371,6 +1444,7 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNbottomWidget,		txt,
 	 NULL);
       w = txt;
+      
       sd->graph_info.xnum_txt = txt = XtVaCreateManagedWidget
 	("text",
 	 xmTextWidgetClass,		form,
@@ -1378,7 +1452,11 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNmappedWhenManaged,		False,
 	 XmNtopAttachment,		XmATTACH_WIDGET,
 	 XmNtopWidget,			w,
+         /*
 	 XmNrightAttachment,		XmATTACH_FORM,
+	 */
+	 XmNleftAttachment,		XmATTACH_POSITION,
+	 XmNleftPosition,		1,
 	 NULL);
       XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
       sd->graph_info.xnum_lbl = XtVaCreateManagedWidget
@@ -2354,6 +2432,16 @@ static void	setwidgetval_gr_lgndclr		(StripDialogInfo 	*sd,
 }
 
 
+static void	setwidgetval_gr_linewidth	(StripDialogInfo 	*sd,
+						 int 			val)
+{
+  XtVaSetValues
+    (sd->graph_info.widgets[SDGROPT_LINEWIDTH],
+     XmNvalue,				val,
+     NULL);
+}
+
+
 static void	setwidgetval_gr_gridx		(StripDialogInfo 	*sd,
 						 int 			stat)
 {
@@ -2453,6 +2541,11 @@ static Pixel	getwidgetval_gr_gridclr		(StripDialogInfo *sd)
 
 
 static Pixel	getwidgetval_gr_lgndclr		(StripDialogInfo *sd)
+{
+}
+
+
+static int	getwidgetval_gr_linewidth	(StripDialogInfo *sd)
 {
 }
 
@@ -2785,6 +2878,17 @@ static void	grcolor_btn_cb	(Widget w, XtPointer data, XtPointer blah)
 }
 
 
+static void	gropt_slider_cb	(Widget w, XtPointer data, XtPointer call)
+{
+  XmScaleCallbackStruct	*cbs = (XmScaleCallbackStruct *)call;
+  StripDialogInfo	*sd = (StripDialogInfo *)data;
+
+  if (StripConfig_setattr
+      (sd->config, STRIPCONFIG_OPTION_GRAPH_LINEWIDTH, cbs->value, 0))
+    StripConfig_update (sd->config, STRIPCFGMASK_OPTION_GRAPH_LINEWIDTH);
+  else setwidgetval_gr_linewidth (sd, sd->config->Option.graph_linewidth);
+}
+
 
 static void	gropt_tgl_cb	(Widget w, XtPointer data, XtPointer call)
 {
@@ -2797,7 +2901,7 @@ static void	gropt_tgl_cb	(Widget w, XtPointer data, XtPointer call)
       if (StripConfig_setattr
 	  (sd->config, STRIPCONFIG_OPTION_GRID_XON, cbs->set, 0))
 	StripConfig_update (sd->config, STRIPCFGMASK_OPTION_GRID_XON);
-      else setwidgetval_gr_gridx (sd, sd->config->Option.grid_xon);
+      else setwidgetval_gr_linewidth (sd, sd->config->Option.grid_xon);
     }
   else if (w == sd->graph_info.widgets[SDGROPT_GRIDY])
     {
@@ -2957,6 +3061,11 @@ static void	StripDialog_cfgupdate	(StripConfigMask mask, void *data)
   if (mask & STRIPCFGMASK_OPTION_AXIS_YCOLORSTAT)
     {
       setwidgetval_gr_yaxisclr (sd, sd->config->Option.axis_ycolorstat);
+    }
+
+  if (mask & STRIPCFGMASK_OPTION_GRAPH_LINEWIDTH)
+    {
+      setwidgetval_gr_linewidth (sd, sd->config->Option.graph_linewidth);
     }
 
   if (mask & STRIPCFGMASK_CURVE)

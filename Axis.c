@@ -21,7 +21,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#include <sys/time.h>
 
 #define MAX_TIC_LABEL_LEN	16
 #define TIC_LEN			5

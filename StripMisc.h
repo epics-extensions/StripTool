@@ -15,6 +15,7 @@
 #include <X11/Intrinsic.h>
 #include <X11/Xlib.h>
 #include <time.h>
+#include <sys/time.h>
 
 #define STRIPCURVE_PENDOWN	1
 #define STRIPCURVE_PLOTTED	1
@@ -102,4 +103,6 @@ char	*dbl2str	(double,	/* value */
 			 int,		/* precision: num digits after radix */
 			 char[],	/* result buffer */
 			 int);		/* max length of converted string */
+
+char	*int2str	(int x, char buf[], int n);
 #endif

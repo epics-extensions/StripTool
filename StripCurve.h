@@ -17,6 +17,7 @@
 
 #include <stdlib.h>
 #include <stdarg.h>
+#include <time.h>
 #include <sys/time.h>
 
 #include <X11/Xlib.h>

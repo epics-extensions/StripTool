@@ -26,6 +26,7 @@
 #include <Xm/PushB.h>
 #include <Xm/Separator.h>
 #include <Xm/List.h>
+#include <Xm/FileSB.h>
 #include <X11/Xlib.h>
 #include <math.h>
 
@@ -90,6 +91,7 @@ typedef struct _StripInfo
   Display		*display;
   Widget		toplevel, shell, canvas;
   Widget		popup_menu, message_box;
+  Widget		fs_dlg;
   StripStatus		status;
 
   /* == fdmgr stuff == */
@@ -101,7 +103,7 @@ typedef struct _StripInfo
   StripCurveInfo	curves[STRIP_MAX_CURVES];
   StripDataBuffer	data;
   StripGraph		graph;
-  ListDialog		*list_dlg;\
+  ListDialog		*list_dlg;
 
   /* == Callback stuff == */
   StripCallback		connect_func, disconnect_func, client_io_func;
@@ -133,7 +135,7 @@ static char	*StripWindowTypeStr[STRIPWINDOW_COUNT] =
   "Unconnected Signals"
 };
 
-
+typedef void	(*fsdlg_functype)	(Strip, char *);
 
 /* ====== Static Data ====== */
 struct timezone	tz;
@@ -171,6 +173,9 @@ static void	PopupMenu_cb		(Widget, XtPointer, XtPointer);
 
 static void	MessageBox_popup	(Widget, Widget *, char *, char *);
 static void	MessageBox_cb		(Widget, XtPointer, XtPointer);
+
+static void	fsdlg_popup		(StripInfo *, fsdlg_functype);
+static void	fsdlg_cb		(Widget, XtPointer, XtPointer);
 
 static ListDialog	*ListDialog_init	(Strip, Widget);
 static void		ListDialog_delete	(ListDialog *);
@@ -240,6 +245,8 @@ Strip	Strip_init	(char *app_name, int *argc, char *argv[])
       si->list_dlg = ListDialog_init ((Strip)si, si->toplevel);
       XtVaSetValues (si->popup_menu, XmNuserData, si, NULL);
       XtRealizeWidget (si->shell);
+
+      si->fs_dlg = 0;
 
       cmap = DefaultColormapOfScreen (XtScreen (si->shell));
 
@@ -361,6 +368,7 @@ void	Strip_delete	(Strip the_strip)
   StripConfig_delete		(si->config);
   ListDialog_delete		(si->list_dlg);
 
+  XtDestroyWidget (si->toplevel);
   free (si);
 }
 
@@ -729,6 +737,22 @@ void	Strip_clear	(Strip the_strip)
 
   StripConfig_setattr (si->config, STRIPCONFIG_TITLE, NULL, 0);
   StripConfig_update (si->config, STRIPCFGMASK_TITLE);
+}
+
+
+/*
+ * Strip_dump
+ */
+int	Strip_dumpdata	(Strip the_strip, char *fname)
+{
+  StripInfo		*si = (StripInfo *)the_strip;
+  FILE			*f;
+  int			ret_val = 0;
+  struct timeval	*t0, *t1;
+
+  if (ret_val = ((f = fopen (fname, "w")) != NULL))
+    ret_val = StripGraph_dumpdata (si->graph, f);
+  return ret_val;
 }
 
 
@@ -1330,7 +1354,8 @@ static void	dlgrequest_quit	(void *client, void *call)
 {
   StripInfo	*si = (StripInfo *)client;
   
-  XtDestroyWidget (si->toplevel);
+  window_unmap (si->display, XtWindow(si->shell));
+  StripDialog_popdown (si->dialog);
   si->status |= STRIPSTAT_TERMINATED;
   Strip_ignoreevent
     (si,
@@ -1368,6 +1393,7 @@ typedef enum
   POPUPMENU_CONTROLS = 0,
   POPUPMENU_PRINT,
   POPUPMENU_SNAPSHOT,
+  POPUPMENU_DUMP,
   POPUPMENU_DISMISS,
   POPUPMENU_QUIT,
   POPUPMENU_ITEMCOUNT
@@ -1377,8 +1403,9 @@ PopupMenuItem;
 char	*PopupMenuItemStr[POPUPMENU_ITEMCOUNT] =
 {
   "Controls",
-  "Print",
-  "Snapshot",
+  "Print...",
+  "Snapshot...",
+  "Dump...",
   "Dismiss",
   "Quit"
 };
@@ -1388,6 +1415,7 @@ char	PopupMenuItemMnemonic[POPUPMENU_ITEMCOUNT] =
   'C',
   'P',
   'S',
+  'M',
   'D',
   'Q'
 };
@@ -1398,11 +1426,13 @@ char	*PopupMenuItemAccelerator[POPUPMENU_ITEMCOUNT] =
   " ",
   " ",
   " ",
+  " ",
   "Ctrl<Key>c"
 };
 
 char	*PopupMenuItemAccelStr[POPUPMENU_ITEMCOUNT] =
 {
+  " ",
   " ",
   " ",
   " ",
@@ -1446,6 +1476,12 @@ static Widget	PopupMenu_build	(Widget parent)
      XmVaPUSHBUTTON,
      label[POPUPMENU_SNAPSHOT],
      PopupMenuItemMnemonic[POPUPMENU_SNAPSHOT],
+     NULL,
+     NULL,
+
+     XmVaPUSHBUTTON,
+     label[POPUPMENU_DUMP],
+     PopupMenuItemMnemonic[POPUPMENU_DUMP],
      NULL,
      NULL,
 
@@ -1524,6 +1560,10 @@ static void	PopupMenu_cb	(Widget w, XtPointer client, XtPointer blah)
       
     case POPUPMENU_SNAPSHOT:
       fprintf (stdout, "Snapshot\n");
+      break;
+      
+    case POPUPMENU_DUMP:
+      fsdlg_popup (si, (fsdlg_functype)Strip_dumpdata);
       break;
       
     case POPUPMENU_DISMISS:
@@ -1790,7 +1830,7 @@ static void	ListDialog_popup	(ListDialog *ld)
  */
 static void	ListDialog_delete	(ListDialog *ld)
 {
-  XtDestroyWidget (ld->msg_box);
+/*  XtDestroyWidget (ld->msg_box); */
   free (ld);
 }
 
@@ -1959,4 +1999,40 @@ static void	ListDialog_cb	(Widget w, XtPointer client, XtPointer blah)
       
       break;
     }
+}
+
+
+static void	fsdlg_popup	(StripInfo *si, fsdlg_functype func)
+{
+  if (!si->fs_dlg)
+    {
+      si->fs_dlg = XmCreateFileSelectionDialog
+	(si->shell, "Data dump file", NULL, 0);
+      XtVaSetValues (si->fs_dlg, XmNfileTypeMask, XmFILE_REGULAR, NULL);
+      XtAddCallback (si->fs_dlg, XmNokCallback, fsdlg_cb, si);
+      XtAddCallback (si->fs_dlg, XmNcancelCallback, fsdlg_cb, NULL);
+    }
+  XtVaSetValues (si->fs_dlg, XmNuserData, func, NULL);
+  XtManageChild (si->fs_dlg);
+}
+
+
+static void	fsdlg_cb	(Widget w, XtPointer data, XtPointer call)
+{
+  XmFileSelectionBoxCallbackStruct *cbs =
+    (XmFileSelectionBoxCallbackStruct *) call;
+  
+  StripInfo		*si = (StripInfo *)data;
+  fsdlg_functype	func;
+  char			*fname;
+
+  XtUnmanageChild (w);
+
+  if (si)
+    if (XmStringGetLtoR (cbs->value, XmFONTLIST_DEFAULT_TAG, &fname))
+      if (fname != NULL)
+	{
+	  XtVaGetValues (w, XmNuserData, &func, NULL);
+	  func ((Strip)si, fname);
+	}
 }
