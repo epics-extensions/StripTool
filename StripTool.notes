@@ -183,3 +183,5 @@ Thu Oct 16, 2003 - StripTool-2-5-4-0 - evans
 	Strip_clear in dlgrequest_quit, so ca_clear_channel would be called
 	and prevent disconnect messages on close in 3.14 (as well as being
 	good practice).
+Wed Feb 25, 2004 - StripTool-2-5-4-1 - evans
+	Replaced malloc.h with stdlib.h.
