@@ -1,0 +1,113 @@
+#
+# Makefile for StripTool
+#
+# Options:
+#
+# EPICS
+#	root directory of EPICS distribution
+#
+# STRIP_DATASRC
+#	CA	for Channel Access
+#	CDEV	for cdev
+#	BOTH	for Channel Access *and* cdev	>>>> not yet supported <<<<
+#
+# CDEV
+#	root directory of the cdev distribution
+#
+# LIBDIR
+#	directory under $(CDEV)/lib where the cdev library exists
+#
+# LIBTYPE
+#	ARCHIVE	for archive libraries
+#	SHARED	for shared libraries
+#	NULL	(if not defined) default
+
+include Target.include
+EPICS		= ../../../..
+
+include $(EPICS)/config/CONFIG_EXTENSIONS
+
+
+STRIP_DATASRC	= CA
+CDEV		= /home/phoebus/JBA/cdev/cdev1.3
+#LIBDIR		= $(HOST_ARCH)
+LIBTYPE		= ARCHIVE
+
+
+USR_CFLAGS 	= -I$(MOTIF_INC)
+USR_CFLAGS	+= -I$(X11_INC)
+USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
+#CFLAGS         	+= -g
+#CFLAGS         += -pg
+#CFLAGS         += -p
+#CFLAGS         += +O4
+#CFLAGS         += -O2
+CFLAGS         += -O
+#CFLAGS         += -DDEBUG_EVENT
+UNIX_OPT_FLAGS  =
+
+
+#
+# the $(LINK.c) macro uses the c compiler for linking, so linker
+# options must be passed through the compiler via the -W switch
+#
+ifeq ($(HOST_ARCH),hp700)
+ifeq ($(LIBTYPE), ARCHIVE)
+#	USR_LDFLAGS	+= -Wl,-a,archive
+endif
+ifeq ($(LIBTYPE), SHARED)
+	USR_LDFLAGS	+= -Wl,-a,shared
+endif
+endif
+
+
+
+USR_LDFLAGS 	+= -L$(EPICS_EXTENSIONS_LIB)
+USR_LDFLAGS	+= -L$(MOTIF_LIB)
+USR_LDFLAGS	+= -L$(X11_LIB) 
+USR_LDLIBS 	= -lXm -lXt -lX11
+
+
+MODULES		= StripConfig
+MODULES		+= StripCurve
+MODULES		+= Strip
+MODULES		+= StripDialog
+MODULES		+= StripDataBuffer
+MODULES		+= StripGraph
+MODULES		+= StripMisc
+MODULES		+= ColorDialog
+MODULES		+= Axis
+MODULES		+= Legend
+MODULES		+= StripTool
+
+
+ifeq ($(STRIP_DATASRC), CA)
+	MODULES		+= StripCA
+	USR_CFLAGS	+= -DUSE_CA
+endif
+
+ifeq ($(STRIP_DATASRC), CDEV)
+	MODULES		+= StripCDEV
+	USR_CFLAGS	+= -I$(CDEV)/include
+	USR_LDFLAGS	+= -L$(CDEV)/lib/$(LIBDIR)
+	USR_LDLIBS	+= -lcdev -lEpicsCa -lC
+	USR_CFLAGS	+= -DUSE_CDEV
+endif
+
+USR_LDLIBS	+= -lca -lDb -lCom -lm
+
+
+
+SRCS.c		= $(patsubst %, ../%.c, $(MODULES))
+OBJS 		= $(patsubst %, %.o, $(MODULES))
+PROD		= StripTool
+
+
+
+include $(EPICS)/config/RULES.Unix
+
+StripTool:  $(OBJS)
+	$(LINK.c) -o $@ $(OBJS) $(LDLIBS)
+
+tc:
+	$(MAKE) build "LINK.c = proof $(LINK.c)"

@@ -1,0 +1,24 @@
+-----------------------------------------------------------------------------
+ Copyright (c) 1996 Southeastern Universities Research Association,
+                    Continuous Electron Beam Accelerator Facility
+
+ This software was developed under a United States Government license
+ described in the NOTICE file included as part of this distribution.
+-----------------------------------------------------------------------------
+
+  This application is based on the original stripTool program by Janet
+Anderson at Argonne National Lab.  The current version was designed and
+written by Chris Larrieu at the Thomas Jefferson National Accelerator 
+Facility.
+
+  To build, modify Makefile.Unix, if necessary, to select whether to build
+on top of Channel Access or cdev.  If on top of cdev, make sure that the
+$CDEV and $LIBDIR variables point to the base of the cdev distribution, and
+the directory under $CDEV/lib where the libraries exist, respectively.  In
+either case, make sure that $EPICS points to the base of the EPICS
+distribution.  Type "make build".
+
+  Many defaults and compiled-in values are defined in StripDefines.h.  You
+might want to look in here to see if there is anything you want to change.
+
+  Any comments or suggestions, please email me: larrieu@cebaf.gov
