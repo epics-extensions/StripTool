@@ -8,6 +8,8 @@
  *-----------------------------------------------------------------------------
  */
 
+#define DEBUG_CONNECTING 0
+
 
 #include "StripCurve.h"
 
@@ -41,7 +43,12 @@ int             StripCurve_setattr      (StripCurve the_sc, ...)
   int                   attrib;
   StripCurveInfo        *sc = (StripCurveInfo *)the_sc;
   int                   ret_val = 1;
-
+  
+#if DEBUG_CONNECTING
+  print("%s StripCurve_setattr\"  %s\n",
+    timeStamp(), sc->details->name);
+#endif	
+  
   va_start (ap, the_sc);
   for (attrib = va_arg (ap, StripCurveAttribute);
        (attrib != 0);
@@ -49,6 +56,10 @@ int             StripCurve_setattr      (StripCurve the_sc, ...)
   {
     if ((ret_val = ((attrib > 0) &&
                     (attrib < STRIPCURVE_LAST_ATTRIBUTE))))
+    {
+#if DEBUG_CONNECTING
+	print("*** StripCurve_setattr: attrib=%d\n", attrib);
+#endif	
       switch (attrib)
       {
           case STRIPCURVE_NAME:
@@ -65,7 +76,7 @@ int             StripCurve_setattr      (StripCurve the_sc, ...)
               (&sc->details->update_mask, SCFGMASK_CURVE_EGU);
             StripConfigMask_set
               (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_EGU);
-            StripCurve_setstat (sc, STRIPCURVE_EGU_SET);
+            StripCurve_setstat(sc, STRIPCURVE_EGU_SET);
             break;
             
           case STRIPCURVE_COMMENT:
@@ -74,7 +85,7 @@ int             StripCurve_setattr      (StripCurve the_sc, ...)
               (&sc->details->update_mask, SCFGMASK_CURVE_COMMENT);
             StripConfigMask_set
               (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_COMMENT);
-            StripCurve_setstat (sc, STRIPCURVE_COMMENT);
+            StripCurve_setstat (sc, STRIPCURVE_COMMENT_SET);
             break;
             
           case STRIPCURVE_PRECISION:
@@ -137,10 +148,15 @@ int             StripCurve_setattr      (StripCurve the_sc, ...)
             break;
             
       }
+    }
     else break;
   }
 
   va_end (ap);
+#if DEBUG_CONNECTING
+  print("*** StripCurve_setattr: Ending\n",
+    timeStamp());
+#endif	
   return ret_val;
 }
 
@@ -253,6 +269,17 @@ void            StripCurve_setstat      (StripCurve     the_sc,
   StripCurveInfo        *sc = (StripCurveInfo *)the_sc;
   int                   i;
 
+#if DEBUG_CONNECTING
+  if(stat & STRIPCURVE_WAITING) {
+    print("%s  StripCurve_setstat:STRIPCURVE_WAITING\"  %s\n",
+	timeStamp(), sc->details->name);
+  }
+  if(stat & STRIPCURVE_CONNECTED) {
+    print("%s  StripCurve_setstat:STRIPCURVE_CONNECTED\"  %s\n",
+	timeStamp(), sc->details->name);
+  }
+#endif  
+
   /* translate status bits into StripConfigMaskElement values and
    * update set_mask appropriately */
   if (sc->details)
@@ -298,6 +325,17 @@ void            StripCurve_clearstat    (StripCurve     the_sc,
   StripCurveInfo        *sc = (StripCurveInfo *)the_sc;
   int                   i;
 
+#if DEBUG_CONNECTING
+  if(stat & STRIPCURVE_WAITING) {
+    print("%s  StripCurve_clearstat:STRIPCURVE_WAITING\"  %s\n",
+	timeStamp(), sc->details->name);
+  }
+  if(stat & STRIPCURVE_CONNECTED) {
+    print("%s  StripCurve_clearstat:STRIPCURVE_CONNECTED\"  %s\n",
+	timeStamp(), sc->details->name);
+  }
+#endif
+      
   /* translate status bits into StripConfigMaskElement values and
    * update set_mask appropriately */
   if (sc->details)
@@ -308,3 +346,15 @@ void            StripCurve_clearstat    (StripCurve     the_sc,
   /* update the status */
   sc->status &= ~stat;
 }
+
+/* **************************** Emacs Editing Sequences ***************** */
+/* Local Variables: */
+/* tab-width: 6 */
+/* c-basic-offset: 2 */
+/* c-comment-only-line-offset: 0 */
+/* c-indent-comments-syntactically-p: t */
+/* c-label-minimum-indentation: 1 */
+/* c-file-offsets: ((substatement-open . 0) (label . 2) */
+/* (brace-entry-open . 0) (label .2) (arglist-intro . +) */
+/* (arglist-cont-nonempty . c-lineup-arglist) ) */
+/* End: */

@@ -470,3 +470,55 @@ void History_MessageBox_popup(char *title,char *btn_txt,char *str)
              (Widget *)XmCreateMessageDialog(history_topShell,"Oops",NULL,0), 
              XmDIALOG_WARNING,title,btn_txt,str);
 }
+
+
+
+/* General purpose output routine
+ * Works with both UNIX and WIN32
+ * Uses sprintf to avoid problem with lprintf not handling %f, etc.
+ *   (Exceed 5 only) */
+void print(const char *fmt, ...)
+{
+  va_list vargs;
+  static char lstring[1024];  /* DANGER: Fixed buffer size */
+  
+  va_start(vargs,fmt);
+  vsprintf(lstring,fmt,vargs);
+  va_end(vargs);
+  
+  if(lstring[0] != '\0') {
+#ifdef WIN32
+    lprintf("%s",lstring);
+#else
+    printf("%s",lstring);
+#endif
+  }
+}
+
+/* Gets current time and puts it in a static array
+ * The calling program should copy it to a safe place
+ *   e.g. strcpy(savetime,timestamp()); */
+char *timeStamp(void)
+{
+  static char timeStampStr[16];
+  long now;
+  struct tm *tblock;
+  
+  time(&now);
+  tblock=localtime(&now);
+  strftime(timeStampStr,20,"%b %d %H:%M:%S",tblock);
+  
+  return timeStampStr;
+}
+
+/* **************************** Emacs Editing Sequences ***************** */
+/* Local Variables: */
+/* tab-width: 6 */
+/* c-basic-offset: 2 */
+/* c-comment-only-line-offset: 0 */
+/* c-indent-comments-syntactically-p: t */
+/* c-label-minimum-indentation: 1 */
+/* c-file-offsets: ((substatement-open . 0) (label . 2) */
+/* (brace-entry-open . 0) (label .2) (arglist-intro . +) */
+/* (arglist-cont-nonempty . c-lineup-arglist) ) */
+/* End: */

@@ -8,6 +8,7 @@
  *-----------------------------------------------------------------------------
  */
 
+#define DEBUG_CONNECTING 0
 
 #include "Strip.h"
 #include "StripDialog.h"
@@ -1314,6 +1315,11 @@ int     Strip_connectcurve      (Strip the_strip, StripCurve the_curve)
   StripCurve            curve[2];
   int                   ret_val;
 
+#if DEBUG_CONNECTING
+	print("%s Strip_connectcurve\"  %s\n",
+		timeStamp(), sci->details->name);
+#endif	
+
   if (si->connect_func != NULL)
   {
 #if 0
@@ -1350,7 +1356,12 @@ void    Strip_setconnected      (Strip the_strip, StripCurve the_curve)
   StripCurveInfo        *sci = (StripCurveInfo *)the_curve;
   StripCurve            curve[2];
 
-  /* add the curve to the various modules only once --the first time it
+#if DEBUG_CONNECTING
+	print("%s Strip_setconnected\"  %s\n",
+		timeStamp(), sci->details->name);
+#endif	
+
+/* add the curve to the various modules only once --the first time it
    * is connected
    */
   if (!StripCurve_getstat (the_curve, STRIPCURVE_CONNECTED))
@@ -1384,6 +1395,11 @@ void    Strip_setwaiting        (Strip the_strip, StripCurve the_curve)
   StripInfo             *si = (StripInfo *)the_strip;
   StripCurveInfo        *sci = (StripCurveInfo *)the_curve;
   StripCurve            curve[2];
+
+#if DEBUG_CONNECTING
+	print("%s Strip_setwaiting\"  %s\n",
+		timeStamp(), sci->details->name);
+#endif	
 
 #if 0
   StripCurve_setstat

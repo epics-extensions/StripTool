@@ -8,7 +8,7 @@
  *-----------------------------------------------------------------------------
  */
 
-#define DEBUG_OPEN 1
+#define DEBUG_OPEN 0
 
 #include <stdio.h>
 #include <string.h>
@@ -48,6 +48,17 @@ int StripTool_main (int argc, char *argv[])
 {
   int           status;
   FILE          *f;
+
+#if 0
+  /* KE: Debugging */
+  print("SCFGMASK_TERMINATOR=%d\n",SCFGMASK_TERMINATOR);
+  print("SCFGMASK_FIRST_ELEMENT=%d\n",SCFGMASK_FIRST_ELEMENT);
+  print("SCFGMASK_LAST_ELEMENT=%d\n",SCFGMASK_LAST_ELEMENT);
+  print("SCFGMASK_NUM_ELEMENTS=%d\n",SCFGMASK_NUM_ELEMENTS);
+  print("STRIPCFGMASK_NBYTES=%d\n",STRIPCFGMASK_NBYTES);
+  print("STRIPCURVE_COMMENT=%d\n",STRIPCURVE_COMMENT);
+  print("STRIPCURVE_COMMENT_SET=%d\n",STRIPCURVE_COMMENT_SET);
+#endif  
 
     /* create and initialize the Strip structure */
   if (!(strip = Strip_init (&argc, argv, tmpfile())))
@@ -509,29 +520,6 @@ static double   get_cpu_usage           (void *BOGUS(1))
   time_a = time_b;
   
   return cpu_usage;
-}
-
-/* General purpose output routine
- * Works with both UNIX and WIN32
- * Uses sprintf to avoid problem with lprintf not handling %f, etc.
- *   (Exceed 5 only)
- * Use for debugging */
-void print(const char *fmt, ...)
-{
-  va_list vargs;
-  static char lstring[1024];  /* DANGER: Fixed buffer size */
-  
-  va_start(vargs,fmt);
-  vsprintf(lstring,fmt,vargs);
-  va_end(vargs);
-  
-  if(lstring[0] != '\0') {
-#ifdef WIN32
-    lprintf("%s",lstring);
-#else
-    printf("%s",lstring);
-#endif
-  }
 }
 
 /* **************************** Emacs Editing Sequences ***************** */

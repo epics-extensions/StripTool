@@ -231,12 +231,4 @@ int     Strip_readconfig        (Strip, FILE *, StripConfigMask, char *);
 void    Strip_refresh     (Strip the_strip);
 int    Strip_auto_scale     (Strip the_strip);
 
-
-/* General purpose output routine
- * Works with both UNIX and WIN32
- * Uses sprintf to avoid problem with lprintf not handling %f, etc.
- *   (Exceed 5 only)
- * Use for debugging */
-void print(const char *fmt, ...);
-
 #endif  /* #ifndef _Strip */

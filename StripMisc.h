@@ -198,7 +198,6 @@ char    *dbl2str        (double,        /* value */
 
 char    *int2str        (int x, char buf[], int n);
 
-
 /* basename
  *
  *      Returns the filename portion of a fully qualified path.
@@ -206,4 +205,16 @@ char    *int2str        (int x, char buf[], int n);
 char    *basename       (char *);
 void History_MessageBox_popup(char *title,char *btn_txt,char *str);
 
+/* General purpose output routine
+ * Works with both UNIX and WIN32
+ * Uses sprintf to avoid problem with lprintf not handling %f, etc.
+ *   (Exceed 5 only) */
+void print(const char *fmt, ...);
+
+/* Gets current time and puts it in a static array
+ * The calling program should copy it to a safe place
+ *   e.g. strcpy(savetime,timestamp()); */
+char *timeStamp(void);
+
 #endif
+
