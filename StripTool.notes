@@ -70,3 +70,9 @@ Tue Oct 29, 2002 - StripTool-2-5-2-2 - evans
 	to appear when PANNING (added in the previous version) does not.
 	Entirely removed code to make names always be 40 chars for the legend.
 	Redid directions in StripVersion.h.
+
+Wed Oct 30, 2002 = StripTool-2-5-2-3 - evans
+	Fixed use of STRIPCURVE_COMMENT instead of STRIPCURVE_COMMMENT_SET in
+	StripCurve_setattr that was causing the wrong status bits to be set,
+	resulting in curves randomly not plotting even though they were
+	connected.
