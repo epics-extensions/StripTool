@@ -98,3 +98,13 @@ Tue Nov 12, 2002 - StripTool-2-5-2-5 - evans
 	syntax was replaced.  The Description string is now initialized in all
 	cases, eliminating junk text in the legend.  There are still memory
 	leaks.
+
+Wed Nov 13, 2002 - StripTool-2-5-2-6 - evans
+	Fixed Dismiss on the Graph popup menu and the window manager delete
+	responses on both the Graph and the Controls to do the same thing: If
+	there is another window open, close this one quietly, otherwise say it
+	can't be closed and ask if you want to exit. Put window_map in
+	Strip_setconnected inside #ifdef RAISE_GRAPH_ON_CONNECTION.  Solves
+	the problem of the window popping up in other CDE workspaces whenever
+	there is a reconnection.  It is not clear raising the window on
+	reconnection in any case was that desirable.
