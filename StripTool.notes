@@ -156,3 +156,8 @@ Fri Dec 20, 2002 - StripTool-2-5-2-11 - evans
 Tue Feb 18 14:17:46 CST 2003  StripTool-2-5-2-12 - jba
 	Bug fix for reading blank Comment field in config file.
 
+Tue Apr 22, 2003 - STripTool-2-5-2-13 - evans
+	Eliminated XtDestroyWidget in ComboBox Destroy procedure.  Probably
+	shouldn't be there.  Was causing FMRs in Purify.  Fixed #if involving
+	unistd.h in Strip.c to make including it the default and to not to use
+	vfork.h.  (There is no indication what platform needed it.)
