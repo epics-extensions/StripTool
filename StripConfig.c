@@ -1174,6 +1174,7 @@ int     StripConfig_load        (StripConfig            *scfg,
           
     case COMMENT:
 	ptmp = clone->Curves.Detail[curve_idx].comment;
+	*ptmp = 0;
 	for (i = 0; i < STRIP_MAX_COMMENT_CHAR; i++)
 	  if (*pval) *ptmp++ = *pval++;
 	  else break;
@@ -1185,7 +1186,7 @@ int     StripConfig_load        (StripConfig            *scfg,
 	  if (isspace ((int)*ptmp)) *ptmp = 0;
 	  else break;
 	}
-	ret = (ptmp > clone->Curves.Detail[curve_idx].comment);
+	ret = (ptmp >= clone->Curves.Detail[curve_idx].comment);
 	break;
           
     case PRECISION:
