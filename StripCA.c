@@ -316,49 +316,56 @@ static void     connect_callback        (struct connection_handler_args args)
 
   switch (ca_state (args.chid))
   {
-      case cs_never_conn:
-        fprintf (stderr, "StripDAQ connect_callback: ioc not found\n");
-        cd->chan_id = NULL;
-        cd->event_id = NULL;
-        Strip_freecurve (cd->this->strip, curve);
-        break;
-      
-      case cs_prev_conn:
-        fprintf
-          (stderr,
-           "StripDAQ connect_callback: IOC unavailable for %s\n",
-           ca_name (args.chid));
+  case cs_never_conn:
+    fprintf (stderr,
+	"%s StripDAQ connect_callback: IOC not found for %s\n",
+	timeStamp(),ca_name(args.chid)?ca_name(args.chid):"Name Unknown");
+    cd->chan_id = NULL;
+    cd->event_id = NULL;
+    Strip_freecurve (cd->this->strip, curve);
+    break;
+    
+  case cs_prev_conn:
+    fprintf (stderr,
+	"%s StripDAQ connect_callback: IOC unavailable for %s\n",
+	timeStamp(),ca_name(args.chid)?ca_name(args.chid):"Name Unknown");
 #if DEBUG_DISCONNECT
-	  fprintf
-	    (stderr,
-		"  cd->chan_id=%x cd->event_id=%x\n",
-		cd->chan_id, cd->event_id);
+    fprintf
+	(stderr,
+	  "  cd->chan_id=%x cd->event_id=%x\n",
+	  cd->chan_id, cd->event_id);
 #endif
-        Strip_setwaiting (cd->this->strip, curve);
-        break;
-      
-      case cs_conn:
-        /* now connected, so get the control info if this is first time */
-        if (cd->event_id == 0)
-        {
-          status = ca_get_callback
-            (DBR_CTRL_DOUBLE, cd->chan_id, info_callback, curve);
-          if (status != ECA_NORMAL)
-          {
-            SEVCHK
-              (status, "StripDAQ connect_callback: error in ca_get_callback");
-            Strip_freecurve (cd->this->strip, curve);
-          }
-        }
-        break;
-      
-      case cs_closed:
-        fprintf (stderr, "StripDAQ connect_callback: invalid chid\n");
-        break;
+    Strip_setwaiting (cd->this->strip, curve);
+    break;
+    
+  case cs_conn:
+    /* now connected, so get the control info if this is first time */
+    if (cd->event_id == 0)
+    {
+	status = ca_get_callback
+	  (DBR_CTRL_DOUBLE, cd->chan_id, info_callback, curve);
+	if (status != ECA_NORMAL)
+	{
+	  SEVCHK
+	    (status, "StripDAQ connect_callback: error in ca_get_callback");
+	  Strip_freecurve (cd->this->strip, curve);
+	}
+    } else {
+	fprintf (stderr,
+	  "%s StripDAQ connect_callback: IOC reconnected for %s\n",
+	  timeStamp(),ca_name(args.chid)?ca_name(args.chid):"Name Unknown");
+    }
+    break;
+    
+  case cs_closed:
+    fprintf (stderr,
+	"%s StripDAQ connect_callback: IOC connection closed for %s\n",
+	timeStamp(),ca_name(args.chid)?ca_name(args.chid):"Name Unknown");
+    break;
   }
-
+  
   fflush (stderr);
-
+  
   ca_flush_io();
 }
 
