@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define MAX_PRE		32
 #define MAX_LEN		64
@@ -74,6 +75,26 @@ static int	fonts_loaded = 0;
 static int	num_fonts_loaded = 0;
 
 
+float	vertical_pixels_per_mm;
+float	horizontal_pixels_per_mm;
+
+/*
+ * StripMisc_init
+ *
+ *	Initializes global constants.
+ */
+void	StripMisc_init	(Display *display, int screen)
+{
+  horizontal_pixels_per_mm = 
+    ((float)DisplayWidth(display, screen) /
+     (float)DisplayWidthMM(display, screen));
+
+  vertical_pixels_per_mm = 
+    ((float)DisplayHeight(display, screen) /
+     (float)DisplayHeightMM(display, screen));
+}
+
+
 /*
  * load_fonts
  */
@@ -87,53 +108,53 @@ static int	load_fonts	(Display *d)
     (double)DisplayHeightMM (d, DefaultScreen (d));
 
   for (i = num_fonts_loaded = 0; i < STRIP_MAX_FONTS; i++)
+  {
+    if ((font_table[i] = XLoadQueryFont (d, FontNameTable[i])) == NULL)
     {
-      if ((font_table[i] = XLoadQueryFont (d, FontNameTable[i])) == NULL)
-	{
-	  fprintf
-	    (stderr,
-	     "StripMisc:\n"
-	     "  load_fonts: unable to load font %s.\n"
-	     "  ...using default font, %s, instead.\n",
-	     FontNameTable[i],
-	     STRIP_FALLBACK_FONT_STR);
-	  font_table[i] = XLoadQueryFont (d, STRIP_FALLBACK_FONT_STR);
-	  if (font_table[i] == NULL)
-	    {
-	      fprintf
-		(stderr, "Oops, that didn't work!  Can't load any fonts\n");
-	      exit (1);
-	    }
-	}
-
-      j = font_table[i]->descent + font_table[i]->ascent;
-      k = (int)(pixels_per_mm * STRIP_FONT_MAXHEIGHT_MM);
-      if (j > k)
-	{
-	  XFreeFont (d, font_table[i]);
-	  font_table[i] = NULL;
-	  break;
-	}
-
-      num_fonts_loaded++;
+      fprintf
+        (stderr,
+         "StripMisc:\n"
+         "  load_fonts: unable to load font %s.\n"
+         "  ...using default font, %s, instead.\n",
+         FontNameTable[i],
+         STRIP_FALLBACK_FONT_STR);
+      font_table[i] = XLoadQueryFont (d, STRIP_FALLBACK_FONT_STR);
+      if (font_table[i] == NULL)
+      {
+        fprintf
+          (stderr, "Oops, that didn't work!  Can't load any fonts\n");
+        exit (1);
+      }
     }
+
+    j = font_table[i]->descent + font_table[i]->ascent;
+    k = (int)(pixels_per_mm * STRIP_FONT_MAXHEIGHT_MM);
+    if (j > k)
+    {
+      XFreeFont (d, font_table[i]);
+      font_table[i] = NULL;
+      break;
+    }
+
+    num_fonts_loaded++;
+  }
 
   
   c[1] = '\0';
 
   for (i = 0; i < STRIPCHARSET_COUNT; i++)
     for (j = 0; j < num_fonts_loaded; j++)
+    {
+      StripCharSetMaxCharlen[i][j] = 0;
+      if (i == STRIPCHARSET_ALL)
+        StripCharSetMaxCharlen[i][j] = font_table[j]->max_bounds.width;
+      else for (k = 0; StripCharSetChars[i][k]; k++)
       {
-	StripCharSetMaxCharlen[i][j] = 0;
-	if (i == STRIPCHARSET_ALL)
-	  StripCharSetMaxCharlen[i][j] = font_table[j]->max_bounds.width;
-	else for (k = 0; StripCharSetChars[i][k]; k++)
-	  {
-	    c[0] = StripCharSetChars[i][k];
-	    StripCharSetMaxCharlen[i][j] = max
-	      (StripCharSetMaxCharlen[i][j], XTextWidth (font_table[j], c, 1));
-	  }
+        c[0] = StripCharSetChars[i][k];
+        StripCharSetMaxCharlen[i][j] = max
+          (StripCharSetMaxCharlen[i][j], XTextWidth (font_table[j], c, 1));
       }
+    }
   
 
   fonts_loaded = 1;
@@ -159,17 +180,17 @@ XFontStruct	*get_font	(Display 	*display,
   b = num_fonts_loaded - 1;
   
   while (a < b)
-    {
-      i = (b-a)/2 + a;
+  {
+    i = (b-a)/2 + a;
 
-      d = font_table[i]->ascent + font_table[i]->descent - h;
+    d = font_table[i]->ascent + font_table[i]->descent - h;
 
-      if (d > 0)	/* font height is too big */
-	b = i-1;
-      else if (d < 0)	/* font height is too small */
-	a = i+1;
-      else break;
-    }
+    if (d > 0)	/* font height is too big */
+      b = i-1;
+    else if (d < 0)	/* font height is too small */
+      a = i+1;
+    else break;
+  }
 
   if (i <= 0)
     i = 0;
@@ -187,12 +208,29 @@ XFontStruct	*get_font	(Display 	*display,
     i--;
 
   if ((i < 0) || (i >= num_fonts_loaded))
-    {
-      fprintf (stdout, "StripMisc:get_font(): Arggh! bad font index\n");
-      fflush (stdout);
-      exit (1);
-    }
+  {
+    fprintf (stdout, "StripMisc:get_font(): Arggh! bad font index\n");
+    fflush (stdout);
+    exit (1);
+  }
   return font_table[i];
+}
+
+
+/*
+ * shrink_font
+ */
+XFontStruct	*shrink_font	(XFontStruct *font)
+{
+  XFontStruct	*ret = 0;
+  int		i;
+  
+  for (i = 0; i < num_fonts_loaded; i++)
+    if (font_table[i] == font) break;
+
+  if (i > 0) ret = font_table[i-1];
+
+  return ret;
 }
 
 
@@ -233,23 +271,23 @@ double	subtract_times
   if (t2->tv_sec > t1->tv_sec)
     retval = -1;
   else
+  {
+    if (result->tv_usec < t2->tv_usec)
     {
-      if (result->tv_usec < t2->tv_usec)
-	{
-	  result->tv_usec += ONE_MILLION;
-	  result->tv_sec--;
-	}
-      
-      if (result->tv_sec < t2->tv_sec)
-	retval = -1;
-      else
-	{
-	  result->tv_sec -= t2->tv_sec;
-	  result->tv_usec -= t2->tv_usec;
-	  retval = (double)result->tv_sec +
-	    (double)result->tv_usec / (double)ONE_MILLION;
-	}
+      result->tv_usec += ONE_MILLION;
+      result->tv_sec--;
     }
+      
+    if (result->tv_sec < t2->tv_sec)
+      retval = -1;
+    else
+    {
+      result->tv_sec -= t2->tv_sec;
+      result->tv_usec -= t2->tv_usec;
+      retval = (double)result->tv_sec +
+        (double)result->tv_usec / (double)ONE_MILLION;
+    }
+  }
   return retval;
 }
 
@@ -325,6 +363,31 @@ void	sec2hms	(unsigned sec, int *h, int *m, int *s)
 
 char	*dbl2str	(double d, int p, char buf[], int n)
 {
+#if 0
+
+  /* 
+   * <sign>	1 char
+   * <e>	1 char
+   * <sign>	1 char
+   * <exponent> 1-3 chars
+   *
+   * Also, if the field width is less than the precision
+   * (significant digits), then the latter will have to
+   * be decreased in order to avoid over-running the buffer.
+   *
+   * In order to determine the appropriate precision, if it must
+   * be decreased, we need to know whether or not the converted
+   * number will include an exponent, and if so, how many digits
+   * the exponent will include.
+   */
+#define	STR_SIZE	1023
+  static char		str[STR_SIZE+1];
+  
+  sprintf (str, "% #*.*g", n, p);
+  strncpy (buf, str, n);
+  buf[n] = 0;
+  
+#else
   int	decpt, sign;
   char	tmp[MAX_LEN+1];
   char	e_str[EXP_LEN+1];
@@ -340,103 +403,108 @@ char	*dbl2str	(double d, int p, char buf[], int n)
   e_str[1] = (decpt > 0? '+' : '-');
   
   if (decpt > 0)		/* magnitude >= 1? */
+  {
+    if (p > 0)		/* print some digits after decimal point */
     {
-      if (p > 0)		/* print some digits after decimal point */
-	{
-	  if (decpt+p > n-2)	/* need scientific notation */
-	    {
-	      int2str (decpt-1, &e_str[2], 2);
-	      for (e_cnt = 0; e_str[e_cnt]; e_cnt++);
-	      if (e_cnt+2 > n) goto no_room;
-	      buf[i++] = tmp[j++];
-	      if (i < n-e_cnt-1)
-		{
-		  buf[i++] = '.';
-		  while (i < n-EXP_LEN) buf[i++] = tmp[j++];
-		}
-	      strcpy (&buf[i], e_str);
-	    }
-	  else			/* print out d+p digits */
-	    {
-	      for (; decpt > 0; decpt--) buf[i++] = tmp[j++];
-	      buf[i++] = '.';
-	      for (; p > 0; p--) buf[i++] = tmp[j++];
-	      buf[i++] = '\0';
-	    }
-	}
-      else			/* not interested in digits after decimal */
-	{
-	  while (i < decpt+1) buf[i++] = tmp[j++];
-	  buf[i++] = 0;
-	}
+      if (decpt+p > n-2)	/* need scientific notation */
+      {
+        int2str (decpt-1, &e_str[2], 2);
+        for (e_cnt = 0; e_str[e_cnt]; e_cnt++);
+        if (e_cnt+2 > n) goto no_room;
+        buf[i++] = tmp[j++];
+        if (i < n-e_cnt-1)
+        {
+          buf[i++] = '.';
+          while (i < n-EXP_LEN) buf[i++] = tmp[j++];
+        }
+        strcpy (&buf[i], e_str);
+      }
+      else			/* print out d+p digits */
+      {
+        for (; decpt > 0; decpt--) buf[i++] = tmp[j++];
+        buf[i++] = '.';
+        for (; p > 0; p--) buf[i++] = tmp[j++];
+        buf[i++] = '\0';
+      }
     }
+    else			/* not interested in digits after decimal */
+    {
+      if (decpt > n-1)		/* need scientific notation */
+      {
+        
+      }
+      else while (i < decpt+1) buf[i++] = tmp[j++];
+      buf[i++] = 0;
+    }
+  }
   else 				/* magnitude < 1*/
+  {
+    if (p > 0)		/* */
     {
-      if (p > 0)		/* */
-	{
-	  if (p+decpt > 0)		/* print some digits out */
-	    {
-	      if (p-decpt > n-3)	/* need scientific notation */
-		{
-		  int2str (-(decpt-1), &e_str[2], 2);
-		  for (e_cnt = 0; e_str[e_cnt]; e_cnt++);
-		  if (e_cnt+2 > n) goto no_room;
-		  buf[i++] = tmp[j++];
-		  if (i < n-e_cnt-1)
-		    {
-		      buf[i++] = '.';
-		      while (i < n-e_cnt) buf[i++] = tmp[j++];
-		    }
-		  strcpy (&buf[i], e_str);
-		}
-	      else		/* print 0.(-decpt zeroes)(p+decpt digits) */
-		{
-		  buf[i++] = '0';
-		  buf[i++] = '.';
-		  p += decpt;
-		  for (; decpt < 0; decpt++) buf[i++] = '0';
-		  for (; p > 0; p--) buf[i++] = tmp[j++];
-		  buf[i++] = '\0';
-		}
-	    }
-	  else			/* number too small --effectively zero */
-	    {
-	      buf[i++] = '0';
-	      buf[i++] = '.';
-	      for (; (i < n) && (p > 0); p--) buf[i++] = '0';
-	      buf[i++] = '\0';
-	    }
-	}
-      else			/* effectively zero */
-	{
-	  buf[i++] = '0';
-	  buf[i++] = '\0';
-	}
+      if (p+decpt > 0)		/* print some digits out */
+      {
+        if (p-decpt > n-3)	/* need scientific notation */
+        {
+          int2str (-(decpt-1), &e_str[2], 2);
+          for (e_cnt = 0; e_str[e_cnt]; e_cnt++);
+          if (e_cnt+2 > n) goto no_room;
+          buf[i++] = tmp[j++];
+          if (i < n-e_cnt-1)
+          {
+            buf[i++] = '.';
+            while (i < n-e_cnt) buf[i++] = tmp[j++];
+          }
+          strcpy (&buf[i], e_str);
+        }
+        else		/* print 0.(-decpt zeroes)(p+decpt digits) */
+        {
+          buf[i++] = '0';
+          buf[i++] = '.';
+          p += decpt;
+          for (; decpt < 0; decpt++) buf[i++] = '0';
+          for (; p > 0; p--) buf[i++] = tmp[j++];
+          buf[i++] = '\0';
+        }
+      }
+      else			/* number too small --effectively zero */
+      {
+        buf[i++] = '0';
+        buf[i++] = '.';
+        for (; (i < n) && (p > 0); p--) buf[i++] = '0';
+        buf[i++] = '\0';
+      }
     }
+    else			/* effectively zero */
+    {
+      buf[i++] = '0';
+      buf[i++] = '\0';
+    }
+  }
   
   return buf;
 
- no_room:
+  no_room:
   for (i = 0; i < n; i++) buf[i] = '#';
   buf[i++] = '\0';
   return buf;
+#endif
 }
 
 
 char	*int2str	(int x, char buf[], int n)
 {
   static char	digits[10] = 
-    {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
+  {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
 
   char	tmp[MAX_LEN];
   int	i, j;
 
   /* convert digits to characters (reverse order) */
   for (i = 0; x != 0; i++)
-    {
-      tmp[i] = digits[x%10];
-      x /= 10;
-    }
+  {
+    tmp[i] = digits[x%10];
+    x /= 10;
+  }
 
   /* pad front of buffer with zeros */
   for (j = 0; j < n-i; j++) buf[j] = digits[0];
@@ -471,10 +539,10 @@ void	MessageBox_popup 	(Widget 	parent,
 
   if (*message_box != (Widget)0)
     if (parent != XtParent (*message_box))
-      {
-	XtDestroyWidget (*message_box);
-	*message_box = (Widget)0;
-      }
+    {
+      XtDestroyWidget (*message_box);
+      *message_box = (Widget)0;
+    }
   if (*message_box == (Widget)0)
     *message_box = XmCreateMessageDialog (parent, "Oops", NULL, 0);
   
@@ -525,40 +593,40 @@ static void	MessageBox_cb	(Widget w, XtPointer client, XtPointer BOGUS(1))
   Dimension		width, height;
 
   switch (event)
-    {
-    case MSGBOX_MAP:
+  {
+      case MSGBOX_MAP:
 
-      /* find out where the pointer is */
-      display = XtDisplay (w);
-      screen = DefaultScreen (display);
-      XQueryPointer
-	(XtDisplay (w), RootWindow (display, screen), 
-	 &root, &child,
-	 &root_x, &root_y,
-	 &win_x, &win_y,
-	 &mask);
+        /* find out where the pointer is */
+        display = XtDisplay (w);
+        screen = DefaultScreen (display);
+        XQueryPointer
+          (XtDisplay (w), RootWindow (display, screen), 
+           &root, &child,
+           &root_x, &root_y,
+           &win_x, &win_y,
+           &mask);
 
-      if (child != (Window)0)
-	XGetWindowAttributes (display, child, &xwa);
-      else XGetWindowAttributes (display, root, &xwa);
+        if (child != (Window)0)
+          XGetWindowAttributes (display, child, &xwa);
+        else XGetWindowAttributes (display, root, &xwa);
 
-      XtVaGetValues (w, XmNwidth, &width, XmNheight, &height, NULL);
+        XtVaGetValues (w, XmNwidth, &width, XmNheight, &height, NULL);
 
-      /* place the dialog box in the center of the window in which the
-       * pointer currently resides */
-      XtVaSetValues
-	(w,
-	 XmNx,			xwa.x + ((xwa.width - (int)width)/2),
-	 XmNy,			xwa.y + ((xwa.height - (int)height)/2),
-	 NULL);
+        /* place the dialog box in the center of the window in which the
+         * pointer currently resides */
+        XtVaSetValues
+          (w,
+           XmNx,			xwa.x + ((xwa.width - (int)width)/2),
+           XmNy,			xwa.y + ((xwa.height - (int)height)/2),
+           NULL);
       
-      break;
+        break;
 
 
-    case MSGBOX_OK:
+      case MSGBOX_OK:
 
-      break;
-    }
+        break;
+  }
 }
 
 

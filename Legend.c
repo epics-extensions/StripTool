@@ -16,6 +16,7 @@
 #include <math.h>
 
 #define MAX_REALNUM_LEN	12
+#define LEGEND_BUFSIZE	255
 
 /*
  * == Legend Status flags ==
@@ -28,11 +29,29 @@
  */
 typedef enum
 {
-  LEGENDSTAT_VISIBLE 	= 1,	LEGENDSTAT_REPACK 	= 2,
-  LEGENDSTAT_RESIZE	= 4,	LEGENDSTAT_MOVE		= 8,
-  LEGENDSTAT_UPDATE	= 16,	LEGENDSTAT_DRAWSHAPES	= 32,
-  LEGENDSTAT_MONOCHROME	= 64
+  LEGENDSTAT_VISIBLE 	= (1 << 0),
+  LEGENDSTAT_REPACK 	= (1 << 1),
+  LEGENDSTAT_RESIZE	= (1 << 3),
+  LEGENDSTAT_MOVE	= (1 << 4),
+  LEGENDSTAT_UPDATE	= (1 << 5)
 } LegendStatFlags;
+
+
+typedef enum
+{
+  LEGENDSHOW_NAME,
+  LEGENDSHOW_RANGE,
+  LEGENDSHOW_EGU,
+  LEGENDSHOW_COMMENT
+} LegendShowComponents;
+
+typedef enum
+{
+  LEGENDSHOWMASK_NAME		= (1 << LEGENDSHOW_NAME),
+  LEGENDSHOWMASK_RANGE		= (1 << LEGENDSHOW_RANGE),
+  LEGENDSHOWMASK_EGU		= (1 << LEGENDSHOW_EGU),
+  LEGENDSHOWMASK_COMMENT	= (1 << LEGENDSHOW_COMMENT)
+} LegendShowFlags;
 
 static char	*LegendStatStr[] =
 {
@@ -41,8 +60,6 @@ static char	*LegendStatStr[] =
   "Resize",
   "Move",
   "Update",
-  "Drawshapes",
-  "Monochrome"
 };
 
 typedef struct
@@ -55,35 +72,29 @@ typedef struct
   Window	window;
   Pixmap	pixmap;
   GC		gc;
-  XFontStruct	*font_info;
+  XFontStruct	*font;
   int		max_items;
   int		n_items;
   LegendItem	*items;
-  int		item_width, item_height;
   int		status;
+  int		components;
 } LegendInfo;
 
 /* prototypes */
+static void		Legend_draw 	(LegendInfo *,
+                                         Drawable);
 
-static void	initialize	(Display *display, int screen);
-static void	Legend_draw 	(LegendInfo *legend, Drawable canvas);
+static XFontStruct	*Legend_getfont	(LegendInfo *,
+                                         int,		/* width */
+                                         int);		/* component mask */
 
-static int	initialized = 0;
+static int		Legend_recalc	(LegendInfo *,
+                                         XFontStruct *,	/* font */
+                                         int);		/* component mask */
 
-static void	initialize	(Display *display, int screen)
-{
-  int pixels_per_mm;
+static void		Legend_rangestr	(char *,	/* buffer */
+                                         LegendItem *);
 
-  pixels_per_mm = (int)
-    ((double)DisplayWidth(display, screen) /
-     (double)DisplayWidthMM(display, screen));
-
-  pixels_per_mm = (int)
-    ((double)DisplayHeight(display, screen) /
-     (double)DisplayHeightMM(display, screen));
-
-  initialized = 1;
-}
 
 /*
  * Legend_init
@@ -97,37 +108,35 @@ Legend	Legend_init (Display 		*display,
   int			mem_error;
   LegendInfo		*legend;
 
-  if (!initialized) initialize (display, screen);
-
   legend = (LegendInfo *)malloc (sizeof (LegendInfo));
   if (!(mem_error = (legend == NULL)))
+  {
+    legend->max_items = STRIP_MAX_CURVES;
+    legend->items = (LegendItem *)calloc
+      (legend->max_items, sizeof (LegendItem));
+    if (!(mem_error = (legend->items == NULL)))
     {
-      legend->max_items = STRIP_MAX_CURVES;
-      legend->items = (LegendItem *)calloc
-	(legend->max_items, sizeof (LegendItem));
-      if (!(mem_error = (legend->items == NULL)))
-	{
-	  legend->config	= cfg;
-	  legend->screen 	= screen;
-	  legend->window 	= window;
-	  legend->pixmap 	= 0;
-	  legend->display 	= display;
-	  legend->xpos 		= legend->ypos 		= 0;
-	  legend->width 	= legend->height 	= 0;
-	  legend->n_items 	= 0;
-	  legend->status 	=
-	    LEGENDSTAT_RESIZE | LEGENDSTAT_REPACK | LEGENDSTAT_UPDATE;
+      legend->config	= cfg;
+      legend->screen 	= screen;
+      legend->window 	= window;
+      legend->pixmap 	= 0;
+      legend->display 	= display;
+      legend->xpos 	= legend->ypos 		= 0;
+      legend->width 	= legend->height 	= 0;
+      legend->n_items 	= 0;
+      legend->status 	=
+        LEGENDSTAT_RESIZE | LEGENDSTAT_REPACK | LEGENDSTAT_UPDATE;
+      legend->components 	= 0;
 
-	  legend->gc = XCreateGC
-	    (display, DefaultRootWindow(display), 0, NULL);
-	}
+      legend->gc = XCreateGC (display, window, 0, NULL);
     }
+  }
   
   if (mem_error)
-    {
-      Legend_delete (legend);
-      legend = NULL;
-    }
+  {
+    Legend_delete (legend);
+    legend = NULL;
+  }
   return legend;
 }
 
@@ -163,10 +172,10 @@ int	Legend_setattr (Legend the_legend, ...)
   for (attrib = va_arg (ap, LegendAttribute);
        attrib != 0;
        attrib = va_arg (ap, LegendAttribute))
-    {
-      if ((ret_val = ((attrib > 0) && (attrib < LEGEND_LAST_ATTRIBUTE))))
-	switch (attrib)
-	  {
+  {
+    if ((ret_val = ((attrib > 0) && (attrib < LEGEND_LAST_ATTRIBUTE))))
+      switch (attrib)
+      {
 	  case LEGEND_WIDTH:
 	    tmp =  va_arg (ap, int);
 	    if (tmp != legend->width) legend->status |= LEGENDSTAT_RESIZE;
@@ -187,25 +196,13 @@ int	Legend_setattr (Legend the_legend, ...)
 	    if (tmp != legend->ypos) legend->status |= LEGENDSTAT_MOVE;
 	    legend->ypos = tmp;
 	    break;
-	  case LEGEND_DRAWSHAPES:
-	    if (va_arg (ap, int))
-	      legend->status |= LEGENDSTAT_DRAWSHAPES;
-	    else legend->status &= ~LEGENDSTAT_DRAWSHAPES;
-	    legend->status |= LEGENDSTAT_REPACK | LEGENDSTAT_UPDATE;
-	    break;
-	  case LEGEND_MONOCHROME:
-	    if (va_arg (ap, int))
-	      legend->status |= LEGENDSTAT_MONOCHROME;
-	    else legend->status &= ~LEGENDSTAT_MONOCHROME;
-	    legend->status |= LEGENDSTAT_UPDATE;
-	    break;
 	  default:
 	    fprintf
 	      (stdout, "Legend_setattr(): can't set read-only attribute\n");
 	    ret_val = 0;
-	  }
-      else break;
-    }
+      }
+    else break;
+  }
   return ret_val;
 }
 
@@ -223,10 +220,10 @@ int	Legend_getattr (Legend the_legend, ...)
   for (attrib = va_arg (ap, LegendAttribute);
        attrib != 0;
        attrib = va_arg (ap, LegendAttribute))
-    {
-      if ((ret_val = ((attrib > 0) && (attrib < LEGEND_LAST_ATTRIBUTE))))
-	switch (attrib)
-	  {
+  {
+    if ((ret_val = ((attrib > 0) && (attrib < LEGEND_LAST_ATTRIBUTE))))
+      switch (attrib)
+      {
 	  case LEGEND_VISIBLE:
 	    *(va_arg (ap, int *)) = legend->status & LEGENDSTAT_VISIBLE;
 	    break;
@@ -251,15 +248,9 @@ int	Legend_getattr (Legend the_legend, ...)
 	  case LEGEND_ITEMS:
 	    *(va_arg (ap, LegendItem **)) = legend->items;
 	    break;
-	  case LEGEND_DRAWSHAPES:
-	    *(va_arg (ap, int *)) = legend->status & LEGENDSTAT_DRAWSHAPES;
-	    break;
-	  case LEGEND_MONOCHROME:
-	    *(va_arg (ap, int *)) = legend->status & LEGENDSTAT_MONOCHROME;
-	    break;
-	  }
-      else break;
-    }
+      }
+    else break;
+  }
   return ret_val;
 }
 
@@ -272,12 +263,12 @@ int	Legend_additem (Legend the_legend, int item_id, StripCurveInfo *crv)
   LegendInfo	*legend = (LegendInfo *)the_legend;
 
   if (legend->n_items < legend->max_items)
-    {
-      legend->items[legend->n_items].id = item_id;
-      legend->items[legend->n_items].crv = crv;
-      legend->n_items++;
-      legend->status |= LEGENDSTAT_REPACK | LEGENDSTAT_UPDATE;
-    }
+  {
+    legend->items[legend->n_items].id = item_id;
+    legend->items[legend->n_items].crv = crv;
+    legend->n_items++;
+    legend->status |= LEGENDSTAT_REPACK | LEGENDSTAT_UPDATE;
+  }
   else ret_val = 0;
 
   return ret_val;
@@ -295,17 +286,17 @@ int	Legend_removeitem (Legend the_legend, int item_id)
 
   for (i = 0; i < legend->n_items; i++)
     if (legend->items[i].id == item_id)
-      {
-	/* move trailing elements of array to the left one slot */
-	n = legend->n_items - i - 1;
-	memmove (&legend->items[i], &legend->items[i+1],
-		 n * sizeof (LegendItem));
-	legend->n_items--;
+    {
+      /* move trailing elements of array to the left one slot */
+      n = legend->n_items - i - 1;
+      memmove (&legend->items[i], &legend->items[i+1],
+               n * sizeof (LegendItem));
+      legend->n_items--;
 
-	legend->status |= LEGENDSTAT_REPACK | LEGENDSTAT_UPDATE;
-	ret_val = 1;
-	break;
-      }
+      legend->status |= LEGENDSTAT_REPACK | LEGENDSTAT_UPDATE;
+      ret_val = 1;
+      break;
+    }
   
   return ret_val;
 }
@@ -323,13 +314,16 @@ LegendItem	*Legend_getitem_xy	(Legend the_legend, int x, int y)
   y -= legend->ypos;
   x -= legend->xpos;
 
-  idx = y / (legend->height / legend->max_items);
-  if (idx < legend->n_items &&
-      (y >= legend->items[idx].pos.y) &&
-      (y < legend->items[idx].pos.y + legend->item_height) &&
-      (x >= legend->items[idx].pos.x) &&
-      (x < legend->items[idx].pos.x + legend->item_width))
-    item = &legend->items[idx];
+  for (idx = 0; idx < legend->n_items; idx++)
+    if ((y >= legend->items[idx].rect.y) &&
+        (y < legend->items[idx].rect.y + legend->items[idx].rect.height) &&
+        (x >= legend->items[idx].rect.x) &&
+        (x < legend->items[idx].rect.x + legend->items[idx].rect.width))
+    {
+      item = &legend->items[idx];
+      break;
+    }
+  
   return item;
 }
 
@@ -344,10 +338,10 @@ LegendItem	*Legend_getitem_id	(Legend the_legend, int id)
 
   for (idx = 0; idx < legend->n_items; idx++)
     if (legend->items[idx].id == id)
-      {
-	item = &legend->items[idx];
-	break;
-      }
+    {
+      item = &legend->items[idx];
+      break;
+    }
   return item;
 }
 
@@ -378,175 +372,171 @@ void	Legend_hide	(Legend the_legend)
 static void	Legend_draw (LegendInfo *legend, Drawable canvas)
 {
   int			i;
-  int			bound_h, bound_w, tmp;
   int			xpos, ypos;
-  char			minstr[MAX_REALNUM_LEN+1], maxstr[MAX_REALNUM_LEN+1];
-  char			minmax[(STRIPMAX_CURVE_PRECISION*2)+5];
-  XPoint		shape_pos;
-  XFontStruct		*font;
+  char			buf[LEGEND_BUFSIZE+1];
+  char			*str;
+  XFontStruct		*font, *font_tmp;
+  int			width, height;
+  int			total_height;
+  int			components;
+  XCharStruct		overall;
+  int			direction_return, font_ascent_return, font_descent_return;
+  Region		clip_region;
+  XRectangle		rectangle;
 
-/*
-  fprintf (stdout, "\n++ Legend_draw(): status ++\n");
-  for (i = 0; i < 7; i++)
-    if (legend->status & (1 << i))
-      fprintf (stdout, "  %s\n", LegendStatStr[i]);
-  fprintf (stdout, "\n");
-  fflush (stdout);
-*/
   
   if (legend->status & LEGENDSTAT_RESIZE)
     Legend_resize (legend, legend->width, legend->height);
 
   if (legend->status & (LEGENDSTAT_REPACK | LEGENDSTAT_UPDATE))
-    {
-      /* clear the pixmap */
-      XSetForeground
-	(legend->display, legend->gc, legend->config->Color.background);
-      XFillRectangle
-	(legend->display, legend->pixmap, legend->gc,
-	 0, 0, legend->width+1, legend->height+1);
-    }
-	 
+  {
+    /* clear the pixmap */
+    XSetForeground
+      (legend->display, legend->gc,
+       legend->config->Color.background.xcolor.pixel);
+    XFillRectangle
+      (legend->display, legend->pixmap, legend->gc,
+       0, 0, legend->width+1, legend->height+1);
+  }
+
+  /* This is where the new item dimensions are calculated
+   */
   if (legend->n_items > 0)
+  {
+    components =
+      LEGENDSHOWMASK_NAME |
+      LEGENDSHOWMASK_RANGE |
+      LEGENDSHOWMASK_EGU |
+      LEGENDSHOWMASK_COMMENT;
+
+    if (legend->status & LEGENDSTAT_REPACK)
     {
-      if (legend->status & LEGENDSTAT_REPACK)
-	{
-	  legend->item_height = 
-	    (legend->height - (legend->max_items+1)*LEGEND_PADDING) / 
-	      legend->max_items;
-	  legend->item_width = legend->width - 2*LEGEND_PADDING;
-	  
-	  /* now need to get the best font for the legend items */
-	  bound_h = legend->item_height / 3;
-	  bound_w = legend->item_width - 2;
+      do
+      {
+        font = Legend_getfont (legend, legend->width, components);
+        
+        while ((total_height = Legend_recalc (legend, font, components)) >
+               legend->height)
+        {
+          if (font_tmp = shrink_font (font))
+            font = font_tmp;
+          else {
+            components >>= 1;
+            break;
+          }
+        }
+      }
+      while ((total_height > legend->height) && (components));
 
-	  if (legend->status & LEGENDSTAT_DRAWSHAPES)
-	    /* need room in which to draw the shape --decrease the font width
-	     */
-	    bound_w -= MAX_SHAPE_WIDTH + LEGEND_PADDING;
-	  
-	  legend->font_info = NULL;
-
-	  /* now select on width */
-	  for (i = 0; i < legend->n_items; i++)
-	    {
-	      font = get_font
-		(legend->display, bound_h,
-		 legend->items[i].crv->details->name, bound_w,
-		 0, STRIPCHARSET_ALL);
-	      if (legend->font_info == NULL)
-		legend->font_info = font;
-	      else if (font->max_bounds.width >
-		       legend->font_info->max_bounds.width)
-		legend->font_info = font;
-
-	      font = get_font
-		(legend->display, bound_h,
-		 legend->items[i].crv->details->egu, bound_w,
-		 0, STRIPCHARSET_ALL);
-	      if (font->max_bounds.width > legend->font_info->max_bounds.width)
-		legend->font_info = font;
-	    }
-	  
-	  /* finally, recalculate the item positions */
-	  for (i = 0, xpos = ypos = LEGEND_PADDING; i < legend->n_items; i++)
-	    {
-	      if (ypos + legend->item_height > legend->height)
-		{
-		  ypos = LEGEND_PADDING;
-		  xpos += legend->item_width + LEGEND_PADDING;
-		}
-	      legend->items[i].pos.x = xpos;
-	      legend->items[i].pos.y = ypos;
-	      
-	      ypos += legend->item_height + LEGEND_PADDING;
-	    }
-	}
-      
-      if (legend->status & (LEGENDSTAT_UPDATE | LEGENDSTAT_REPACK))
-	{
-	  /* draw the items into the legend */
-	  XSetFont (legend->display, legend->gc, legend->font_info->fid);
-	  for (i = 0; i < legend->n_items; i++)
-	    {
-	      xpos = legend->items[i].pos.x;
-	      ypos = legend->items[i].pos.y;
-
-	      XSetForeground
-		(legend->display, legend->gc,
-		 legend->config->Color.foreground);
-	      XDrawRectangle
-		(legend->display, legend->pixmap, legend->gc,
-		 xpos, ypos, legend->item_width, legend->item_height);
-
-	      if (!(legend->status & LEGENDSTAT_MONOCHROME))
-		{
-		  XSetForeground
-		    (legend->display, legend->gc,
-		     legend->items[i].crv->details->pixel);
-		  XFillRectangle
-		    (legend->display, legend->pixmap, legend->gc,
-		     xpos+1, ypos+1,
-		     legend->item_width-1, legend->item_height-1);
-		}
-
-	      if (legend->status & LEGENDSTAT_MONOCHROME)
-		XSetForeground
-		  (legend->display, legend->gc,
-		   legend->config->Color.foreground);
-	      else
-		XSetForeground
-		  (legend->display, legend->gc,
-		   legend->config->Color.legendtext);
-	      
-	      if (legend->status & LEGENDSTAT_DRAWSHAPES)
-		{
-		  shape_pos.x = xpos + MAX_SHAPE_WIDTH / 2 + LEGEND_PADDING;
-		  shape_pos.y = ypos + MAX_SHAPE_HEIGHT / 2 + LEGEND_PADDING;
-		  drawShape
-		    (legend->display, legend->pixmap, legend->gc,
-		     legend->items[i].id, &shape_pos);
-		  xpos += MAX_SHAPE_WIDTH + LEGEND_PADDING;
-		}
-
-	      XDrawString
-		(legend->display, legend->pixmap, legend->gc,
-		 xpos+1, ypos+legend->font_info->ascent,
-		 legend->items[i].crv->details->name,
-		 strlen (legend->items[i].crv->details->name));
-	      
-	      ypos += legend->font_info->ascent + legend->font_info->descent;
-	      XDrawString
-		(legend->display, legend->pixmap, legend->gc,
-		 xpos+1, ypos+legend->font_info->ascent,
-		 legend->items[i].crv->details->egu,
-		 strlen (legend->items[i].crv->details->egu));
-
-	      dbl2str
-		(legend->items[i].crv->details->min,
-		 legend->items[i].crv->details->precision,
-		 minstr, MAX_REALNUM_LEN);
-	      dbl2str
-		(legend->items[i].crv->details->max,
-		 legend->items[i].crv->details->precision,
-		 maxstr, MAX_REALNUM_LEN);
-	      tmp = max (strlen (minstr), strlen (maxstr));
-	      sprintf (minmax, "(%-*s, %*s)", tmp, minstr, tmp, maxstr);
-	      
-	      ypos += legend->font_info->ascent + legend->font_info->descent;
-              font = get_font 
-		(legend->display, bound_h, minmax, bound_w, 0,
-                 STRIPCHARSET_REALNUM);
-              XSetFont (legend->display, legend->gc, font->fid);
-	      XDrawString
-		(legend->display, legend->pixmap, legend->gc,
-		 xpos+1, ypos+legend->font_info->ascent,
-		 minmax,
-		 strlen (minmax));
-              XSetFont (legend->display, legend->gc, legend->font_info->fid);
-	    }
-	}
+      if (!components) components = LEGENDSHOWMASK_NAME;
+      legend->components = components;
+      legend->font = font;
     }
+      
+    /* This is where the legend items actually get drawn to the screen
+     */
+    if (legend->status & (LEGENDSTAT_UPDATE | LEGENDSTAT_REPACK))
+    {
+      /* draw the items into the legend */
+      XSetFont (legend->display, legend->gc, legend->font->fid);
+      for (i = 0; i < legend->n_items; i++)
+      {
+        xpos = legend->items[i].rect.x;
+        ypos = legend->items[i].rect.y;
+        width = legend->items[i].rect.width;
+        height = legend->items[i].rect.height;
+
+        XSetForeground
+          (legend->display, legend->gc,
+           legend->config->Color.foreground.xcolor.pixel);
+        XDrawRectangle
+          (legend->display, legend->pixmap, legend->gc,
+           xpos, ypos, width, height);
+
+        XSetForeground
+          (legend->display, legend->gc,
+           legend->items[i].crv->details->color->xcolor.pixel);
+        XFillRectangle
+          (legend->display, legend->pixmap, legend->gc,
+           xpos+1, ypos+1,
+           width-1, height-1);
+
+        XSetForeground
+          (legend->display, legend->gc,
+           legend->config->Color.legendtext.xcolor.pixel);
+
+        if (legend->components & LEGENDSHOWMASK_NAME)
+        {
+          ypos += LEGEND_PADDING;
+          XTextExtents
+            (legend->font, legend->items[i].crv->details->name,
+             strlen (legend->items[i].crv->details->name),
+             &direction_return, &font_ascent_return, &font_descent_return,
+             &overall);
+          XDrawString
+            (legend->display, legend->pixmap, legend->gc,
+             xpos+1, ypos+overall.ascent,
+             legend->items[i].crv->details->name,
+             strlen (legend->items[i].crv->details->name));
+          ypos += overall.ascent + overall.descent;
+        }
+
+        str = legend->items[i].crv->details->comment;
+        if ((legend->components & LEGENDSHOWMASK_COMMENT) &&
+            strcmp (str, STRIPDEF_CURVE_COMMENT))
+        {
+          ypos += LEGEND_PADDING;
+          XTextExtents
+            (legend->font, legend->items[i].crv->details->egu,
+             strlen (legend->items[i].crv->details->egu),
+             &direction_return, &font_ascent_return, &font_descent_return,
+             &overall);
+          XDrawString
+            (legend->display, legend->pixmap, legend->gc,
+             xpos+1, ypos+overall.ascent,
+             legend->items[i].crv->details->comment,
+             strlen (legend->items[i].crv->details->comment));
+          ypos += overall.ascent + overall.descent;
+        }
+
+
+        str = legend->items[i].crv->details->egu;
+        if ((legend->components & LEGENDSHOWMASK_EGU) &&
+            strcmp (str, STRIPDEF_CURVE_EGU))
+        {
+          ypos += LEGEND_PADDING;
+          XTextExtents
+            (legend->font, legend->items[i].crv->details->egu,
+             strlen (legend->items[i].crv->details->egu),
+             &direction_return, &font_ascent_return, &font_descent_return,
+             &overall);
+          XDrawString
+            (legend->display, legend->pixmap, legend->gc,
+             xpos+1, ypos+overall.ascent,
+             legend->items[i].crv->details->egu,
+             strlen (legend->items[i].crv->details->egu));
+          ypos += overall.ascent + overall.descent;
+        }
+
+
+        if (legend->components & LEGENDSHOWMASK_RANGE)
+        {
+          ypos += LEGEND_PADDING;
+          Legend_rangestr (buf, &legend->items[i]);
+          XTextExtents
+            (legend->font, buf,
+             strlen (buf),
+             &direction_return, &font_ascent_return, &font_descent_return,
+             &overall);
+          XDrawString
+            (legend->display, legend->pixmap, legend->gc,
+             xpos+1, ypos+overall.ascent,
+             buf,strlen (buf));
+          ypos += overall.ascent + overall.descent;
+        }
+      }
+    }
+  }
 
   /* copy the legend pixmap into the window */
   XCopyArea
@@ -572,9 +562,7 @@ void	Legend_resize (Legend the_legend, int width, int height)
   legend->pixmap = XCreatePixmap
     (legend->display, legend->window,
      width, height,
-     DefaultDepth (legend->display, legend->screen));
-
-  legend->status |= LEGENDSTAT_REPACK;
+     legend->config->xvi.depth);
 
   legend->status &= ~LEGENDSTAT_RESIZE;
   legend->status |= LEGENDSTAT_UPDATE | LEGENDSTAT_REPACK;
@@ -591,41 +579,172 @@ void	Legend_update	(Legend the_legend)
 }
 
 
-/*********************/
+/*
+ * Legend_getfont
+ *
+ *	Returns the most suitable font with which to draw the legend items,
+ *	given the width constraint.
+ */
+static XFontStruct	*Legend_getfont	(LegendInfo 	*legend,
+                                         int 		width,
+                                         int		components)
+{
+  XFontStruct	*font_tmp = 0, *font;
+  int		i;
+  int		bound_h = legend->height;	/* just some "large" number */
+  int		bound_w = legend->width - 2*(LEGEND_PADDING+1);
+  char		buf[LEGEND_BUFSIZE+1];
+  char		*str;
+
+  font = get_font (legend->display, bound_h, 0, 0, 0, STRIPCHARSET_ALL);
+  for (i = 0; i < legend->n_items; i++)
+  {
+    if (components & LEGENDSHOWMASK_NAME)
+    {
+      font_tmp = get_font
+        (legend->display, bound_h,
+         legend->items[i].crv->details->name, bound_w,
+         0, STRIPCHARSET_ALL);
+      if (font_tmp->max_bounds.width < font->max_bounds.width)
+        font = font_tmp;
+    }
+    
+    if (components & LEGENDSHOWMASK_RANGE)
+    {
+      Legend_rangestr	(buf, &legend->items[i]);
+      font_tmp = get_font
+        (legend->display, bound_h, buf, bound_w,0, STRIPCHARSET_ALL);
+      if (font_tmp->max_bounds.width < font->max_bounds.width)
+        font = font_tmp;
+    }
+    
+    str = legend->items[i].crv->details->egu;
+    if ((components & LEGENDSHOWMASK_EGU) &&
+        strcmp (str, STRIPDEF_CURVE_EGU))
+    {
+      font_tmp = get_font
+        (legend->display, bound_h,
+         legend->items[i].crv->details->egu, bound_w,
+         0, STRIPCHARSET_ALL);
+      if (font_tmp->max_bounds.width < font->max_bounds.width)
+        font = font_tmp;
+    }
+    
+    str = legend->items[i].crv->details->comment;
+    if ((components & LEGENDSHOWMASK_COMMENT) &&
+        strcmp (str, STRIPDEF_CURVE_COMMENT))
+    {
+      font_tmp = get_font
+        (legend->display, bound_h,
+         legend->items[i].crv->details->comment, bound_w,
+         0, STRIPCHARSET_ALL);
+      if (font_tmp->max_bounds.width < font->max_bounds.width)
+        font = font_tmp;
+    }
+  }
+
+  return font;
+}
+
 
 /*
- * Shape stuff
+ * Legend_recalc
+ *
+ *	Calculates the item heights and positions for the legend
+ *	items, given the font with which to render them and the
+ *	mask specifying which components should be visible.
+ *	Returns the height of the resulting legend.
  */
-int     shapes[NUM_SHAPES][MAX_COORDS] =
+static int	Legend_recalc	(LegendInfo 	*legend,
+                                 XFontStruct	*font,
+                                 int		components)
 {
-  { 0,  0,  0, 10, 10, 10, 10,  0,  0,  0, -1, -1, -1, -1 },
-  { 0,  0,  5, 10, 10,  0,  0,  0, -1, -1, -1, -1, -1, -1 },
-  { 0,  0, 10, 10,  0, 10, 10,  0,  0,  0, -1, -1, -1, -1 },
-  { 0,  0, 10, 10, 10,  0,  0, 10,  0,  0, -1, -1, -1, -1 },
-  { 0,  5,  5, 10, 10,  5,  5,  0,  0,  5, -1, -1, -1, -1 },
-  { 0,  0, 10, 10,  5,  5,  0, 10, 10,  0, -1, -1, -1, -1 },
-  { 5, 10,  5,  0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 },
-  { 0,  0, 10,  0,  5,  0,  5, 10,  0, 10, 10, 10, -1, -1 },
-  { 0,  0,  5, 10, 10,  0,  5,  5,  0,  0, -1, -1, -1, -1 },
-  { 0,  3,  0,  8,  5, 10, 10,  8, 10,  3,  5,  0,  0,  3 }
-};
+  int		i;
+  int		xpos, ypos;
+  XCharStruct	overall;
+  int		direction_return, font_ascent_return, font_descent_return;
+  char		buf[LEGEND_BUFSIZE+1];
 
-void    drawShape       (Display *display, Drawable canvas, GC gc,
-                         int which_shape, XPoint *center)
-{
-  static XPoint points[MAX_COORDS];
-  int i = 0;
+  for (i = 0, xpos = ypos = LEGEND_PADDING; i < legend->n_items; i++)
+  {
+    legend->items[i].rect.x = xpos;
+    legend->items[i].rect.y = ypos;
+    legend->items[i].rect.width = legend->width;
 
-  for (i = 0; i < MAX_COORDS; i += 2)
+    /* determine the height */
+    if (components & LEGENDSHOWMASK_NAME)
     {
-      if (shapes[which_shape][i] < 0)
-	break;
-      points[i/2].x = center->x - MAX_SHAPE_WIDTH/2 +
-        shapes[which_shape][i];
-      points[i/2].y = center->y - MAX_SHAPE_HEIGHT/2 +
-        shapes[which_shape][i+1];
+      ypos += LEGEND_PADDING;
+      XTextExtents
+        (font, legend->items[i].crv->details->name,
+         strlen (legend->items[i].crv->details->name),
+         &direction_return, &font_ascent_return, &font_descent_return,
+         &overall);
+      ypos += overall.ascent + overall.descent;
     }
 
-  XDrawLines
-    (display, canvas, gc, points, i/2, CoordModeOrigin);
+    if (components & LEGENDSHOWMASK_RANGE)
+    {
+      ypos += LEGEND_PADDING;
+      Legend_rangestr (buf, &legend->items[i]);
+      XTextExtents
+        (font, buf,
+         strlen (buf),
+         &direction_return, &font_ascent_return, &font_descent_return,
+         &overall);
+      ypos += overall.ascent + overall.descent;
+    }
+
+    if ((components & LEGENDSHOWMASK_EGU) &&
+        (legend->items[i].crv->details->egu[0]))
+    {
+      ypos += LEGEND_PADDING;
+      XTextExtents
+        (font, legend->items[i].crv->details->egu,
+         strlen (legend->items[i].crv->details->egu),
+         &direction_return, &font_ascent_return, &font_descent_return,
+         &overall);
+      ypos += overall.ascent + overall.descent;
+    }
+
+    if ((components & LEGENDSHOWMASK_COMMENT) &&
+        (legend->items[i].crv->details->comment[0]))
+    {
+      ypos += LEGEND_PADDING;
+      XTextExtents
+        (font, legend->items[i].crv->details->comment,
+         strlen (legend->items[i].crv->details->comment),
+         &direction_return, &font_ascent_return, &font_descent_return,
+         &overall);
+      ypos += overall.ascent + overall.descent;
+    }
+
+    ypos += LEGEND_PADDING;
+    legend->items[i].rect.height = ypos - legend->items[i].rect.y;
+  }
+
+  return ypos;
 }
+
+
+/*
+ * Legend_rangestr
+ *
+ *	Creates a string representation for the (min, max) of the
+ *	given item, placing the result in the supplied buffer.
+ */
+static void		Legend_rangestr	(char *buf, LegendItem *item)
+{
+  static char	minstr[MAX_REALNUM_LEN+1];
+  static char	maxstr[MAX_REALNUM_LEN+1];
+
+  dbl2str
+    (item->crv->details->min, item->crv->details->precision,
+     minstr, MAX_REALNUM_LEN);
+  dbl2str
+    (item->crv->details->max, item->crv->details->precision,
+     maxstr, MAX_REALNUM_LEN);
+  sprintf (buf, "(%s, %s)", minstr, maxstr);
+}
+
+

@@ -16,6 +16,7 @@
 
 #include <stdlib.h>
 
+#include <Xm/ScrolledW.h>
 #include <Xm/Form.h>
 #include <Xm/Frame.h>
 #include <Xm/Label.h>
@@ -76,7 +77,7 @@ typedef enum
   SDTMOPT_GR,
   SDTMOPT_MODIFY,
   SDTMOPT_CANCEL,
-  SDTMOPT_LAST_ATTRIBUTE,
+  SDTMOPT_LAST_ATTRIBUTE
 }
 SDTmoptAttribute;
 
@@ -94,7 +95,7 @@ typedef enum
   SDGROPT_XAXISNUM,
   SDGROPT_MODIFY,
   SDGROPT_CANCEL,
-  SDGROPT_LAST_ATTRIBUTE,
+  SDGROPT_LAST_ATTRIBUTE
 }
 SDGroptAttribute;
 
@@ -120,12 +121,12 @@ char 	*FsDlgTglStr[FSDLG_TGL_COUNT] =
   "Curve Attributes"
 };
 
-StripConfigMask	FsDlgTglVal[FSDLG_TGL_COUNT] =
+StripConfigMask	*FsDlgTglVal[FSDLG_TGL_COUNT] =
 {
-  STRIPCFGMASK_TIME,
-  STRIPCFGMASK_COLOR,
-  STRIPCFGMASK_OPTION,
-  STRIPCFGMASK_CURVE
+  &SCFGMASK_TIME,
+  &SCFGMASK_COLOR,
+  &SCFGMASK_OPTION,
+  &SCFGMASK_CURVE
 };
 
 typedef enum
@@ -243,6 +244,8 @@ typedef struct
     void	*data;
   }
   callback[SDCALLBACK_COUNT];
+
+  int			color_edit_which; /* attr of color in color editor */
 }
 StripDialogInfo;
 
@@ -260,6 +263,7 @@ static XmString		yaxisclr_tgl_str[2];
 
 static char		char_buf[256];
 static XmString		xstr;
+
 
 /* ====== static function prototypes ====== */
 static void	insert_sdcurve	(StripDialogInfo *, int, StripCurve, int);
@@ -356,11 +360,13 @@ static void	ctrl_btn_cb	(Widget, XtPointer, XtPointer);
 
 static void	fsdlg_cb	(Widget, XtPointer, XtPointer);
 
+static void	clrdlg_cb	(void *, cColor *);
+
 static void	StripDialog_cfgupdate	(StripConfigMask, void *);
 
 
 
-StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
+StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
 {
   StripDialogInfo	*sd;
   Widget		frame;
@@ -374,1332 +380,1329 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
   Dimension		dim1, dim2;
   Dimension		widths[SDCURVE_LAST_ATTRIBUTE];
   Dimension		row_height;
-  Colormap		cmap;
+  StripConfigMask	scfg_mask;
 
   if ((sd = (StripDialogInfo *)malloc (sizeof (StripDialogInfo))) != NULL)
+  {
+#ifdef STRIPDIALOG_SHOW_STATUS
+    status_lbl_str[0]		= XmStringCreateLocalized ("Unconn");
+    status_lbl_str[1]		= XmStringCreateLocalized ("Conn");
+#endif
+    modify_btn_str[0] 	= XmStringCreateLocalized ("Modify");
+    modify_btn_str[1] 	= XmStringCreateLocalized ("Update");
+    showhide_btn_str[0] = XmStringCreateLocalized ("Show StripChart");
+    showhide_btn_str[1] = XmStringCreateLocalized ("Hide StripChart");
+    penstat_tgl_str[0] 	= XmStringCreateLocalized ("down");
+    penstat_tgl_str[1] 	= XmStringCreateLocalized ("up");
+    plotstat_tgl_str[0] = XmStringCreateLocalized ("visible");
+    plotstat_tgl_str[1] = XmStringCreateLocalized ("hidden");
+    gridstat_tgl_str[0]	= XmStringCreateLocalized ("on");
+    gridstat_tgl_str[1]	= XmStringCreateLocalized ("off");
+    yaxisclr_tgl_str[0]	= XmStringCreateLocalized ("selected curve");
+    yaxisclr_tgl_str[1]	= XmStringCreateLocalized ("foreground");
+
+    for (i = 0; i < STRIP_MAX_CURVES; i++)
+      sd->curve_info[i].curve = 0;
+    sd->sdcurve_count = 0;
+    sd->time_info.modifying = 0;
+    sd->graph_info.modifying = 0;
+    sd->message_box = (Widget)0;
+
+    sd->display = XtDisplay (parent);
+
+    for (i = 0; i < SDCALLBACK_COUNT; i++)
     {
-#ifdef STRIPDIALOG_SHOW_STATUS
-      status_lbl_str[0]		= XmStringCreateLocalized ("Unconn");
-      status_lbl_str[1]		= XmStringCreateLocalized ("Conn");
-#endif
-      modify_btn_str[0] 	= XmStringCreateLocalized ("Modify");
-      modify_btn_str[1] 	= XmStringCreateLocalized ("Update");
-      showhide_btn_str[0] 	= XmStringCreateLocalized ("Show StripChart");
-      showhide_btn_str[1] 	= XmStringCreateLocalized ("Hide StripChart");
-      penstat_tgl_str[0] 	= XmStringCreateLocalized ("down");
-      penstat_tgl_str[1] 	= XmStringCreateLocalized ("up");
-      plotstat_tgl_str[0] 	= XmStringCreateLocalized ("visible");
-      plotstat_tgl_str[1] 	= XmStringCreateLocalized ("hidden");
-      gridstat_tgl_str[0]	= XmStringCreateLocalized ("on");
-      gridstat_tgl_str[1]	= XmStringCreateLocalized ("off");
-      yaxisclr_tgl_str[0]	= XmStringCreateLocalized ("selected curve");
-      yaxisclr_tgl_str[1]	= XmStringCreateLocalized ("foreground");
-
-      for (i = 0; i < STRIP_MAX_CURVES; i++)
-	sd->curve_info[i].curve = 0;
-      sd->sdcurve_count = 0;
-      sd->time_info.modifying = 0;
-      sd->graph_info.modifying = 0;
-      sd->message_box = (Widget)0;
-
-      sd->display = d;
-
-      for (i = 0; i < SDCALLBACK_COUNT; i++)
-	{
-	  sd->callback[i].func = NULL;
-	  sd->callback[i].data = NULL;
-	}
+      sd->callback[i].func = NULL;
+      sd->callback[i].data = NULL;
+    }
       
-      /* store the configuration pointer, and add all update callbacks */
-      sd->config = cfg;
-      StripConfig_addcallback
-	(sd->config,
-	 STRIPCFGMASK_TIME | STRIPCFGMASK_OPTION | STRIPCFGMASK_CURVE,
-	 StripDialog_cfgupdate,
-	 sd);
+    /* store the configuration pointer*/ 
+    sd->config = cfg;
 
-      /* initialize the color editor */
-      cmap = StripConfig_getcmap (sd->config);
-      sd->clrdlg = ColorDialog_init (sd->display, cmap, "Strip ColorEditor");
+    /* add all update callbacks */
+    StripConfigMask_clear (&scfg_mask);
+    StripConfigMask_or (&scfg_mask, &SCFGMASK_TIME);
+    StripConfigMask_or (&scfg_mask, &SCFGMASK_OPTION);
+    StripConfigMask_or (&scfg_mask, &SCFGMASK_CURVE);
+    StripConfigMask_or (&scfg_mask, &SCFGMASK_COLOR);
+    StripConfig_addcallback
+      (sd->config, scfg_mask, StripDialog_cfgupdate, sd);
+
+    /* initialize the color editor */
+    sd->clrdlg = ColorDialog_init (parent, "Strip ColorEditor", cfg);
 
       
-      sd->shell = XtVaAppCreateShell
-	(NULL, 				"StripDialog",
-	 topLevelShellWidgetClass,	sd->display,
-	 XmNdeleteResponse,		XmDO_NOTHING,
-	 XmNmappedWhenManaged,		False,
-	 XmNcolormap,			cmap,
-	 NULL);
-      base_form = XtVaCreateManagedWidget
-	("form",
-	 xmFormWidgetClass,		sd->shell,
-	 NULL);
+    sd->shell = XtVaCreatePopupShell
+      ("StripDialog",	
+       topLevelShellWidgetClass,	parent,
+       XmNdeleteResponse,		XmDO_NOTHING,
+       XmNmappedWhenManaged,		False,
+       XmNvisual,			cfg->xvi.visual,
+       XmNcolormap,			cColorManager_getcmap (cfg->scm),
+       NULL);
+    base_form = XtVaCreateManagedWidget
+      ("form",
+       xmFormWidgetClass,		sd->shell,
+       NULL);
 
-      /* build the file selection box */
-      sd->fs.dlg = XmCreateFileSelectionDialog
-	(sd->shell, "Configuration File", NULL, 0);
-      XtVaSetValues
-	(sd->fs.dlg,
-	 XmNuserData, 			sd,
-	 XmNfileTypeMask,		XmFILE_REGULAR,
-	 NULL);
-      xstr = XmStringCreateLocalized (STRIP_CONFIGFILE_DIR);
-      XtVaSetValues (sd->fs.dlg, XmNdirectory, xstr, NULL);
+    /* build the file selection box */
+    sd->fs.dlg = XmCreateFileSelectionDialog
+      (sd->shell, "Configuration File", NULL, 0);
+    XtVaSetValues
+      (sd->fs.dlg,
+       XmNuserData, 			sd,
+       XmNfileTypeMask,		XmFILE_REGULAR,
+       NULL);
+    xstr = XmStringCreateLocalized (STRIP_CONFIGFILE_DIR);
+    XtVaSetValues (sd->fs.dlg, XmNdirectory, xstr, NULL);
+    XmStringFree (xstr);
+    xstr = XmStringCreateLocalized (STRIP_CONFIGFILE_PATTERN);
+    XtVaSetValues (sd->fs.dlg, XmNpattern, xstr, NULL);
+    XmStringFree (xstr);
+      
+    XtAddCallback
+      (sd->fs.dlg, XmNcancelCallback, fsdlg_cb, (XtPointer)FSDLG_CANCEL);
+    XtAddCallback (sd->fs.dlg, XmNokCallback, fsdlg_cb, (XtPointer)FSDLG_OK);
+    frame = XtVaCreateManagedWidget
+      ("frame",
+       xmFrameWidgetClass,		sd->fs.dlg,
+       NULL);
+    XtVaCreateManagedWidget
+      ("Attribute Mask",
+       xmLabelWidgetClass,		frame,
+       XmNchildType,			XmFRAME_TITLE_CHILD,
+       NULL);
+    w = XtVaCreateManagedWidget
+      ("rowcol",
+       xmRowColumnWidgetClass,	frame,
+       XmNchildType,			XmFRAME_WORKAREA_CHILD,
+       NULL);
+    StripConfigMask_clear (&sd->fs.mask);
+    sd->fs.state = FSDLG_SAVE;
+    for (i = 0; i < FSDLG_TGL_COUNT; i++)
+    {
+      xstr = XmStringCreateLocalized (FsDlgTglStr[i]);
+      sd->fs.tgl[i] = XtVaCreateManagedWidget
+        ("togglebutton",
+         xmToggleButtonWidgetClass,	w,
+         XmNlabelString,		xstr,
+         XmNset,			True,
+         NULL);
       XmStringFree (xstr);
-      xstr = XmStringCreateLocalized (STRIP_CONFIGFILE_PATTERN);
-      XtVaSetValues (sd->fs.dlg, XmNpattern, xstr, NULL);
-      XmStringFree (xstr);
-      
-      XtAddCallback
-	(sd->fs.dlg, XmNcancelCallback, fsdlg_cb, (XtPointer)FSDLG_CANCEL);
-      XtAddCallback (sd->fs.dlg, XmNokCallback, fsdlg_cb, (XtPointer)FSDLG_OK);
-      frame = XtVaCreateManagedWidget
-	("frame",
-	 xmFrameWidgetClass,		sd->fs.dlg,
-	 NULL);
-      XtVaCreateManagedWidget
-	("Attribute Mask",
-	 xmLabelWidgetClass,		frame,
-	 XmNchildType,			XmFRAME_TITLE_CHILD,
-	 NULL);
-      w = XtVaCreateManagedWidget
-	("rowcol",
-	 xmRowColumnWidgetClass,	frame,
-	 XmNchildType,			XmFRAME_WORKAREA_CHILD,
-	 NULL);
-      sd->fs.mask = 0;
-      sd->fs.state = FSDLG_SAVE;
-      for (i = 0; i < FSDLG_TGL_COUNT; i++)
-	{
-	  xstr = XmStringCreateLocalized (FsDlgTglStr[i]);
-	  sd->fs.tgl[i] = XtVaCreateManagedWidget
-	    ("togglebutton",
-	     xmToggleButtonWidgetClass,	w,
-	     XmNlabelString,		xstr,
-	     XmNset,			True,
-	     NULL);
-	  XmStringFree (xstr);
-	  sd->fs.mask |= FsDlgTglVal[i];
-	}
+      StripConfigMask_or (&sd->fs.mask, FsDlgTglVal[i]);
+    }
 	     
 
-      /* build the menu bar and related components */
-      menu = XmCreateMenuBar (base_form, "MenuBar", NULL, 0);
-      XtVaSetValues
-	(menu,
-	 XmNtopAttachment,		XmATTACH_FORM,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNrightAttachment,		XmATTACH_FORM,
-	 NULL);
+    /* build the menu bar and related components */
+    menu = XmCreateMenuBar (base_form, "MenuBar", NULL, 0);
+    XtVaSetValues
+      (menu,
+       XmNtopAttachment,		XmATTACH_FORM,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNrightAttachment,		XmATTACH_FORM,
+       NULL);
       
-      w = XmCreatePulldownMenu (menu, "FilePulldown", NULL, 0);
-      XtVaCreateManagedWidget
-	("File",
-	 xmCascadeButtonGadgetClass,	menu,
-	 XmNmnemonic,			'F',
-	 XmNsubMenuId,			w,
-	 NULL);
-      tmp = XtVaCreateManagedWidget
-	("Load Configuration...",
-	 xmPushButtonGadgetClass,	w,
-	 XmNuserData,			sd,
-	 NULL);
-      XtAddCallback
-	(tmp, XmNactivateCallback, filemenu_cb, (XtPointer)FSDLG_LOAD);
-      tmp = XtVaCreateManagedWidget
-	("Save Configuration...",
-	 xmPushButtonGadgetClass,	w,
-	 XmNuserData,			sd,
-	 NULL);
-      XtAddCallback
-	(tmp, XmNactivateCallback, filemenu_cb, (XtPointer)FSDLG_SAVE);
-      XtVaCreateManagedWidget
-	("separator",
-	 xmSeparatorGadgetClass,	w,
-	 NULL);
-      tmp = XtVaCreateManagedWidget
-	("Exit Program",
-	 xmPushButtonGadgetClass,	w,
-	 XmNuserData,			sd,
-	 NULL);
-      XtAddCallback
-	(tmp, XmNactivateCallback, ctrl_btn_cb, (XtPointer)SDCALLBACK_QUIT);
+    w = XmCreatePulldownMenu (menu, "FilePulldown", NULL, 0);
+    XtVaCreateManagedWidget
+      ("File",
+       xmCascadeButtonGadgetClass,	menu,
+       XmNmnemonic,			'F',
+       XmNsubMenuId,			w,
+       NULL);
+    tmp = XtVaCreateManagedWidget
+      ("Load Configuration...",
+       xmPushButtonGadgetClass,	w,
+       XmNuserData,			sd,
+       NULL);
+    XtAddCallback
+      (tmp, XmNactivateCallback, filemenu_cb, (XtPointer)FSDLG_LOAD);
+    tmp = XtVaCreateManagedWidget
+      ("Save Configuration...",
+       xmPushButtonGadgetClass,	w,
+       XmNuserData,			sd,
+       NULL);
+    XtAddCallback
+      (tmp, XmNactivateCallback, filemenu_cb, (XtPointer)FSDLG_SAVE);
+    XtVaCreateManagedWidget
+      ("separator",
+       xmSeparatorGadgetClass,	w,
+       NULL);
+    tmp = XtVaCreateManagedWidget
+      ("Exit Program",
+       xmPushButtonGadgetClass,	w,
+       XmNuserData,			sd,
+       NULL);
+    XtAddCallback
+      (tmp, XmNactivateCallback, ctrl_btn_cb, (XtPointer)SDCALLBACK_QUIT);
 
-      sd->window_menu_info.menu = XmCreatePulldownMenu
-	(menu, "WindowPulldown", NULL, 0);
-      XtVaCreateManagedWidget
-	("Window",
-	 xmCascadeButtonGadgetClass,	menu,
-	 XmNmnemonic,			'W',
-	 XmNsubMenuId,			sd->window_menu_info.menu,
-	 NULL);
-      for (i = 0; i < MAX_WINDOW_MENU_ITEMS; i++)
-	{
-	  sd->window_menu_info.items[i].entry = w = XtVaCreateManagedWidget
-	    ("blah",
-	     xmPushButtonGadgetClass,	sd->window_menu_info.menu,
-	     XmNuserData,		sd,
-	     NULL);
-	  XtAddCallback (w, XmNactivateCallback, windowmenu_cb, (XtPointer)i);
-	  XtUnmanageChild (sd->window_menu_info.items[i].entry);
-	}
-      sd->window_menu_info.count = 0;
+    sd->window_menu_info.menu = XmCreatePulldownMenu
+      (menu, "WindowPulldown", NULL, 0);
+    XtVaCreateManagedWidget
+      ("Window",
+       xmCascadeButtonGadgetClass,	menu,
+       XmNmnemonic,			'W',
+       XmNsubMenuId,			sd->window_menu_info.menu,
+       NULL);
+    for (i = 0; i < MAX_WINDOW_MENU_ITEMS; i++)
+    {
+      sd->window_menu_info.items[i].entry = w = XtVaCreateManagedWidget
+        ("blah",
+         xmPushButtonGadgetClass,	sd->window_menu_info.menu,
+         XmNuserData,		sd,
+         NULL);
+      XtAddCallback (w, XmNactivateCallback, windowmenu_cb, (XtPointer)i);
+      XtUnmanageChild (sd->window_menu_info.items[i].entry);
+    }
+    sd->window_menu_info.count = 0;
 
-      w = XmCreatePulldownMenu (menu, "HelpPulldown", NULL, 0);
-      tmp = XtVaCreateManagedWidget
-	("Help",
-	 xmCascadeButtonGadgetClass,	menu,
-	 XmNmnemonic,			'H',
-	 XmNsubMenuId,			w,
-	 NULL);
-      XtVaSetValues
-	(menu,
-	 XmNmenuHelpWidget,		tmp,
-	 NULL);
+    w = XmCreatePulldownMenu (menu, "HelpPulldown", NULL, 0);
+    tmp = XtVaCreateManagedWidget
+      ("Help",
+       xmCascadeButtonGadgetClass,	menu,
+       XmNmnemonic,			'H',
+       XmNsubMenuId,			w,
+       NULL);
+    XtVaSetValues
+      (menu,
+       XmNmenuHelpWidget,		tmp,
+       NULL);
       
-      XtManageChild (menu);
+    XtManageChild (menu);
 	 
 
-      /* create the curve area form and controls */
-      frame = XtVaCreateManagedWidget
-	("frame",
-	 xmFrameWidgetClass,		base_form,
-	 XmNshadowType,			XmSHADOW_ETCHED_IN,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			menu,
-	 XmNtopOffset,			DEF_WOFFSET,
-	 XmNrightAttachment,		XmATTACH_FORM,
-	 XmNrightOffset,		DEF_WOFFSET,
-	 XmNresizePolicy,		XmRESIZE_NONE,
-	 NULL);
-      XtVaCreateManagedWidget
-	("Curves",
-	 xmLabelWidgetClass,		frame,
-	 XmNchildType,			XmFRAME_TITLE_CHILD,
-	 XmNresizePolicy,		XmRESIZE_NONE,
-	 NULL);
+    /* create the curve area form and controls */
+    frame = XtVaCreateManagedWidget
+      ("frame",
+       xmFrameWidgetClass,		base_form,
+       XmNshadowType,			XmSHADOW_ETCHED_IN,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			menu,
+       XmNtopOffset,			DEF_WOFFSET,
+       XmNrightAttachment,		XmATTACH_FORM,
+       XmNrightOffset,		DEF_WOFFSET,
+       XmNresizePolicy,		XmRESIZE_NONE,
+       NULL);
+    XtVaCreateManagedWidget
+      ("Curves",
+       xmLabelWidgetClass,		frame,
+       XmNchildType,			XmFRAME_TITLE_CHILD,
+       XmNresizePolicy,		XmRESIZE_NONE,
+       NULL);
 
-      sd->curve_form = form = XtVaCreateManagedWidget
-	("form",
-	 xmFormWidgetClass,		frame,
-	 XmNchildType,			XmFRAME_WORKAREA_CHILD,
-	 XmNfractionBase,		(STRIP_MAX_CURVES + 1) * 10,
-	 NULL);
-      curve_column_lbl[i = SDCURVE_NAME] = XtVaCreateManagedWidget
-	("A Long Curve Name",
-	 xmLabelWidgetClass,		form,
-	 XmNrecomputeSize,		False,
-	 XmNtopAttachment,		XmATTACH_FORM,
-	 XmNtopOffset,			DEF_WOFFSET,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNleftOffset,			DEF_WOFFSET,
-	 NULL);
+    sd->curve_form = form = XtVaCreateManagedWidget
+      ("form",
+       xmFormWidgetClass,		frame,
+       XmNchildType,			XmFRAME_WORKAREA_CHILD,
+       XmNfractionBase,		(STRIP_MAX_CURVES + 1) * 10,
+       NULL);
+    curve_column_lbl[i = SDCURVE_NAME] = XtVaCreateManagedWidget
+      ("A Long Curve Name",
+       xmLabelWidgetClass,		form,
+       XmNrecomputeSize,		False,
+       XmNtopAttachment,		XmATTACH_FORM,
+       XmNtopOffset,			DEF_WOFFSET,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNleftOffset,			DEF_WOFFSET,
+       NULL);
 #ifdef STRIPDIALOG_SHOW_STATUS
-      curve_column_lbl[++i] = XtVaCreateManagedWidget
-	("Unconn",
-	 xmLabelWidgetClass,		form,
-	 XmNalignment,			XmALIGNMENT_CENTER,
-	 XmNtopAttachment,		XmATTACH_POSITION,
-	 XmNtopPosition,		1,
-	 XmNleftAttachment,		XmATTACH_WIDGET,
-	 XmNleftWidget,			curve_column_lbl[SDCURVE_NAME],
-	 XmNleftOffset,			DEF_WOFFSET,
-	 NULL);
+    curve_column_lbl[++i] = XtVaCreateManagedWidget
+      ("Unconn",
+       xmLabelWidgetClass,		form,
+       XmNalignment,			XmALIGNMENT_CENTER,
+       XmNtopAttachment,		XmATTACH_POSITION,
+       XmNtopPosition,		1,
+       XmNleftAttachment,		XmATTACH_WIDGET,
+       XmNleftWidget,			curve_column_lbl[SDCURVE_NAME],
+       XmNleftOffset,			DEF_WOFFSET,
+       NULL);
 #endif
-      for (i = i+1, row_height = 0; 
-	   i < SDCURVE_LAST_ATTRIBUTE; 
-	   i++)
-	{
-	  curve_column_lbl[i] = XtVaCreateManagedWidget
-	    (SDCurveAttributeStr[i],
-	     xmLabelWidgetClass,	form,
-	     XmNtopAttachment,		XmATTACH_POSITION,
-	     XmNtopPosition,		1,
-	     XmNleftAttachment,		XmATTACH_WIDGET,
-	     XmNleftWidget,		curve_column_lbl[i-1],
-	     XmNleftOffset,		DEF_WOFFSET,
-	     NULL);
-	  XtVaGetValues (curve_column_lbl[i], XmNheight, &dim1, NULL);
-	  row_height = max (row_height, dim1);
-	}
+    for (i = i+1, row_height = 0; 
+         i < SDCURVE_LAST_ATTRIBUTE; 
+         i++)
+    {
+      curve_column_lbl[i] = XtVaCreateManagedWidget
+        (SDCurveAttributeStr[i],
+         xmLabelWidgetClass,	form,
+         XmNtopAttachment,		XmATTACH_POSITION,
+         XmNtopPosition,		1,
+         XmNleftAttachment,		XmATTACH_WIDGET,
+         XmNleftWidget,		curve_column_lbl[i-1],
+         XmNleftOffset,		DEF_WOFFSET,
+         NULL);
+      XtVaGetValues (curve_column_lbl[i], XmNheight, &dim1, NULL);
+      row_height = max (row_height, dim1);
+    }
 #ifdef STRIPDIALOG_SHOW_STATUS
-	XtVaSetValues
-	  (curve_column_lbl[SDCURVE_STATUS],
-	   XmNalignment,		XmALIGNMENT_END,
-	   XmNrecomputeSize,		False,
-	   NULL);
+    XtVaSetValues
+      (curve_column_lbl[SDCURVE_STATUS],
+       XmNalignment,		XmALIGNMENT_END,
+       XmNrecomputeSize,		False,
+       NULL);
 #endif
-      for (i = SDCURVE_PRECISION; i <= SDCURVE_MAX; i++)
-	XtVaSetValues
-	  (curve_column_lbl[i],
-	   XmNalignment,		XmALIGNMENT_END,
-	   XmNrecomputeSize,		False,
-	   NULL);
+    for (i = SDCURVE_PRECISION; i <= SDCURVE_MAX; i++)
+      XtVaSetValues
+        (curve_column_lbl[i],
+         XmNalignment,		XmALIGNMENT_END,
+         XmNrecomputeSize,		False,
+         NULL);
 
-      leftmost_col = curve_column_lbl[0];
-      rightmost_col = curve_column_lbl[SDCURVE_LAST_ATTRIBUTE-1];
+    leftmost_col = curve_column_lbl[0];
+    rightmost_col = curve_column_lbl[SDCURVE_LAST_ATTRIBUTE-1];
 
-      for (j = 0; j < STRIP_MAX_CURVES; j++)
-	{
-	  sep = sd->curve_info[j].top_sep = XtVaCreateManagedWidget
-	    ("separator",
-	     xmSeparatorWidgetClass,	form,
-	     XmNshadowType,		XmSHADOW_ETCHED_IN,
-	     XmNmappedWhenManaged,	False,
-	     XmNtopAttachment,		XmATTACH_POSITION,
-	     XmNtopPosition,		((j+1)*10) + 1,
-	     XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	     XmNleftWidget,		leftmost_col,
-	     XmNleftOffset,		DEF_WOFFSET,
-	     XmNrightAttachment,	XmATTACH_OPPOSITE_WIDGET,
-	     XmNrightWidget,		rightmost_col,
-	     NULL);
+    for (j = 0; j < STRIP_MAX_CURVES; j++)
+    {
+      sep = sd->curve_info[j].top_sep = XtVaCreateManagedWidget
+        ("separator",
+         xmSeparatorWidgetClass,	form,
+         XmNshadowType,		XmSHADOW_ETCHED_IN,
+         XmNmappedWhenManaged,	False,
+         XmNtopAttachment,		XmATTACH_POSITION,
+         XmNtopPosition,		((j+1)*10) + 1,
+         XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+         XmNleftWidget,		leftmost_col,
+         XmNleftOffset,		DEF_WOFFSET,
+         XmNrightAttachment,	XmATTACH_OPPOSITE_WIDGET,
+         XmNrightWidget,		rightmost_col,
+         NULL);
 	     
-	  sd->curve_info[j].widgets[SDCURVE_NAME] = XtVaCreateManagedWidget
-	    ("label",
-	     xmLabelWidgetClass,	form,
-	     XmNalignment,		XmALIGNMENT_BEGINNING,
-	     XmNmappedWhenManaged,	False,
-	     XmNrecomputeSize,		False,
-	     XmNtopAttachment,		XmATTACH_WIDGET,
-	     XmNtopWidget,		sep,
-	     XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	     XmNleftWidget,		curve_column_lbl[SDCURVE_NAME],
-	     XmNleftOffset,		DEF_WOFFSET,
-	     NULL);
+      sd->curve_info[j].widgets[SDCURVE_NAME] = XtVaCreateManagedWidget
+        ("label",
+         xmLabelWidgetClass,	form,
+         XmNalignment,		XmALIGNMENT_BEGINNING,
+         XmNmappedWhenManaged,	False,
+         XmNrecomputeSize,		False,
+         XmNtopAttachment,		XmATTACH_WIDGET,
+         XmNtopWidget,		sep,
+         XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+         XmNleftWidget,		curve_column_lbl[SDCURVE_NAME],
+         XmNleftOffset,		DEF_WOFFSET,
+         NULL);
 #ifdef STRIPDIALOG_SHOW_STATUS
-	  sd->curve_info[j].widgets[SDCURVE_STATUS] = XtVaCreateManagedWidget
-	    ("label",
-	     xmLabelWidgetClass,	form,
-	     XmNalignment,		XmALIGNMENT_CENTER,
-	     XmNmappedWhenManaged,	False,
-	     XmNrecomputeSize,		False,
-	     XmNtopAttachment,		XmATTACH_WIDGET,
-	     XmNtopWidget,		sep,
-	     XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	     XmNleftWidget,		curve_column_lbl[SDCURVE_STATUS],
-	     XmNleftOffset,		DEF_WOFFSET,
-	     NULL);
+      sd->curve_info[j].widgets[SDCURVE_STATUS] = XtVaCreateManagedWidget
+        ("label",
+         xmLabelWidgetClass,	form,
+         XmNalignment,		XmALIGNMENT_CENTER,
+         XmNmappedWhenManaged,	False,
+         XmNrecomputeSize,		False,
+         XmNtopAttachment,		XmATTACH_WIDGET,
+         XmNtopWidget,		sep,
+         XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+         XmNleftWidget,		curve_column_lbl[SDCURVE_STATUS],
+         XmNleftOffset,		DEF_WOFFSET,
+         NULL);
 #endif
-	  sd->curve_info[j].widgets[SDCURVE_COLOR] = XtVaCreateManagedWidget
-	    (COLOR_BTN_STR,
-	     xmPushButtonWidgetClass,	form,
-	     XmNmappedWhenManaged,	False,
-	     XmNtopAttachment,		XmATTACH_WIDGET,
-	     XmNtopWidget,		sep,
-	     XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	     XmNleftWidget,		curve_column_lbl[SDCURVE_COLOR],
-	     XmNleftOffset,		DEF_WOFFSET,
-	     XmNuserData,		sd,
-	     NULL);
-	  XtAddCallback
-	    (sd->curve_info[j].widgets[SDCURVE_COLOR],
-	     XmNactivateCallback, color_btn_cb, (XtPointer)j);
-	  sd->curve_info[j].widgets[SDCURVE_PENSTAT] = XtVaCreateManagedWidget
-	    ("togglebutton",
-	     xmToggleButtonWidgetClass,	form,
-	     XmNlabelString,		penstat_tgl_str[0],
-	     XmNset,			True,
-	     XmNmappedWhenManaged,	False,
-	     XmNtopAttachment,		XmATTACH_WIDGET,
-	     XmNtopWidget,		sep,
-	     XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	     XmNleftWidget,		curve_column_lbl[SDCURVE_PENSTAT],
-	     XmNleftOffset,		DEF_WOFFSET,
-	     XmNuserData,		sd,
-	     NULL);
-	  XtAddCallback
-	    (sd->curve_info[j].widgets[SDCURVE_PENSTAT],
-	     XmNvalueChangedCallback, penstat_tgl_cb, (XtPointer)j);
-	  sd->curve_info[j].widgets[SDCURVE_PLOTSTAT] = XtVaCreateManagedWidget
-	    ("togglebutton",
-	     xmToggleButtonWidgetClass,	form,
-	     XmNlabelString,		plotstat_tgl_str[0],
-	     XmNset,			True,
-	     XmNmappedWhenManaged,	False,
-	     XmNtopAttachment,		XmATTACH_WIDGET,
-	     XmNtopWidget,		sep,
-	     XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	     XmNleftWidget,		curve_column_lbl[SDCURVE_PLOTSTAT],
-	     XmNleftOffset,		DEF_WOFFSET,
-	     XmNuserData,		sd,
-	     NULL);
-	  XtAddCallback
-	    (sd->curve_info[j].widgets[SDCURVE_PLOTSTAT],
-	     XmNvalueChangedCallback, plotstat_tgl_cb, (XtPointer)j);
-	  sd->curve_info[j].precision_lbl = XtVaCreateManagedWidget
-	    ("label",
-	     xmLabelWidgetClass,	form,
-	     XmNalignment,		XmALIGNMENT_END,
-	     XmNrecomputeSize,		False,
-	     XmNmappedWhenManaged,	False,
-	     XmNtopAttachment,		XmATTACH_WIDGET,
-	     XmNtopWidget,		sep,
-	     XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	     XmNleftWidget,		curve_column_lbl[SDCURVE_PRECISION],
-	     XmNleftOffset,		DEF_WOFFSET,
-	     NULL);
-	  sd->curve_info[j].widgets[SDCURVE_PRECISION] =
-	    sd->curve_info[j].precision_txt = XtVaCreateManagedWidget
-	    ("text",
-	     xmTextWidgetClass,		form,
-	     XmNcolumns,		2,
-	     XmNmappedWhenManaged,	False,
-	     XmNtopAttachment,		XmATTACH_WIDGET,
-	     XmNtopWidget,		sep,
-	     XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	     XmNleftWidget,		curve_column_lbl[SDCURVE_PRECISION],
-	     XmNleftOffset,		DEF_WOFFSET,
-	     NULL);
-	  XtAddCallback
-	    (sd->curve_info[j].precision_txt, XmNfocusCallback,
-	     text_focus_cb, (XtPointer)0);
-	  sd->curve_info[j].min_lbl = XtVaCreateManagedWidget
-	    ("label",
-	     xmLabelWidgetClass,	form,
-	     XmNalignment,		XmALIGNMENT_END,
-	     XmNrecomputeSize,		False,
-	     XmNmappedWhenManaged,	False,
-	     XmNtopAttachment,		XmATTACH_WIDGET,
-	     XmNtopWidget,		sep,
-	     XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	     XmNleftWidget,		curve_column_lbl[SDCURVE_MIN],
-	     XmNleftOffset,		DEF_WOFFSET,
-	     NULL);
-	  sd->curve_info[j].widgets[SDCURVE_MIN] =
-	    sd->curve_info[j].min_txt = XtVaCreateManagedWidget
-	    ("text",
-	     xmTextWidgetClass,	form,
-	     XmNcolumns,		MAX_REALNUM_COLUMN_LEN,
-	     XmNmappedWhenManaged,	False,
-	     XmNtopAttachment,		XmATTACH_WIDGET,
-	     XmNtopWidget,		sep,
-	     XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	     XmNleftWidget,		curve_column_lbl[SDCURVE_MIN],
-	     XmNleftOffset,			DEF_WOFFSET,
-	     NULL);
-	  XtAddCallback
-	    (sd->curve_info[j].min_txt, XmNfocusCallback,
-	     text_focus_cb, (XtPointer)0);
-	  sd->curve_info[j].max_lbl = XtVaCreateManagedWidget
-	    ("label",
-	     xmLabelWidgetClass,	form,
-	     XmNalignment,		XmALIGNMENT_END,
-	     XmNrecomputeSize,		False,
-	     XmNmappedWhenManaged,	False,
-	     XmNtopAttachment,		XmATTACH_WIDGET,
-	     XmNtopWidget,		sep,
-	     XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	     XmNleftWidget,		curve_column_lbl[SDCURVE_MAX],
-	     XmNleftOffset,		DEF_WOFFSET,
-	     NULL);
-	  sd->curve_info[j].widgets[SDCURVE_MAX] = 
-	    sd->curve_info[j].max_txt = XtVaCreateManagedWidget
-	    ("text",
-	     xmTextWidgetClass,		form,
-	     XmNcolumns,		MAX_REALNUM_COLUMN_LEN,
-	     XmNmappedWhenManaged,	False,
-	     XmNtopAttachment,		XmATTACH_WIDGET,
-	     XmNtopWidget,		sep,
-	     XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	     XmNleftWidget,		curve_column_lbl[SDCURVE_MAX],
-	     XmNleftOffset,		DEF_WOFFSET,
-	     NULL);
-	  XtAddCallback
-	    (sd->curve_info[j].max_txt, XmNfocusCallback,
-	     text_focus_cb, (XtPointer)0);
-	  sd->curve_info[j].widgets[SDCURVE_MODIFY] = XtVaCreateManagedWidget
-	    ("pushbutton",
-	     xmPushButtonWidgetClass,	form,
-	     XmNlabelString,		modify_btn_str[0],
-	     XmNmappedWhenManaged,	False,
-	     XmNtopAttachment,		XmATTACH_WIDGET,
-	     XmNtopWidget,		sep,
-	     XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	     XmNleftWidget,		curve_column_lbl[SDCURVE_MODIFY],
-	     XmNleftOffset,		DEF_WOFFSET,
-	     XmNuserData,		sd,
-	     NULL);
-	  XtAddCallback
-	    (sd->curve_info[j].widgets[SDCURVE_MODIFY],
-	     XmNactivateCallback, modify_btn_cb, (XtPointer)j);
-	  sd->curve_info[j].modifying = 0;
+      sd->curve_info[j].widgets[SDCURVE_COLOR] = XtVaCreateManagedWidget
+        (COLOR_BTN_STR,
+         xmPushButtonWidgetClass,	form,
+         XmNmappedWhenManaged,	False,
+         XmNtopAttachment,		XmATTACH_WIDGET,
+         XmNtopWidget,		sep,
+         XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+         XmNleftWidget,		curve_column_lbl[SDCURVE_COLOR],
+         XmNleftOffset,		DEF_WOFFSET,
+         XmNuserData,		sd,
+         NULL);
+      XtAddCallback
+        (sd->curve_info[j].widgets[SDCURVE_COLOR],
+         XmNactivateCallback, color_btn_cb, (XtPointer)j);
+      sd->curve_info[j].widgets[SDCURVE_PENSTAT] = XtVaCreateManagedWidget
+        ("togglebutton",
+         xmToggleButtonWidgetClass,	form,
+         XmNlabelString,		penstat_tgl_str[0],
+         XmNset,			True,
+         XmNmappedWhenManaged,	False,
+         XmNtopAttachment,		XmATTACH_WIDGET,
+         XmNtopWidget,		sep,
+         XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+         XmNleftWidget,		curve_column_lbl[SDCURVE_PENSTAT],
+         XmNleftOffset,		DEF_WOFFSET,
+         XmNuserData,		sd,
+         NULL);
+      XtAddCallback
+        (sd->curve_info[j].widgets[SDCURVE_PENSTAT],
+         XmNvalueChangedCallback, penstat_tgl_cb, (XtPointer)j);
+      sd->curve_info[j].widgets[SDCURVE_PLOTSTAT] = XtVaCreateManagedWidget
+        ("togglebutton",
+         xmToggleButtonWidgetClass,	form,
+         XmNlabelString,		plotstat_tgl_str[0],
+         XmNset,			True,
+         XmNmappedWhenManaged,	False,
+         XmNtopAttachment,		XmATTACH_WIDGET,
+         XmNtopWidget,		sep,
+         XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+         XmNleftWidget,		curve_column_lbl[SDCURVE_PLOTSTAT],
+         XmNleftOffset,		DEF_WOFFSET,
+         XmNuserData,		sd,
+         NULL);
+      XtAddCallback
+        (sd->curve_info[j].widgets[SDCURVE_PLOTSTAT],
+         XmNvalueChangedCallback, plotstat_tgl_cb, (XtPointer)j);
+      sd->curve_info[j].precision_lbl = XtVaCreateManagedWidget
+        ("label",
+         xmLabelWidgetClass,	form,
+         XmNalignment,		XmALIGNMENT_END,
+         XmNrecomputeSize,		False,
+         XmNmappedWhenManaged,	False,
+         XmNtopAttachment,		XmATTACH_WIDGET,
+         XmNtopWidget,		sep,
+         XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+         XmNleftWidget,		curve_column_lbl[SDCURVE_PRECISION],
+         XmNleftOffset,		DEF_WOFFSET,
+         NULL);
+      sd->curve_info[j].widgets[SDCURVE_PRECISION] =
+        sd->curve_info[j].precision_txt = XtVaCreateManagedWidget
+        ("text",
+         xmTextWidgetClass,		form,
+         XmNcolumns,		2,
+         XmNmappedWhenManaged,	False,
+         XmNtopAttachment,		XmATTACH_WIDGET,
+         XmNtopWidget,		sep,
+         XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+         XmNleftWidget,		curve_column_lbl[SDCURVE_PRECISION],
+         XmNleftOffset,		DEF_WOFFSET,
+         NULL);
+      XtAddCallback
+        (sd->curve_info[j].precision_txt, XmNfocusCallback,
+         text_focus_cb, (XtPointer)0);
+      sd->curve_info[j].min_lbl = XtVaCreateManagedWidget
+        ("label",
+         xmLabelWidgetClass,	form,
+         XmNalignment,		XmALIGNMENT_END,
+         XmNrecomputeSize,		False,
+         XmNmappedWhenManaged,	False,
+         XmNtopAttachment,		XmATTACH_WIDGET,
+         XmNtopWidget,		sep,
+         XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+         XmNleftWidget,		curve_column_lbl[SDCURVE_MIN],
+         XmNleftOffset,		DEF_WOFFSET,
+         NULL);
+      sd->curve_info[j].widgets[SDCURVE_MIN] =
+        sd->curve_info[j].min_txt = XtVaCreateManagedWidget
+        ("text",
+         xmTextWidgetClass,	form,
+         XmNcolumns,		MAX_REALNUM_COLUMN_LEN,
+         XmNmappedWhenManaged,	False,
+         XmNtopAttachment,		XmATTACH_WIDGET,
+         XmNtopWidget,		sep,
+         XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+         XmNleftWidget,		curve_column_lbl[SDCURVE_MIN],
+         XmNleftOffset,			DEF_WOFFSET,
+         NULL);
+      XtAddCallback
+        (sd->curve_info[j].min_txt, XmNfocusCallback,
+         text_focus_cb, (XtPointer)0);
+      sd->curve_info[j].max_lbl = XtVaCreateManagedWidget
+        ("label",
+         xmLabelWidgetClass,	form,
+         XmNalignment,		XmALIGNMENT_END,
+         XmNrecomputeSize,		False,
+         XmNmappedWhenManaged,	False,
+         XmNtopAttachment,		XmATTACH_WIDGET,
+         XmNtopWidget,		sep,
+         XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+         XmNleftWidget,		curve_column_lbl[SDCURVE_MAX],
+         XmNleftOffset,		DEF_WOFFSET,
+         NULL);
+      sd->curve_info[j].widgets[SDCURVE_MAX] = 
+        sd->curve_info[j].max_txt = XtVaCreateManagedWidget
+        ("text",
+         xmTextWidgetClass,		form,
+         XmNcolumns,		MAX_REALNUM_COLUMN_LEN,
+         XmNmappedWhenManaged,	False,
+         XmNtopAttachment,		XmATTACH_WIDGET,
+         XmNtopWidget,		sep,
+         XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+         XmNleftWidget,		curve_column_lbl[SDCURVE_MAX],
+         XmNleftOffset,		DEF_WOFFSET,
+         NULL);
+      XtAddCallback
+        (sd->curve_info[j].max_txt, XmNfocusCallback,
+         text_focus_cb, (XtPointer)0);
+      sd->curve_info[j].widgets[SDCURVE_MODIFY] = XtVaCreateManagedWidget
+        ("pushbutton",
+         xmPushButtonWidgetClass,	form,
+         XmNlabelString,		modify_btn_str[0],
+         XmNmappedWhenManaged,	False,
+         XmNtopAttachment,		XmATTACH_WIDGET,
+         XmNtopWidget,		sep,
+         XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+         XmNleftWidget,		curve_column_lbl[SDCURVE_MODIFY],
+         XmNleftOffset,		DEF_WOFFSET,
+         XmNuserData,		sd,
+         NULL);
+      XtAddCallback
+        (sd->curve_info[j].widgets[SDCURVE_MODIFY],
+         XmNactivateCallback, modify_btn_cb, (XtPointer)j);
+      sd->curve_info[j].modifying = 0;
 	  
-	  sd->curve_info[j].widgets[SDCURVE_REMOVE] = XtVaCreateManagedWidget
-	    ("Remove",
-	     xmPushButtonWidgetClass,	form,
-	     XmNmappedWhenManaged,	False,
-	     XmNtopAttachment,		XmATTACH_WIDGET,
-	     XmNtopWidget,		sep,
-	     XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	     XmNleftWidget,		curve_column_lbl[SDCURVE_REMOVE],
-	     XmNleftOffset,		DEF_WOFFSET,
-	     XmNuserData,		sd,
-	     NULL);
-	  XtAddCallback
-	    (sd->curve_info[j].widgets[SDCURVE_REMOVE],
-	     XmNactivateCallback, remove_btn_cb, (XtPointer)j);
-	}
+      sd->curve_info[j].widgets[SDCURVE_REMOVE] = XtVaCreateManagedWidget
+        ("Remove",
+         xmPushButtonWidgetClass,	form,
+         XmNmappedWhenManaged,	False,
+         XmNtopAttachment,		XmATTACH_WIDGET,
+         XmNtopWidget,		sep,
+         XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+         XmNleftWidget,		curve_column_lbl[SDCURVE_REMOVE],
+         XmNleftOffset,		DEF_WOFFSET,
+         XmNuserData,		sd,
+         NULL);
+      XtAddCallback
+        (sd->curve_info[j].widgets[SDCURVE_REMOVE],
+         XmNactivateCallback, remove_btn_cb, (XtPointer)j);
+    }
       
-      /* set the column widths approriately */
-      for (i = 0; i < SDCURVE_LAST_ATTRIBUTE; i++)
-	{
-	  XtVaGetValues (sd->curve_info[0].widgets[i], XmNwidth, &dim1, NULL);
-	  XtVaGetValues (curve_column_lbl[i], XmNwidth, &dim2, NULL);
-	  widths[i] = max (dim1, dim2);
-	  XtVaSetValues (curve_column_lbl[i], XmNwidth, widths[i], NULL);
-	}
-      xstr = XmStringCreateLocalized (SDCurveAttributeStr[SDCURVE_NAME]);
-      XtVaSetValues
-	(curve_column_lbl[SDCURVE_NAME],
-	 XmNlabelString,		xstr,
-	 NULL);
-      XmStringFree (xstr);
+    /* set the column widths approriately */
+    for (i = 0; i < SDCURVE_LAST_ATTRIBUTE; i++)
+    {
+      XtVaGetValues (sd->curve_info[0].widgets[i], XmNwidth, &dim1, NULL);
+      XtVaGetValues (curve_column_lbl[i], XmNwidth, &dim2, NULL);
+      widths[i] = max (dim1, dim2);
+      XtVaSetValues (curve_column_lbl[i], XmNwidth, widths[i], NULL);
+    }
+    xstr = XmStringCreateLocalized (SDCurveAttributeStr[SDCURVE_NAME]);
+    XtVaSetValues
+      (curve_column_lbl[SDCURVE_NAME],
+       XmNlabelString,		xstr,
+       NULL);
+    XmStringFree (xstr);
 #ifdef STRIPDIALOG_SHOW_STATUS
-      xstr = XmStringCreateLocalized (SDCurveAttributeStr[SDCURVE_STATUS]);
-      XtVaSetValues
-	(curve_column_lbl[SDCURVE_STATUS],
-	 XmNlabelString,		xstr,
-	 NULL);
-      XmStringFree (xstr);
+    xstr = XmStringCreateLocalized (SDCurveAttributeStr[SDCURVE_STATUS]);
+    XtVaSetValues
+      (curve_column_lbl[SDCURVE_STATUS],
+       XmNlabelString,		xstr,
+       NULL);
+    XmStringFree (xstr);
 #endif
-      for (i = 0; i < STRIP_MAX_CURVES; i++)
-	for (j = 0; j < SDCURVE_LAST_ATTRIBUTE; j++)
-	  XtVaSetValues
-	    (sd->curve_info[i].widgets[j], XmNwidth, widths[j], NULL);
+    for (i = 0; i < STRIP_MAX_CURVES; i++)
+      for (j = 0; j < SDCURVE_LAST_ATTRIBUTE; j++)
+        XtVaSetValues
+          (sd->curve_info[i].widgets[j], XmNwidth, widths[j], NULL);
       
-      /* Point the Precision, Min and Max widgets to the label widgets, not
-       * the text widgets.  Also set the width. */
-      for (i = 0; i < STRIP_MAX_CURVES; i++)
-	{
-	  sd->curve_info[i].widgets[SDCURVE_PRECISION] =
-	    sd->curve_info[i].precision_lbl;
-	  sd->curve_info[i].widgets[SDCURVE_MIN] =
-	    sd->curve_info[i].min_lbl;
-	  sd->curve_info[i].widgets[SDCURVE_MAX] =
-	    sd->curve_info[i].max_lbl;
-	  XtVaSetValues
-	    (sd->curve_info[i].widgets[SDCURVE_PRECISION],
-	     XmNwidth, widths[SDCURVE_PRECISION],
-	     NULL);
-	  XtVaSetValues
-	    (sd->curve_info[i].widgets[SDCURVE_MIN],
-	     XmNwidth, widths[SDCURVE_MIN],
-	     NULL);
-	  XtVaSetValues
-	    (sd->curve_info[i].widgets[SDCURVE_MAX],
-	     XmNwidth, widths[SDCURVE_MAX],
-	     NULL);
-	}
+    /* Point the Precision, Min and Max widgets to the label widgets, not
+     * the text widgets.  Also set the width. */
+    for (i = 0; i < STRIP_MAX_CURVES; i++)
+    {
+      sd->curve_info[i].widgets[SDCURVE_PRECISION] =
+        sd->curve_info[i].precision_lbl;
+      sd->curve_info[i].widgets[SDCURVE_MIN] =
+        sd->curve_info[i].min_lbl;
+      sd->curve_info[i].widgets[SDCURVE_MAX] =
+        sd->curve_info[i].max_lbl;
+      XtVaSetValues
+        (sd->curve_info[i].widgets[SDCURVE_PRECISION],
+         XmNwidth, widths[SDCURVE_PRECISION],
+         NULL);
+      XtVaSetValues
+        (sd->curve_info[i].widgets[SDCURVE_MIN],
+         XmNwidth, widths[SDCURVE_MIN],
+         NULL);
+      XtVaSetValues
+        (sd->curve_info[i].widgets[SDCURVE_MAX],
+         XmNwidth, widths[SDCURVE_MAX],
+         NULL);
+    }
 
       
 	 
-      /* the data control form */
-      sd->data_form = XtVaCreateManagedWidget
-	("form",
-	 xmFormWidgetClass,		base_form,
-	 XmNnoResize,			True,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			menu,
-	 XmNtopOffset,			DEF_WOFFSET,
-	 XmNrightAttachment,		XmATTACH_WIDGET,
-	 XmNrightWidget,		sd->curve_form,
-	 XmNrightOffset,		DEF_WOFFSET,
-	 NULL);
-      /* create the signal connect area and controls */
-      frame = XtVaCreateManagedWidget
-	("frame",
-	 xmFrameWidgetClass,		sd->data_form,
-	 XmNshadowType,			XmSHADOW_ETCHED_IN,
-	 XmNtopAttachment,		XmATTACH_FORM,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNrightAttachment,		XmATTACH_FORM,
-	 NULL);
-      XtVaCreateManagedWidget
-	("Signal Connect",
-	 xmLabelWidgetClass,		frame,
-	 XmNchildType,			XmFRAME_TITLE_CHILD,
-	 XmNresizePolicy,		XmRESIZE_NONE,
-	 NULL);
-      form = XtVaCreateManagedWidget
-	("form",
-	 xmFormWidgetClass,		frame,
-	 XmNchildType,			XmFRAME_WORKAREA_CHILD,
-	 XmNfractionBase,		2,
-	 NULL);
-      sd->connect_txt = w = XtVaCreateManagedWidget
-	("text",
-	 xmTextWidgetClass,		form,
-	 XmNcolumns,			16,
-	 XmNtopAttachment,		XmATTACH_FORM,
-	 XmNleftAttachment,		XmATTACH_POSITION,
-	 XmNleftPosition,		1,
-	 XmNrightAttachment,		XmATTACH_POSITION,
-	 XmNrightPosition,		2,
-	 NULL);
-      XtAddCallback (sd->connect_txt, XmNactivateCallback, connect_btn_cb, sd);
-      XtAddCallback
-	(sd->connect_txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
-      XtVaCreateManagedWidget
-	("Plot New Signal: ",
-	 xmLabelWidgetClass,		form,
-	 XmNalignment,			XmALIGNMENT_BEGINNING,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			w,
-	 XmNleftAttachment,		XmATTACH_POSITION,
-	 XmNleftPosition,		0,
-	 XmNrightAttachment,		XmATTACH_POSITION,
-	 XmNrightPosition,		1,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		w,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 NULL);
-      btn = XtVaCreateManagedWidget
-	("Connect",
-	 xmPushButtonWidgetClass,	form,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			w,
-	 XmNrightAttachment,		XmATTACH_FORM,
-	 XmNbottomAttachment,		XmATTACH_FORM,
-	 NULL);
-      XtAddCallback (btn, XmNactivateCallback, connect_btn_cb, sd);
-      w = frame;
+    /* the data control form */
+    sd->data_form = XtVaCreateManagedWidget
+      ("form",
+       xmFormWidgetClass,		base_form,
+       XmNnoResize,			True,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			menu,
+       XmNtopOffset,			DEF_WOFFSET,
+       XmNrightAttachment,		XmATTACH_WIDGET,
+       XmNrightWidget,		sd->curve_form,
+       XmNrightOffset,		DEF_WOFFSET,
+       NULL);
+    /* create the signal connect area and controls */
+    frame = XtVaCreateManagedWidget
+      ("frame",
+       xmFrameWidgetClass,		sd->data_form,
+       XmNshadowType,			XmSHADOW_ETCHED_IN,
+       XmNtopAttachment,		XmATTACH_FORM,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNrightAttachment,		XmATTACH_FORM,
+       NULL);
+    XtVaCreateManagedWidget
+      ("Signal Connect",
+       xmLabelWidgetClass,		frame,
+       XmNchildType,			XmFRAME_TITLE_CHILD,
+       XmNresizePolicy,		XmRESIZE_NONE,
+       NULL);
+    form = XtVaCreateManagedWidget
+      ("form",
+       xmFormWidgetClass,		frame,
+       XmNchildType,			XmFRAME_WORKAREA_CHILD,
+       XmNfractionBase,		2,
+       NULL);
+    sd->connect_txt = w = XtVaCreateManagedWidget
+      ("text",
+       xmTextWidgetClass,		form,
+       XmNcolumns,			16,
+       XmNtopAttachment,		XmATTACH_FORM,
+       XmNleftAttachment,		XmATTACH_POSITION,
+       XmNleftPosition,		1,
+       XmNrightAttachment,		XmATTACH_POSITION,
+       XmNrightPosition,		2,
+       NULL);
+    XtAddCallback (sd->connect_txt, XmNactivateCallback, connect_btn_cb, sd);
+    XtAddCallback
+      (sd->connect_txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
+    XtVaCreateManagedWidget
+      ("Plot New Signal: ",
+       xmLabelWidgetClass,		form,
+       XmNalignment,			XmALIGNMENT_BEGINNING,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			w,
+       XmNleftAttachment,		XmATTACH_POSITION,
+       XmNleftPosition,		0,
+       XmNrightAttachment,		XmATTACH_POSITION,
+       XmNrightPosition,		1,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		w,
+       XmNleftAttachment,		XmATTACH_FORM,
+       NULL);
+    btn = XtVaCreateManagedWidget
+      ("Connect",
+       xmPushButtonWidgetClass,	form,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			w,
+       XmNrightAttachment,		XmATTACH_FORM,
+       XmNbottomAttachment,		XmATTACH_FORM,
+       NULL);
+    XtAddCallback (btn, XmNactivateCallback, connect_btn_cb, sd);
+    w = frame;
 
-      /* create the time control area */
-      frame = XtVaCreateManagedWidget
-	("frame",
-	 xmFrameWidgetClass,		sd->data_form,
-	 XmNshadowType,			XmSHADOW_ETCHED_IN,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			w,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNrightAttachment,		XmATTACH_FORM,
-	 NULL);
-      XtVaCreateManagedWidget
-	("Time Controls",
-	 xmLabelWidgetClass,		frame,
-	 XmNchildType,			XmFRAME_TITLE_CHILD,
-	 XmNresizePolicy,		XmRESIZE_NONE,
-	 NULL);
-      form = XtVaCreateManagedWidget
-	("form",
-	 xmFormWidgetClass,		frame,
-	 XmNchildType,			XmFRAME_WORKAREA_CHILD,
-	 XmNfractionBase,		2,
-	 NULL);
+    /* create the time control area */
+    frame = XtVaCreateManagedWidget
+      ("frame",
+       xmFrameWidgetClass,		sd->data_form,
+       XmNshadowType,			XmSHADOW_ETCHED_IN,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			w,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNrightAttachment,		XmATTACH_FORM,
+       NULL);
+    XtVaCreateManagedWidget
+      ("Time Controls",
+       xmLabelWidgetClass,		frame,
+       XmNchildType,			XmFRAME_TITLE_CHILD,
+       XmNresizePolicy,		XmRESIZE_NONE,
+       NULL);
+    form = XtVaCreateManagedWidget
+      ("form",
+       xmFormWidgetClass,		frame,
+       XmNchildType,			XmFRAME_WORKAREA_CHILD,
+       XmNfractionBase,		2,
+       NULL);
       
-      sd->time_info.ts_hour_txt = w = txt = XtVaCreateManagedWidget
-	("text",
-	 xmTextWidgetClass,		form,
-	 XmNcolumns,			2,
-	 XmNmappedWhenManaged,		False,
-	 XmNtopAttachment,		XmATTACH_FORM,
-	 XmNleftAttachment,		XmATTACH_POSITION,
-	 XmNleftPosition,		1,
-	 NULL);
-      XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
-      sd->time_info.ts_hour_lbl = XtVaCreateManagedWidget
-	("HH",
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			sd->time_info.ts_hour_txt,
-	 XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNleftWidget,			sd->time_info.ts_hour_txt,
-	 XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNrightWidget,		sd->time_info.ts_hour_txt,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		sd->time_info.ts_hour_txt,
-	 NULL);
-      sd->time_info.widgets[SDTMOPT_TSHOUR] = sd->time_info.ts_hour_lbl;
-      lbl = XtVaCreateManagedWidget
-	(":",
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			w,
-	 XmNleftAttachment,		XmATTACH_WIDGET,
-	 XmNleftWidget,			txt,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		w,
-	 NULL);
-      sd->time_info.ts_minute_txt = txt = XtVaCreateManagedWidget
-	("text",
-	 xmTextWidgetClass,		form,
-	 XmNcolumns,			2,
-	 XmNmappedWhenManaged,		False,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			w,
-	 XmNleftAttachment,		XmATTACH_WIDGET,
-	 XmNleftWidget,			lbl,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		w,
-	 NULL);
-      XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
-      sd->time_info.ts_minute_lbl = XtVaCreateManagedWidget
-	("MM",
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			sd->time_info.ts_minute_txt,
-	 XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNleftWidget,			sd->time_info.ts_minute_txt,
-	 XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNrightWidget,		sd->time_info.ts_minute_txt,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		sd->time_info.ts_minute_txt,
-	 NULL);
-      sd->time_info.widgets[SDTMOPT_TSMINUTE] = sd->time_info.ts_minute_lbl;
-      lbl = XtVaCreateManagedWidget
-	(":",
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			w,
-	 XmNleftAttachment,		XmATTACH_WIDGET,
-	 XmNleftWidget,			txt,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		w,
-	 NULL);
-      sd->time_info.ts_second_txt = txt = XtVaCreateManagedWidget
-	("text",
-	 xmTextWidgetClass,		form,
-	 XmNcolumns,			2,
-	 XmNmappedWhenManaged,		False,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			w,
-	 XmNleftAttachment,		XmATTACH_WIDGET,
-	 XmNleftWidget,			lbl,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		w,
-	 NULL);
-      XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
-      sd->time_info.ts_second_lbl = XtVaCreateManagedWidget
-	("SS",
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			sd->time_info.ts_second_txt,
-	 XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNleftWidget,			sd->time_info.ts_second_txt,
-	 XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNrightWidget,		sd->time_info.ts_second_txt,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		sd->time_info.ts_second_txt,
-	 NULL);
-      sd->time_info.widgets[SDTMOPT_TSSECOND] = sd->time_info.ts_second_lbl;
-      lbl = XtVaCreateManagedWidget
-	("Time Span: ",
-	 xmLabelWidgetClass,		form,
-	 xmLabelWidgetClass,		form,
-	 XmNalignment,			XmALIGNMENT_BEGINNING,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			w,
-	 XmNleftAttachment,		XmATTACH_POSITION,
-	 XmNleftPosition,		0,
-	 XmNrightAttachment,		XmATTACH_POSITION,
-	 XmNrightPosition,		1,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		w,
-	 NULL);
+    sd->time_info.ts_hour_txt = w = txt = XtVaCreateManagedWidget
+      ("text",
+       xmTextWidgetClass,		form,
+       XmNcolumns,			2,
+       XmNmappedWhenManaged,		False,
+       XmNtopAttachment,		XmATTACH_FORM,
+       XmNleftAttachment,		XmATTACH_POSITION,
+       XmNleftPosition,		1,
+       NULL);
+    XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
+    sd->time_info.ts_hour_lbl = XtVaCreateManagedWidget
+      ("HH",
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			sd->time_info.ts_hour_txt,
+       XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNleftWidget,			sd->time_info.ts_hour_txt,
+       XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNrightWidget,		sd->time_info.ts_hour_txt,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		sd->time_info.ts_hour_txt,
+       NULL);
+    sd->time_info.widgets[SDTMOPT_TSHOUR] = sd->time_info.ts_hour_lbl;
+    lbl = XtVaCreateManagedWidget
+      (":",
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			w,
+       XmNleftAttachment,		XmATTACH_WIDGET,
+       XmNleftWidget,			txt,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		w,
+       NULL);
+    sd->time_info.ts_minute_txt = txt = XtVaCreateManagedWidget
+      ("text",
+       xmTextWidgetClass,		form,
+       XmNcolumns,			2,
+       XmNmappedWhenManaged,		False,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			w,
+       XmNleftAttachment,		XmATTACH_WIDGET,
+       XmNleftWidget,			lbl,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		w,
+       NULL);
+    XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
+    sd->time_info.ts_minute_lbl = XtVaCreateManagedWidget
+      ("MM",
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			sd->time_info.ts_minute_txt,
+       XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNleftWidget,			sd->time_info.ts_minute_txt,
+       XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNrightWidget,		sd->time_info.ts_minute_txt,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		sd->time_info.ts_minute_txt,
+       NULL);
+    sd->time_info.widgets[SDTMOPT_TSMINUTE] = sd->time_info.ts_minute_lbl;
+    lbl = XtVaCreateManagedWidget
+      (":",
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			w,
+       XmNleftAttachment,		XmATTACH_WIDGET,
+       XmNleftWidget,			txt,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		w,
+       NULL);
+    sd->time_info.ts_second_txt = txt = XtVaCreateManagedWidget
+      ("text",
+       xmTextWidgetClass,		form,
+       XmNcolumns,			2,
+       XmNmappedWhenManaged,		False,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			w,
+       XmNleftAttachment,		XmATTACH_WIDGET,
+       XmNleftWidget,			lbl,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		w,
+       NULL);
+    XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
+    sd->time_info.ts_second_lbl = XtVaCreateManagedWidget
+      ("SS",
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			sd->time_info.ts_second_txt,
+       XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNleftWidget,			sd->time_info.ts_second_txt,
+       XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNrightWidget,		sd->time_info.ts_second_txt,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		sd->time_info.ts_second_txt,
+       NULL);
+    sd->time_info.widgets[SDTMOPT_TSSECOND] = sd->time_info.ts_second_lbl;
+    lbl = XtVaCreateManagedWidget
+      ("Time Span: ",
+       xmLabelWidgetClass,		form,
+       xmLabelWidgetClass,		form,
+       XmNalignment,			XmALIGNMENT_BEGINNING,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			w,
+       XmNleftAttachment,		XmATTACH_POSITION,
+       XmNleftPosition,		0,
+       XmNrightAttachment,		XmATTACH_POSITION,
+       XmNrightPosition,		1,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		w,
+       NULL);
       
-      sd->time_info.ds_txt = txt = XtVaCreateManagedWidget
-	("text",
-	 xmTextWidgetClass,		form,
-	 XmNcolumns,			4,
-	 XmNmappedWhenManaged,		False,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			w,
-	 XmNleftAttachment,		XmATTACH_POSITION,
-	 XmNleftPosition,		1,
-	 NULL);
-      XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
-      sd->time_info.ds_lbl = XtVaCreateManagedWidget
-	("????",
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			sd->time_info.ds_txt,
-	 XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNleftWidget,			sd->time_info.ds_txt,
-	 XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNrightWidget,		sd->time_info.ds_txt,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		sd->time_info.ds_txt,
-	 NULL);
-      sd->time_info.widgets[SDTMOPT_DS] = sd->time_info.ds_lbl;
-      w = txt;
-      XtVaCreateManagedWidget
-	("seconds",
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			w,
-	 XmNleftAttachment,		XmATTACH_WIDGET,
-	 XmNleftWidget,			txt,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		w,
-	 NULL);
-      lbl = XtVaCreateManagedWidget
-	("Data Sample Interval: ",
-	 xmLabelWidgetClass,		form,
-	 xmLabelWidgetClass,		form,
-	 XmNalignment,			XmALIGNMENT_BEGINNING,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			w,
-	 XmNleftAttachment,		XmATTACH_POSITION,
-	 XmNleftPosition,		0,
-	 XmNrightAttachment,		XmATTACH_POSITION,
-	 XmNrightPosition,		1,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		w,
-	 NULL);
+    sd->time_info.ds_txt = txt = XtVaCreateManagedWidget
+      ("text",
+       xmTextWidgetClass,		form,
+       XmNcolumns,			4,
+       XmNmappedWhenManaged,		False,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			w,
+       XmNleftAttachment,		XmATTACH_POSITION,
+       XmNleftPosition,		1,
+       NULL);
+    XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
+    sd->time_info.ds_lbl = XtVaCreateManagedWidget
+      ("????",
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			sd->time_info.ds_txt,
+       XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNleftWidget,			sd->time_info.ds_txt,
+       XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNrightWidget,		sd->time_info.ds_txt,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		sd->time_info.ds_txt,
+       NULL);
+    sd->time_info.widgets[SDTMOPT_DS] = sd->time_info.ds_lbl;
+    w = txt;
+    XtVaCreateManagedWidget
+      ("seconds",
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			w,
+       XmNleftAttachment,		XmATTACH_WIDGET,
+       XmNleftWidget,			txt,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		w,
+       NULL);
+    lbl = XtVaCreateManagedWidget
+      ("Data Sample Interval: ",
+       xmLabelWidgetClass,		form,
+       xmLabelWidgetClass,		form,
+       XmNalignment,			XmALIGNMENT_BEGINNING,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			w,
+       XmNleftAttachment,		XmATTACH_POSITION,
+       XmNleftPosition,		0,
+       XmNrightAttachment,		XmATTACH_POSITION,
+       XmNrightPosition,		1,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		w,
+       NULL);
       
-      sd->time_info.gr_txt = txt = XtVaCreateManagedWidget
-	("text",
-	 xmTextWidgetClass,		form,
-	 XmNcolumns,			4,
-	 XmNmappedWhenManaged,		False,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			w,
-	 XmNleftAttachment,		XmATTACH_POSITION,
-	 XmNleftPosition,		1,
-	 NULL);
-      XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
-      sd->time_info.gr_lbl = XtVaCreateManagedWidget
-	("????",
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			sd->time_info.gr_txt,
-	 XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNleftWidget,			sd->time_info.gr_txt,
-	 XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNrightWidget,		sd->time_info.gr_txt,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		sd->time_info.gr_txt,
-	 NULL);
-      sd->time_info.widgets[SDTMOPT_GR] = sd->time_info.gr_lbl;
-      w = txt;
-      XtVaCreateManagedWidget
-	("seconds",
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			w,
-	 XmNleftAttachment,		XmATTACH_WIDGET,
-	 XmNleftWidget,			txt,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		w,
-	 NULL);
-      lbl = XtVaCreateManagedWidget
-	("Graph Redraw Interval: ",
-	 xmLabelWidgetClass,		form,
-	 XmNalignment,			XmALIGNMENT_BEGINNING,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			w,
-	 XmNleftAttachment,		XmATTACH_POSITION,
-	 XmNleftPosition,		0,
-	 XmNrightAttachment,		XmATTACH_POSITION,
-	 XmNrightPosition,		1,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		w,
-	 NULL);
+    sd->time_info.gr_txt = txt = XtVaCreateManagedWidget
+      ("text",
+       xmTextWidgetClass,		form,
+       XmNcolumns,			4,
+       XmNmappedWhenManaged,		False,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			w,
+       XmNleftAttachment,		XmATTACH_POSITION,
+       XmNleftPosition,		1,
+       NULL);
+    XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
+    sd->time_info.gr_lbl = XtVaCreateManagedWidget
+      ("????",
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			sd->time_info.gr_txt,
+       XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNleftWidget,			sd->time_info.gr_txt,
+       XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNrightWidget,		sd->time_info.gr_txt,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		sd->time_info.gr_txt,
+       NULL);
+    sd->time_info.widgets[SDTMOPT_GR] = sd->time_info.gr_lbl;
+    w = txt;
+    XtVaCreateManagedWidget
+      ("seconds",
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			w,
+       XmNleftAttachment,		XmATTACH_WIDGET,
+       XmNleftWidget,			txt,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		w,
+       NULL);
+    lbl = XtVaCreateManagedWidget
+      ("Graph Redraw Interval: ",
+       xmLabelWidgetClass,		form,
+       XmNalignment,			XmALIGNMENT_BEGINNING,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			w,
+       XmNleftAttachment,		XmATTACH_POSITION,
+       XmNleftPosition,		0,
+       XmNrightAttachment,		XmATTACH_POSITION,
+       XmNrightPosition,		1,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		w,
+       NULL);
       
-      sep = XtVaCreateManagedWidget
-	("separator",
-	 xmSeparatorWidgetClass,	form,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			w,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNrightAttachment,		XmATTACH_FORM,
-	 NULL);
+    sep = XtVaCreateManagedWidget
+      ("separator",
+       xmSeparatorWidgetClass,	form,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			w,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNrightAttachment,		XmATTACH_FORM,
+       NULL);
 
-      xstr = modify_btn_str[sd->time_info.modifying? 1 : 0];
-      sd->time_info.widgets[SDTMOPT_MODIFY] = w = XtVaCreateManagedWidget
-	("push button",
-	 xmPushButtonWidgetClass,	form,
-	 XmNlabelString,		xstr,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			sep,
-	 XmNrightAttachment,		XmATTACH_FORM,
-	 XmNbottomAttachment,		XmATTACH_FORM,
-	 NULL);
-      XtAddCallback (w, XmNactivateCallback, tmmodify_btn_cb, sd);
-      sd->time_info.widgets[SDTMOPT_CANCEL] = XtVaCreateManagedWidget
-	("Cancel",
-	 xmPushButtonWidgetClass,	form,
-	 XmNmappedWhenManaged,		sd->time_info.modifying,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			sep,
-	 XmNrightAttachment,		XmATTACH_WIDGET,
-	 XmNrightWidget,		w,
-	 XmNbottomAttachment,		XmATTACH_FORM,
-	 NULL);
-      XtAddCallback
-	(sd->time_info.widgets[SDTMOPT_CANCEL],
-	 XmNactivateCallback, tmcancel_btn_cb, sd);
-      w = frame;
+    xstr = modify_btn_str[sd->time_info.modifying? 1 : 0];
+    sd->time_info.widgets[SDTMOPT_MODIFY] = w = XtVaCreateManagedWidget
+      ("push button",
+       xmPushButtonWidgetClass,	form,
+       XmNlabelString,		xstr,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			sep,
+       XmNrightAttachment,		XmATTACH_FORM,
+       XmNbottomAttachment,		XmATTACH_FORM,
+       NULL);
+    XtAddCallback (w, XmNactivateCallback, tmmodify_btn_cb, sd);
+    sd->time_info.widgets[SDTMOPT_CANCEL] = XtVaCreateManagedWidget
+      ("Cancel",
+       xmPushButtonWidgetClass,	form,
+       XmNmappedWhenManaged,		sd->time_info.modifying,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			sep,
+       XmNrightAttachment,		XmATTACH_WIDGET,
+       XmNrightWidget,		w,
+       XmNbottomAttachment,		XmATTACH_FORM,
+       NULL);
+    XtAddCallback
+      (sd->time_info.widgets[SDTMOPT_CANCEL],
+       XmNactivateCallback, tmcancel_btn_cb, sd);
+    w = frame;
 	 
-      /* create the graph form and control widgets */
-      frame = XtVaCreateManagedWidget
-	("frame",
-	 xmFrameWidgetClass,		sd->data_form,
-	 XmNshadowType,			XmSHADOW_ETCHED_IN,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			w,
-	 XmNtopAttachment,		DEF_WOFFSET,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNrightAttachment,		XmATTACH_FORM,
-	 NULL);
-      XtVaCreateManagedWidget
-	("Graph Options",
-	 xmLabelWidgetClass,		frame,
-	 XmNchildType,			XmFRAME_TITLE_CHILD,
-	 XmNresizePolicy,		XmRESIZE_NONE,
-	 NULL);
-      form = XtVaCreateManagedWidget
-	("form",
-	 xmFormWidgetClass,		frame,
-	 XmNchildType,			XmFRAME_WORKAREA_CHILD,
-	 XmNfractionBase,		2,
-	 NULL);
+    /* create the graph form and control widgets */
+    frame = XtVaCreateManagedWidget
+      ("frame",
+       xmFrameWidgetClass,		sd->data_form,
+       XmNshadowType,			XmSHADOW_ETCHED_IN,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			w,
+       XmNtopAttachment,		DEF_WOFFSET,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNrightAttachment,		XmATTACH_FORM,
+       NULL);
+    XtVaCreateManagedWidget
+      ("Graph Options",
+       xmLabelWidgetClass,		frame,
+       XmNchildType,			XmFRAME_TITLE_CHILD,
+       XmNresizePolicy,		XmRESIZE_NONE,
+       NULL);
+    form = XtVaCreateManagedWidget
+      ("form",
+       xmFormWidgetClass,		frame,
+       XmNchildType,			XmFRAME_WORKAREA_CHILD,
+       XmNfractionBase,		2,
+       NULL);
 
-      sd->graph_info.widgets[SDGROPT_FG] = btn = XtVaCreateManagedWidget
-	(COLOR_BTN_STR,
-	 xmPushButtonWidgetClass,	form,
-         /*
-	 XmNrightAttachment,		XmATTACH_FORM,
-	 */
-	 XmNleftAttachment,		XmATTACH_POSITION,
-	 XmNleftPosition,		1,
-	 XmNbackground,			sd->config->Color.foreground,
-	 NULL);
-      sd->graph_info.cb_info[SDGROPT_FG].str = "Graph Foreground";
-      sd->graph_info.cb_info[SDGROPT_FG].p = sd;
-      XtAddCallback
-	(btn, XmNactivateCallback, grcolor_btn_cb,
-	 &sd->graph_info.cb_info[SDGROPT_FG]);
-      lbl = XtVaCreateManagedWidget
-	(sd->graph_info.cb_info[SDGROPT_FG].str,
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			btn,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		btn,
-	 NULL);
-      w = btn;
+    sd->graph_info.widgets[SDGROPT_FG] = btn = XtVaCreateManagedWidget
+      (COLOR_BTN_STR,
+       xmPushButtonWidgetClass,	form,
+       XmNleftAttachment,	XmATTACH_POSITION,
+       XmNleftPosition,		1,
+       XmNbackground,		sd->config->Color.foreground.xcolor.pixel,
+       XmNuserData,		(XtPointer)STRIPCONFIG_COLOR_FOREGROUND,
+       NULL);
+    sd->graph_info.cb_info[SDGROPT_FG].str = "Graph Foreground";
+    sd->graph_info.cb_info[SDGROPT_FG].p = sd;
+    XtAddCallback
+      (btn, XmNactivateCallback, grcolor_btn_cb,
+       &sd->graph_info.cb_info[SDGROPT_FG]);
+    lbl = XtVaCreateManagedWidget
+      (sd->graph_info.cb_info[SDGROPT_FG].str,
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			btn,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		btn,
+       NULL);
+    w = btn;
       
-      sd->graph_info.widgets[SDGROPT_BG] = btn = XtVaCreateManagedWidget
-	(COLOR_BTN_STR,
-	 xmPushButtonWidgetClass,	form,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			w,
-         /*
-	 XmNrightAttachment,		XmATTACH_FORM,
-	 */
-	 XmNleftAttachment,		XmATTACH_POSITION,
-	 XmNleftPosition,		1,
-	 XmNbackground,			sd->config->Color.background,
-	 XmNuserData,			sd,
-	 NULL);
-      sd->graph_info.cb_info[SDGROPT_BG].str = "Graph Background";
-      sd->graph_info.cb_info[SDGROPT_BG].p = sd;
-      XtAddCallback
-	(btn, XmNactivateCallback, grcolor_btn_cb,
-	 &sd->graph_info.cb_info[SDGROPT_BG]);
-      lbl = XtVaCreateManagedWidget
-	(sd->graph_info.cb_info[SDGROPT_BG].str,
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			btn,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		btn,
-	 NULL);
-      w = btn;
+    sd->graph_info.widgets[SDGROPT_BG] = btn = XtVaCreateManagedWidget
+      (COLOR_BTN_STR,
+       xmPushButtonWidgetClass,	form,
+       XmNtopAttachment,	XmATTACH_WIDGET,
+       XmNtopWidget,		w,
+       XmNleftAttachment,	XmATTACH_POSITION,
+       XmNleftPosition,		1,
+       XmNbackground,		sd->config->Color.background.xcolor.pixel,
+       XmNuserData,		(XtPointer)STRIPCONFIG_COLOR_BACKGROUND,
+       NULL);
+    sd->graph_info.cb_info[SDGROPT_BG].str = "Graph Background";
+    sd->graph_info.cb_info[SDGROPT_BG].p = sd;
+    XtAddCallback
+      (btn, XmNactivateCallback, grcolor_btn_cb,
+       &sd->graph_info.cb_info[SDGROPT_BG]);
+    lbl = XtVaCreateManagedWidget
+      (sd->graph_info.cb_info[SDGROPT_BG].str,
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			btn,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		btn,
+       NULL);
+    w = btn;
       
-      sd->graph_info.widgets[SDGROPT_GRIDCLR] = btn = XtVaCreateManagedWidget
-	(COLOR_BTN_STR,
-	 xmPushButtonWidgetClass,	form,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			w,
-         /*
-	 XmNrightAttachment,		XmATTACH_FORM,
-	 */
-	 XmNleftAttachment,		XmATTACH_POSITION,
-	 XmNleftPosition,		1,
-	 XmNbackground,			sd->config->Color.grid,
-	 XmNuserData,			sd,
-	 NULL);
-      sd->graph_info.cb_info[SDGROPT_GRIDCLR].str = "Grid Color";
-      sd->graph_info.cb_info[SDGROPT_GRIDCLR].p = sd;
-      XtAddCallback
-	(btn, XmNactivateCallback, grcolor_btn_cb,
-	 &sd->graph_info.cb_info[SDGROPT_GRIDCLR]);
-      lbl = XtVaCreateManagedWidget
-	(sd->graph_info.cb_info[SDGROPT_GRIDCLR].str,
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			btn,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		btn,
-	 NULL);
-      w = btn;
+    sd->graph_info.widgets[SDGROPT_GRIDCLR] = btn = XtVaCreateManagedWidget
+      (COLOR_BTN_STR,
+       xmPushButtonWidgetClass,	form,
+       XmNtopAttachment,	XmATTACH_WIDGET,
+       XmNtopWidget,		w,
+       XmNleftAttachment,	XmATTACH_POSITION,
+       XmNleftPosition,		1,
+       XmNbackground,		sd->config->Color.grid.xcolor.pixel,
+       XmNuserData,		(XtPointer)STRIPCONFIG_COLOR_GRID,
+       NULL);
+    sd->graph_info.cb_info[SDGROPT_GRIDCLR].str = "Grid Color";
+    sd->graph_info.cb_info[SDGROPT_GRIDCLR].p = sd;
+    XtAddCallback
+      (btn, XmNactivateCallback, grcolor_btn_cb,
+       &sd->graph_info.cb_info[SDGROPT_GRIDCLR]);
+    lbl = XtVaCreateManagedWidget
+      (sd->graph_info.cb_info[SDGROPT_GRIDCLR].str,
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			btn,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		btn,
+       NULL);
+    w = btn;
       
-      sd->graph_info.widgets[SDGROPT_LGNDCLR] = btn = XtVaCreateManagedWidget
-	(COLOR_BTN_STR,
-	 xmPushButtonWidgetClass,	form,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			w,
-         /*
-	 XmNrightAttachment,		XmATTACH_FORM,
-	 */
-	 XmNleftAttachment,		XmATTACH_POSITION,
-	 XmNleftPosition,		1,
-	 XmNbackground,			sd->config->Color.legendtext,
-	 XmNuserData,			sd,
-	 NULL);
-      sd->graph_info.cb_info[SDGROPT_LGNDCLR].str = "Legend Text Color";
-      sd->graph_info.cb_info[SDGROPT_LGNDCLR].p = sd;
-      XtAddCallback
-	(btn, XmNactivateCallback, grcolor_btn_cb,
-	 &sd->graph_info.cb_info[SDGROPT_LGNDCLR]);
-      lbl = XtVaCreateManagedWidget
-	(sd->graph_info.cb_info[SDGROPT_LGNDCLR].str,
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			btn,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		btn,
-	 NULL);
-      w = btn;
+    sd->graph_info.widgets[SDGROPT_LGNDCLR] = btn = XtVaCreateManagedWidget
+      (COLOR_BTN_STR,
+       xmPushButtonWidgetClass,	form,
+       XmNtopAttachment,	XmATTACH_WIDGET,
+       XmNtopWidget,		w,
+       XmNleftAttachment,	XmATTACH_POSITION,
+       XmNleftPosition,		1,
+       XmNbackground,		sd->config->Color.legendtext.xcolor.pixel,
+       XmNuserData,		(XtPointer)STRIPCONFIG_COLOR_LEGENDTEXT,
+       NULL);
+    sd->graph_info.cb_info[SDGROPT_LGNDCLR].str = "Legend Text Color";
+    sd->graph_info.cb_info[SDGROPT_LGNDCLR].p = sd;
+    XtAddCallback
+      (btn, XmNactivateCallback, grcolor_btn_cb,
+       &sd->graph_info.cb_info[SDGROPT_LGNDCLR]);
+    lbl = XtVaCreateManagedWidget
+      (sd->graph_info.cb_info[SDGROPT_LGNDCLR].str,
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			btn,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		btn,
+       NULL);
+    w = btn;
       
-      sd->graph_info.widgets[SDGROPT_GRIDX] = btn = XtVaCreateManagedWidget
-	("on",
-	 xmToggleButtonWidgetClass,	form,
-	 XmNlabelString,		gridstat_tgl_str[0],
-	 XmNset,			True,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			w,
-         /*
+    sd->graph_info.widgets[SDGROPT_GRIDX] = btn = XtVaCreateManagedWidget
+      ("on",
+       xmToggleButtonWidgetClass,	form,
+       XmNlabelString,		gridstat_tgl_str[0],
+       XmNset,			True,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			w,
+       /*
 	 XmNrightAttachment,		XmATTACH_FORM,
 	 */
-	 XmNleftAttachment,		XmATTACH_POSITION,
-	 XmNleftPosition,		1,
-	 NULL);
-      XtAddCallback (btn, XmNvalueChangedCallback, gropt_tgl_cb, sd);
-      lbl = XtVaCreateManagedWidget
-	("x-grid lines: ",
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			btn,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		btn,
-	 NULL);
-      w = btn;
+       XmNleftAttachment,		XmATTACH_POSITION,
+       XmNleftPosition,		1,
+       NULL);
+    XtAddCallback (btn, XmNvalueChangedCallback, gropt_tgl_cb, sd);
+    lbl = XtVaCreateManagedWidget
+      ("x-grid lines: ",
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			btn,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		btn,
+       NULL);
+    w = btn;
       
-      sd->graph_info.widgets[SDGROPT_GRIDY] = btn = XtVaCreateManagedWidget
-	("on",
-	 xmToggleButtonWidgetClass,	form,
-	 XmNlabelString,		gridstat_tgl_str[0],
-	 XmNset,			True,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			w,
-         /*
+    sd->graph_info.widgets[SDGROPT_GRIDY] = btn = XtVaCreateManagedWidget
+      ("on",
+       xmToggleButtonWidgetClass,	form,
+       XmNlabelString,		gridstat_tgl_str[0],
+       XmNset,			True,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			w,
+       /*
 	 XmNrightAttachment,		XmATTACH_FORM,
 	 */
-	 XmNleftAttachment,		XmATTACH_POSITION,
-	 XmNleftPosition,		1,
-	 NULL);
-      XtAddCallback (btn, XmNvalueChangedCallback, gropt_tgl_cb, sd);
-      lbl = XtVaCreateManagedWidget
-	("y-grid lines: ",
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			btn,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		btn,
-	 NULL);
-      w = lbl;
+       XmNleftAttachment,		XmATTACH_POSITION,
+       XmNleftPosition,		1,
+       NULL);
+    XtAddCallback (btn, XmNvalueChangedCallback, gropt_tgl_cb, sd);
+    lbl = XtVaCreateManagedWidget
+      ("y-grid lines: ",
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			btn,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		btn,
+       NULL);
+    w = lbl;
       
-      sd->graph_info.widgets[SDGROPT_YAXISCLR] = btn = XtVaCreateManagedWidget
-	("selected curve",
-	 xmToggleButtonWidgetClass,	form,
-	 XmNlabelString,		yaxisclr_tgl_str[0],
-	 XmNset,			True,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			w,
-         /*
+    sd->graph_info.widgets[SDGROPT_YAXISCLR] = btn = XtVaCreateManagedWidget
+      ("selected curve",
+       xmToggleButtonWidgetClass,	form,
+       XmNlabelString,		yaxisclr_tgl_str[0],
+       XmNset,			True,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			w,
+       /*
 	 XmNrightAttachment,		XmATTACH_FORM,
 	 */
-	 XmNleftAttachment,		XmATTACH_POSITION,
-	 XmNleftPosition,		1,
-	 NULL);
-      XtAddCallback (btn, XmNvalueChangedCallback, gropt_tgl_cb, sd);
-      lbl = XtVaCreateManagedWidget
-	("y-axis label color: ",
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			btn,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		btn,
-	 NULL);
-      w = btn;
+       XmNleftAttachment,		XmATTACH_POSITION,
+       XmNleftPosition,		1,
+       NULL);
+    XtAddCallback (btn, XmNvalueChangedCallback, gropt_tgl_cb, sd);
+    lbl = XtVaCreateManagedWidget
+      ("y-axis label color: ",
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			btn,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		btn,
+       NULL);
+    w = btn;
       
-      sd->graph_info.widgets[SDGROPT_LINEWIDTH] = tmp = XtVaCreateManagedWidget
-	("slider",
-	 xmScaleWidgetClass,		form,
-	 XmNorientation,		XmHORIZONTAL,
-	 XmNminimum,			STRIPMIN_OPTION_GRAPH_LINEWIDTH,
-	 XmNmaximum,			STRIPMAX_OPTION_GRAPH_LINEWIDTH,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			w,
-         /*
+    sd->graph_info.widgets[SDGROPT_LINEWIDTH] = tmp = XtVaCreateManagedWidget
+      ("slider",
+       xmScaleWidgetClass,		form,
+       XmNorientation,		XmHORIZONTAL,
+       XmNminimum,			STRIPMIN_OPTION_GRAPH_LINEWIDTH,
+       XmNmaximum,			STRIPMAX_OPTION_GRAPH_LINEWIDTH,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			w,
+       /*
 	 XmNrightAttachment,		XmATTACH_FORM,
 	 */
-	 XmNleftAttachment,		XmATTACH_POSITION,
-	 XmNleftPosition,		1,
-	 NULL);
-      XtAddCallback (tmp, XmNvalueChangedCallback, gropt_slider_cb, sd);
-      lbl = XtVaCreateManagedWidget
-	("data line-width: ",
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			tmp,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		tmp,
-	 NULL);
-      w = tmp;
+       XmNleftAttachment,		XmATTACH_POSITION,
+       XmNleftPosition,		1,
+       NULL);
+    XtAddCallback (tmp, XmNvalueChangedCallback, gropt_slider_cb, sd);
+    lbl = XtVaCreateManagedWidget
+      ("data line-width: ",
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			tmp,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		tmp,
+       NULL);
+    w = tmp;
 	
-      sd->graph_info.ynum_txt = txt = XtVaCreateManagedWidget
-	("text",
-	 xmTextWidgetClass,		form,
-	 XmNcolumns,			2,
-	 XmNmappedWhenManaged,		False,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			w,
-         /*
+    sd->graph_info.ynum_txt = txt = XtVaCreateManagedWidget
+      ("text",
+       xmTextWidgetClass,		form,
+       XmNcolumns,			2,
+       XmNmappedWhenManaged,		False,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			w,
+       /*
 	 XmNrightAttachment,		XmATTACH_FORM,
 	 */
-	 XmNleftAttachment,		XmATTACH_POSITION,
-	 XmNleftPosition,		1,
-         XmNsensitive,			False,
-	 NULL);
-      XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
-      sd->graph_info.ynum_lbl = XtVaCreateManagedWidget
-	("??",
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			sd->graph_info.ynum_txt,
-	 XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNleftWidget,			sd->graph_info.ynum_txt,
-	 XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNrightWidget,		sd->graph_info.ynum_txt,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		sd->graph_info.ynum_txt,
-         XmNsensitive,			False,
-	 NULL);
-      sd->graph_info.widgets[SDGROPT_YAXISNUM] = sd->graph_info.ynum_lbl;
-      lbl = XtVaCreateManagedWidget
-	("y-axis hash marks: ",
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			txt,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		txt,
-         XmNsensitive,			False,
-	 NULL);
-      w = txt;
+       XmNleftAttachment,		XmATTACH_POSITION,
+       XmNleftPosition,		1,
+       XmNsensitive,			False,
+       NULL);
+    XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
+    sd->graph_info.ynum_lbl = XtVaCreateManagedWidget
+      ("??",
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			sd->graph_info.ynum_txt,
+       XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNleftWidget,			sd->graph_info.ynum_txt,
+       XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNrightWidget,		sd->graph_info.ynum_txt,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		sd->graph_info.ynum_txt,
+       XmNsensitive,			False,
+       NULL);
+    sd->graph_info.widgets[SDGROPT_YAXISNUM] = sd->graph_info.ynum_lbl;
+    lbl = XtVaCreateManagedWidget
+      ("y-axis hash marks: ",
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			txt,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		txt,
+       XmNsensitive,			False,
+       NULL);
+    w = txt;
       
-      sd->graph_info.xnum_txt = txt = XtVaCreateManagedWidget
-	("text",
-	 xmTextWidgetClass,		form,
-	 XmNcolumns,			2,
-	 XmNmappedWhenManaged,		False,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			w,
-         /*
+    sd->graph_info.xnum_txt = txt = XtVaCreateManagedWidget
+      ("text",
+       xmTextWidgetClass,		form,
+       XmNcolumns,			2,
+       XmNmappedWhenManaged,		False,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			w,
+       /*
 	 XmNrightAttachment,		XmATTACH_FORM,
 	 */
-	 XmNleftAttachment,		XmATTACH_POSITION,
-	 XmNleftPosition,		1,
-	 NULL);
-      XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
-      sd->graph_info.xnum_lbl = XtVaCreateManagedWidget
-	("??",
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			sd->graph_info.xnum_txt,
-	 XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNleftWidget,			sd->graph_info.xnum_txt,
-	 XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNrightWidget,		sd->graph_info.xnum_txt,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		sd->graph_info.xnum_txt,
-	 NULL);
-      sd->graph_info.widgets[SDGROPT_XAXISNUM] = sd->graph_info.xnum_lbl;
-      lbl = XtVaCreateManagedWidget
-	("x-axis hash marks: ",
-	 xmLabelWidgetClass,		form,
-	 XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNtopWidget,			txt,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		txt,
-	 NULL);
+       XmNleftAttachment,		XmATTACH_POSITION,
+       XmNleftPosition,		1,
+       NULL);
+    XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
+    sd->graph_info.xnum_lbl = XtVaCreateManagedWidget
+      ("??",
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			sd->graph_info.xnum_txt,
+       XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNleftWidget,			sd->graph_info.xnum_txt,
+       XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNrightWidget,		sd->graph_info.xnum_txt,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		sd->graph_info.xnum_txt,
+       NULL);
+    sd->graph_info.widgets[SDGROPT_XAXISNUM] = sd->graph_info.xnum_lbl;
+    lbl = XtVaCreateManagedWidget
+      ("x-axis hash marks: ",
+       xmLabelWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNtopWidget,			txt,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		txt,
+       NULL);
 
-      sep = XtVaCreateManagedWidget
-	("separator",
-	 xmSeparatorWidgetClass,	form,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			lbl,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNrightAttachment,		XmATTACH_FORM,
-	 NULL);
-      xstr = modify_btn_str[sd->graph_info.modifying? 1 : 0];
-      sd->graph_info.widgets[SDGROPT_MODIFY] = w = XtVaCreateManagedWidget
-	("push button",
-	 xmPushButtonWidgetClass,	form,
-	 XmNlabelString,		xstr,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			sep,
-	 XmNrightAttachment,		XmATTACH_FORM,
-	 NULL);
-      XtAddCallback
-	(sd->graph_info.widgets[SDGROPT_MODIFY],
-	 XmNactivateCallback, grmodify_btn_cb, sd);
-      sd->graph_info.widgets[SDGROPT_CANCEL] = XtVaCreateManagedWidget
-	("Cancel",
-	 xmPushButtonWidgetClass,	form,
-	 XmNmappedWhenManaged,		sd->graph_info.modifying,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			sep,
-	 XmNrightAttachment,		XmATTACH_WIDGET,
-	 XmNrightWidget,		w,
-	 NULL);
-      XtAddCallback
-	(sd->graph_info.widgets[SDGROPT_CANCEL], XmNactivateCallback,
-	 grcancel_btn_cb, sd);
+    sep = XtVaCreateManagedWidget
+      ("separator",
+       xmSeparatorWidgetClass,	form,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			lbl,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNrightAttachment,		XmATTACH_FORM,
+       NULL);
+    xstr = modify_btn_str[sd->graph_info.modifying? 1 : 0];
+    sd->graph_info.widgets[SDGROPT_MODIFY] = w = XtVaCreateManagedWidget
+      ("push button",
+       xmPushButtonWidgetClass,	form,
+       XmNlabelString,		xstr,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			sep,
+       XmNrightAttachment,		XmATTACH_FORM,
+       NULL);
+    XtAddCallback
+      (sd->graph_info.widgets[SDGROPT_MODIFY],
+       XmNactivateCallback, grmodify_btn_cb, sd);
+    sd->graph_info.widgets[SDGROPT_CANCEL] = XtVaCreateManagedWidget
+      ("Cancel",
+       xmPushButtonWidgetClass,	form,
+       XmNmappedWhenManaged,		sd->graph_info.modifying,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			sep,
+       XmNrightAttachment,		XmATTACH_WIDGET,
+       XmNrightWidget,		w,
+       NULL);
+    XtAddCallback
+      (sd->graph_info.widgets[SDGROPT_CANCEL], XmNactivateCallback,
+       grcancel_btn_cb, sd);
 		     
 
       
-      /* create the miscellaneous area form and controls */
-      frame = XtVaCreateManagedWidget
-	("frame",
-	 xmFrameWidgetClass,		base_form,
-	 XmNshadowType,			XmSHADOW_ETCHED_IN,
-	 XmNtopAttachment,		XmATTACH_WIDGET,
-	 XmNtopWidget,			sd->curve_form,
-	 XmNtopOffset,			DEF_WOFFSET,
-	 XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNleftWidget,			sd->curve_form,
-	 XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNrightWidget,		sd->curve_form,
-	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-	 XmNbottomWidget,		sd->data_form,
-	 XmNresizePolicy,		XmRESIZE_NONE,
-	 NULL);
-      XtVaCreateManagedWidget
-	("Application Controls",
-	 xmLabelWidgetClass,		frame,
-	 XmNchildType,			XmFRAME_TITLE_CHILD,
-	 XmNresizePolicy,		XmRESIZE_NONE,
-	 NULL);
-      form = XtVaCreateManagedWidget
-	("form",
-	 xmFormWidgetClass,		frame,
-	 XmNchildType,			XmFRAME_WORKAREA_CHILD,
-	 NULL);
-      btn = XtVaCreateManagedWidget
-	("End Program",
-	 xmPushButtonWidgetClass,	form,
-	 XmNrightAttachment,		XmATTACH_FORM,
-	 XmNrightOffset,		DEF_WOFFSET,
-	 XmNbottomAttachment,		XmATTACH_FORM,
-	 XmNbottomOffset,		DEF_WOFFSET,
-	 XmNuserData,			sd,
-	 NULL);
-      XtAddCallback
-	(btn, XmNactivateCallback, ctrl_btn_cb, (XtPointer)SDCALLBACK_QUIT);
-      btn = XtVaCreateManagedWidget
-	("Dismiss",
-	 xmPushButtonWidgetClass,	form,
-	 XmNrightAttachment,		XmATTACH_WIDGET,
-	 XmNrightWidget,		btn,
-	 XmNrightOffset,		DEF_WOFFSET,
-	 XmNbottomAttachment,		XmATTACH_FORM,
-	 XmNbottomOffset,		DEF_WOFFSET,
-	 XmNuserData,			sd,
-	 NULL);
-      XtAddCallback
-	(btn, XmNactivateCallback, ctrl_btn_cb, (XtPointer)SDCALLBACK_DISMISS);
-      btn = XtVaCreateManagedWidget
-	("Clear StripChart",
-	 xmPushButtonWidgetClass,	form,
-	 XmNrightAttachment,		XmATTACH_WIDGET,
-	 XmNrightWidget,		btn,
-	 XmNrightOffset,		DEF_WOFFSET,
-	 XmNbottomAttachment,		XmATTACH_FORM,
-	 XmNbottomOffset,		DEF_WOFFSET,
-	 XmNuserData,			sd,
-	 NULL);
-      XtAddCallback
-	(btn, XmNactivateCallback, ctrl_btn_cb, (XtPointer)SDCALLBACK_CLEAR);
-      btn = XtVaCreateManagedWidget
-	("push_button",
-	 xmPushButtonWidgetClass,	form,
-	 XmNlabelString,		showhide_btn_str[0],
-	 XmNrightAttachment,		XmATTACH_WIDGET,
-	 XmNrightWidget,		btn,
-	 XmNrightOffset,		DEF_WOFFSET,
-	 XmNbottomAttachment,		XmATTACH_FORM,
-	 XmNbottomOffset,		DEF_WOFFSET,
-	 XmNuserData,			sd,
-	 NULL);
-      XtAddCallback
-	(btn, XmNactivateCallback, ctrl_btn_cb, (XtPointer)SDCALLBACK_SHOW);
+    /* create the miscellaneous area form and controls */
+    frame = XtVaCreateManagedWidget
+      ("frame",
+       xmFrameWidgetClass,		base_form,
+       XmNshadowType,			XmSHADOW_ETCHED_IN,
+       XmNtopAttachment,		XmATTACH_WIDGET,
+       XmNtopWidget,			sd->curve_form,
+       XmNtopOffset,			DEF_WOFFSET,
+       XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNleftWidget,			sd->curve_form,
+       XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNrightWidget,		sd->curve_form,
+       XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
+       XmNbottomWidget,		sd->data_form,
+       XmNresizePolicy,		XmRESIZE_NONE,
+       NULL);
+    XtVaCreateManagedWidget
+      ("Application Controls",
+       xmLabelWidgetClass,		frame,
+       XmNchildType,			XmFRAME_TITLE_CHILD,
+       XmNresizePolicy,		XmRESIZE_NONE,
+       NULL);
+    form = XtVaCreateManagedWidget
+      ("form",
+       xmFormWidgetClass,		frame,
+       XmNchildType,			XmFRAME_WORKAREA_CHILD,
+       NULL);
+    btn = XtVaCreateManagedWidget
+      ("End Program",
+       xmPushButtonWidgetClass,	form,
+       XmNrightAttachment,		XmATTACH_FORM,
+       XmNrightOffset,		DEF_WOFFSET,
+       XmNbottomAttachment,		XmATTACH_FORM,
+       XmNbottomOffset,		DEF_WOFFSET,
+       XmNuserData,			sd,
+       NULL);
+    XtAddCallback
+      (btn, XmNactivateCallback, ctrl_btn_cb, (XtPointer)SDCALLBACK_QUIT);
+    btn = XtVaCreateManagedWidget
+      ("Dismiss",
+       xmPushButtonWidgetClass,	form,
+       XmNrightAttachment,		XmATTACH_WIDGET,
+       XmNrightWidget,		btn,
+       XmNrightOffset,		DEF_WOFFSET,
+       XmNbottomAttachment,		XmATTACH_FORM,
+       XmNbottomOffset,		DEF_WOFFSET,
+       XmNuserData,			sd,
+       NULL);
+    XtAddCallback
+      (btn, XmNactivateCallback, ctrl_btn_cb, (XtPointer)SDCALLBACK_DISMISS);
+    btn = XtVaCreateManagedWidget
+      ("Clear StripChart",
+       xmPushButtonWidgetClass,	form,
+       XmNrightAttachment,		XmATTACH_WIDGET,
+       XmNrightWidget,		btn,
+       XmNrightOffset,		DEF_WOFFSET,
+       XmNbottomAttachment,		XmATTACH_FORM,
+       XmNbottomOffset,		DEF_WOFFSET,
+       XmNuserData,			sd,
+       NULL);
+    XtAddCallback
+      (btn, XmNactivateCallback, ctrl_btn_cb, (XtPointer)SDCALLBACK_CLEAR);
+    btn = XtVaCreateManagedWidget
+      ("push_button",
+       xmPushButtonWidgetClass,	form,
+       XmNlabelString,		showhide_btn_str[0],
+       XmNrightAttachment,		XmATTACH_WIDGET,
+       XmNrightWidget,		btn,
+       XmNrightOffset,		DEF_WOFFSET,
+       XmNbottomAttachment,		XmATTACH_FORM,
+       XmNbottomOffset,		DEF_WOFFSET,
+       XmNuserData,			sd,
+       NULL);
+    XtAddCallback
+      (btn, XmNactivateCallback, ctrl_btn_cb, (XtPointer)SDCALLBACK_SHOW);
 
 #if 0
-      sep = XtVaCreateManagedWidget
-	("separator",
-	 xmSeparatorWidgetClass,	form,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNrightAttachment,		XmATTACH_FORM,
-	 XmNbottomAttachment,		XmATTACH_WIDGET,
-	 XmNbottomWidget,		btn,
-	 NULL);
+    sep = XtVaCreateManagedWidget
+      ("separator",
+       xmSeparatorWidgetClass,	form,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNrightAttachment,		XmATTACH_FORM,
+       XmNbottomAttachment,		XmATTACH_WIDGET,
+       XmNbottomWidget,		btn,
+       NULL);
 
-      sd->msglog_list = XmCreateScrolledText
-	(form, "Message Log", NULL, 0);
-      XtVaSetValues
-	(XtParent(sd->msglog_list),
-	 XmNtopAttachment,		XmATTACH_FORM,
-	 XmNleftAttachment,		XmATTACH_FORM,
-	 XmNrightAttachment,		XmATTACH_FORM,
-	 XmNbottomAttachment,		XmATTACH_WIDGET,
-	 XmNbottomWidget,		sep,
-	 XmNverticalScrollBar,		NULL,
-	 NULL);
-      XtVaSetValues
-	(sd->msglog_list,
-	 XmNeditMode,			XmMULTI_LINE_EDIT,
-	 XmNeditable,			False,
-	 XmNcursorPositionVisible,	False,
-	 XmNcolumns,			80,
-	 NULL);
-      XtManageChild (sd->msglog_list);
+    sd->msglog_list = XmCreateScrolledText
+      (form, "Message Log", NULL, 0);
+    XtVaSetValues
+      (XtParent(sd->msglog_list),
+       XmNtopAttachment,		XmATTACH_FORM,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNrightAttachment,		XmATTACH_FORM,
+       XmNbottomAttachment,		XmATTACH_WIDGET,
+       XmNbottomWidget,		sep,
+       XmNverticalScrollBar,		NULL,
+       NULL);
+    XtVaSetValues
+      (sd->msglog_list,
+       XmNeditMode,			XmMULTI_LINE_EDIT,
+       XmNeditable,			False,
+       XmNcursorPositionVisible,	False,
+       XmNcolumns,			80,
+       NULL);
+    XtManageChild (sd->msglog_list);
 #endif
-      
-      XtRealizeWidget (sd->shell);
-      XUnmapWindow (sd->display, XtWindow (sd->shell));
 
-      for (i = 0; i < STRIP_MAX_CURVES; i++)
-	sd->curve_info[i].modified = 0;
-      sd->time_info.modified = 0;
-      sd->graph_info.modified = 0;
+    XtRealizeWidget (sd->shell);
+    XUnmapWindow (sd->display, XtWindow (sd->shell));
 
-      StripDialog_cfgupdate (STRIPCFGMASK_ALL & ~STRIPCFGMASK_CURVE, sd);
-    }
+    for (i = 0; i < STRIP_MAX_CURVES; i++)
+      sd->curve_info[i].modified = 0;
+    sd->time_info.modified = 0;
+    sd->graph_info.modified = 0;
+
+    /* invoke updates for everything but curve stuff */
+    StripConfigMask_clear (&scfg_mask);
+    StripConfigMask_or (&scfg_mask, &SCFGMASK_ALL);
+    StripConfigMask_xor (&scfg_mask, &SCFGMASK_CURVE);
+    StripDialog_cfgupdate (scfg_mask, sd);
+  }
   return (StripDialog)sd;
 }
 
@@ -1730,10 +1733,10 @@ int	StripDialog_setattr	(StripDialog the_sd, ...)
   for (attrib = va_arg (ap, StripDialogAttribute);
        (attrib != 0);
        attrib = va_arg (ap, StripDialogAttribute))
-    {
-      if ((ret_val = ((attrib > 0) && (attrib < STRIPDIALOG_LAST_ATTRIBUTE))))
-	switch (attrib)
-	  {
+  {
+    if ((ret_val = ((attrib > 0) && (attrib < STRIPDIALOG_LAST_ATTRIBUTE))))
+      switch (attrib)
+      {
 	  case STRIPDIALOG_CONNECT_FUNC:
 	    sd->callback[SDCALLBACK_CONNECT].func = va_arg (ap, SDcallback);
 	    break;
@@ -1774,23 +1777,23 @@ int	StripDialog_setattr	(StripDialog the_sd, ...)
 	    items = va_arg (ap, SDWindowMenuItem *);
 	    count = va_arg (ap, int);
 	    for (i = 0; (i < count) && (i < MAX_WINDOW_MENU_ITEMS); i++)
-	      {
-		sd->window_menu_info.items[i].info = items[i];
-		xstr = XmStringCreateLocalized (items[i].name);
-		XtVaSetValues
-		  (sd->window_menu_info.items[i].entry,
-		   XmNlabelString,		xstr,
-		   NULL);
-		XmStringFree (xstr);
-		XtManageChild (sd->window_menu_info.items[i].entry);
-	      }
+            {
+              sd->window_menu_info.items[i].info = items[i];
+              xstr = XmStringCreateLocalized (items[i].name);
+              XtVaSetValues
+                (sd->window_menu_info.items[i].entry,
+                 XmNlabelString,		xstr,
+                 NULL);
+              XmStringFree (xstr);
+              XtManageChild (sd->window_menu_info.items[i].entry);
+            }
 	    sd->window_menu_info.count = i;
 	    
 	    for (; i < MAX_WINDOW_MENU_ITEMS; i++)
 	      XtUnmanageChild (sd->window_menu_info.items[i].entry);
-	  }
-      else break;
-    }
+      }
+    else break;
+  }
 
   va_end (ap);
   return ret_val;
@@ -1811,10 +1814,10 @@ int	StripDialog_getattr	(StripDialog the_sd, ...)
   for (attrib = va_arg (ap, StripDialogAttribute);
        (attrib != 0);
        attrib = va_arg (ap, StripDialogAttribute))
-    {
-      if ((ret_val = ((attrib > 0) && (attrib < STRIPDIALOG_LAST_ATTRIBUTE))))
-	switch (attrib)
-	  {
+  {
+    if ((ret_val = ((attrib > 0) && (attrib < STRIPDIALOG_LAST_ATTRIBUTE))))
+      switch (attrib)
+      {
 	  case STRIPDIALOG_SHELL_WIDGET:
 	    *(va_arg (ap, Widget *)) = sd->shell;
 	    break;
@@ -1866,9 +1869,9 @@ int	StripDialog_getattr	(StripDialog the_sd, ...)
 	    *(va_arg (ap, void **)) =
 	      sd->callback[SDCALLBACK_QUIT].data;
 	    break;
-	  }
-      else break;
-    }
+      }
+    else break;
+  }
 
   va_end (ap);
   return ret_val;
@@ -1906,20 +1909,20 @@ int	StripDialog_addcurve		(StripDialog the_sd, StripCurve curve)
   int 			ret_val;
 
   if ((ret_val = (sd->sdcurve_count < STRIP_MAX_CURVES)))
-    {
-      insert_sdcurve (sd, sd->sdcurve_count, curve, False);
-      show_sdcurve (sd, sd->sdcurve_count);
-      sd->sdcurve_count++;
+  {
+    insert_sdcurve (sd, sd->sdcurve_count, curve, False);
+    show_sdcurve (sd, sd->sdcurve_count);
+    sd->sdcurve_count++;
 
-      /* if the curve's name matches the string in the connect text box,
-       * then clear the the text box
-       */
-      if (strcmp
-	  (XmTextGetString (sd->connect_txt),
-	   (char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME))
-	  == 0)
-	XmTextSetString (sd->connect_txt, "");
-    }
+    /* if the curve's name matches the string in the connect text box,
+     * then clear the the text box
+     */
+    if (strcmp
+        (XmTextGetString (sd->connect_txt),
+         (char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME))
+        == 0)
+      XmTextSetString (sd->connect_txt, "");
+  }
   return ret_val;
 }
 
@@ -1956,16 +1959,16 @@ int	StripDialog_addsomecurves	(StripDialog	the_sd,
   for (n = 0; curves[n]; n++);	/* how many curves? */
   
   if ((ret_val = (n < (STRIP_MAX_CURVES - sd->sdcurve_count))))
+  {
+    XtUnmapWidget (sd->curve_form);
+    for (i = 0; i < n; i++)
     {
-      XtUnmapWidget (sd->curve_form);
-      for (i = 0; i < n; i++)
-	{
-	  insert_sdcurve (sd, sd->sdcurve_count+i, curves[i], False);
-	  show_sdcurve (sd, sd->sdcurve_count+i);
-	}
-      sd->sdcurve_count += n;
-      XtMapWidget (sd->curve_form);
+      insert_sdcurve (sd, sd->sdcurve_count+i, curves[i], False);
+      show_sdcurve (sd, sd->sdcurve_count+i);
     }
+    sd->sdcurve_count += n;
+    XtMapWidget (sd->curve_form);
+  }
   return ret_val;
 }
 
@@ -1984,26 +1987,26 @@ int	StripDialog_removesomecurves	(StripDialog	the_sd,
   for (i = 0,  n = 0; i < sd->sdcurve_count; i++)
     for (j = 0; curves[j]; j++)
       if (sd->curve_info[i].curve == curves[j])
-	{
-	  /* must remove this curve */
-	  sd->curve_info[i].curve = 0;
-	  n++;
-	}
+      {
+        /* must remove this curve */
+        sd->curve_info[i].curve = 0;
+        n++;
+      }
   
   for (i = 0, j = 1; (i < sd->sdcurve_count) && (j < sd->sdcurve_count); i++)
     if (sd->curve_info[i].curve == 0)
+    {
+      for (j = i+1; j < sd->sdcurve_count; j++)
+        if (sd->curve_info[j].curve != 0)
+          break;
+      if (j < sd->sdcurve_count)
       {
-	for (j = i+1; j < sd->sdcurve_count; j++)
-	  if (sd->curve_info[j].curve != 0)
-	    break;
-	if (j < sd->sdcurve_count)
-	  {
-	    insert_sdcurve
-	      (sd, i, sd->curve_info[j].curve,
-	       sd->curve_info[j].modifying);
-	    sd->curve_info[j].curve = 0;
-	  }
+        insert_sdcurve
+          (sd, i, sd->curve_info[j].curve,
+           sd->curve_info[j].modifying);
+        sd->curve_info[j].curve = 0;
       }
+    }
   
   sd->sdcurve_count -= n;
   for (i = 0; i < n; i++)
@@ -2077,7 +2080,7 @@ static void	insert_sdcurve	(StripDialogInfo	*sd,
 
   setwidgetval_name 		(sd, idx, sc->details->name);
   setwidgetval_status 		(sd, idx, sc->status);
-  setwidgetval_color 		(sd, idx, sc->details->pixel);
+  setwidgetval_color 		(sd, idx, sc->details->color->xcolor.pixel);
   setwidgetval_penstat		(sd, idx, sc->details->penstat);
   setwidgetval_plotstat		(sd, idx, sc->details->plotstat);
   setwidgetval_precision	(sd, idx, sc->details->precision);
@@ -2104,10 +2107,10 @@ static void	delete_sdcurve	(StripDialogInfo *sd, int idx)
   XtUnmapWidget (sd->curve_form);
   /* shift all the remaining curves up one */
   for (i = idx+1; i < sd->sdcurve_count; i++)
-    {
-      insert_sdcurve
-	(sd, i-1, sd->curve_info[i].curve, sd->curve_info[i].modifying);
-    }
+  {
+    insert_sdcurve
+      (sd, i-1, sd->curve_info[i].curve, sd->curve_info[i].modifying);
+  }
   sd->sdcurve_count--;
   hide_sdcurve (sd, sd->sdcurve_count);
   XtMapWidget (sd->curve_form);
@@ -2292,25 +2295,25 @@ static void	setwidgetval_modify	(StripDialogInfo 	*sd,
 					 int 			modify)
 {
   if ((sd->curve_info[which].modifying = modify))
-    {
-      sd->curve_info[which].widgets[SDCURVE_PRECISION] =
-	sd->curve_info[which].precision_txt;
-      sd->curve_info[which].widgets[SDCURVE_MIN] =
-	sd->curve_info[which].min_txt;
-      sd->curve_info[which].widgets[SDCURVE_MAX] =
-	sd->curve_info[which].max_txt;
-      xstr =  modify_btn_str[1];
-    }
+  {
+    sd->curve_info[which].widgets[SDCURVE_PRECISION] =
+      sd->curve_info[which].precision_txt;
+    sd->curve_info[which].widgets[SDCURVE_MIN] =
+      sd->curve_info[which].min_txt;
+    sd->curve_info[which].widgets[SDCURVE_MAX] =
+      sd->curve_info[which].max_txt;
+    xstr =  modify_btn_str[1];
+  }
   else
-    {
-      sd->curve_info[which].widgets[SDCURVE_PRECISION] =
-	sd->curve_info[which].precision_lbl;
-      sd->curve_info[which].widgets[SDCURVE_MIN] =
-	sd->curve_info[which].min_lbl;
-      sd->curve_info[which].widgets[SDCURVE_MAX] =
-	sd->curve_info[which].max_lbl;
-      xstr =  modify_btn_str[0];
-    }
+  {
+    sd->curve_info[which].widgets[SDCURVE_PRECISION] =
+      sd->curve_info[which].precision_lbl;
+    sd->curve_info[which].widgets[SDCURVE_MIN] =
+      sd->curve_info[which].min_lbl;
+    sd->curve_info[which].widgets[SDCURVE_MAX] =
+      sd->curve_info[which].max_lbl;
+    xstr =  modify_btn_str[0];
+  }
   XtVaSetValues
     (sd->curve_info[which].widgets[SDCURVE_MODIFY],
      XmNlabelString, 			xstr,
@@ -2352,7 +2355,7 @@ static Pixel	getwidgetval_color	(StripDialogInfo *sd, int which)
   Pixel	color;
   XtVaGetValues
     (sd->curve_info[which].widgets[SDCURVE_COLOR],
-     XmNforeground,			&color,
+     XmNbackground,			&color,
      NULL);
   return color;
 }
@@ -2494,23 +2497,23 @@ static void	setwidgetval_tm_modify	(StripDialogInfo 	*sd,
 					 int 			modify)
 {
   if ((sd->time_info.modifying = modify))
-    {
-      sd->time_info.widgets[SDTMOPT_TSHOUR] = sd->time_info.ts_hour_txt;
-      sd->time_info.widgets[SDTMOPT_TSMINUTE] = sd->time_info.ts_minute_txt;
-      sd->time_info.widgets[SDTMOPT_TSSECOND] = sd->time_info.ts_second_txt;
-      sd->time_info.widgets[SDTMOPT_DS] = sd->time_info.ds_txt;
-      sd->time_info.widgets[SDTMOPT_GR] = sd->time_info.gr_txt;
-      xstr = modify_btn_str[1];
-    }
+  {
+    sd->time_info.widgets[SDTMOPT_TSHOUR] = sd->time_info.ts_hour_txt;
+    sd->time_info.widgets[SDTMOPT_TSMINUTE] = sd->time_info.ts_minute_txt;
+    sd->time_info.widgets[SDTMOPT_TSSECOND] = sd->time_info.ts_second_txt;
+    sd->time_info.widgets[SDTMOPT_DS] = sd->time_info.ds_txt;
+    sd->time_info.widgets[SDTMOPT_GR] = sd->time_info.gr_txt;
+    xstr = modify_btn_str[1];
+  }
   else
-    {
-      sd->time_info.widgets[SDTMOPT_TSHOUR] = sd->time_info.ts_hour_lbl;
-      sd->time_info.widgets[SDTMOPT_TSMINUTE] = sd->time_info.ts_minute_lbl;
-      sd->time_info.widgets[SDTMOPT_TSSECOND] = sd->time_info.ts_second_lbl;
-      sd->time_info.widgets[SDTMOPT_DS] = sd->time_info.ds_lbl;
-      sd->time_info.widgets[SDTMOPT_GR] = sd->time_info.gr_lbl;
-      xstr = modify_btn_str[0];
-    }
+  {
+    sd->time_info.widgets[SDTMOPT_TSHOUR] = sd->time_info.ts_hour_lbl;
+    sd->time_info.widgets[SDTMOPT_TSMINUTE] = sd->time_info.ts_minute_lbl;
+    sd->time_info.widgets[SDTMOPT_TSSECOND] = sd->time_info.ts_second_lbl;
+    sd->time_info.widgets[SDTMOPT_DS] = sd->time_info.ds_lbl;
+    sd->time_info.widgets[SDTMOPT_GR] = sd->time_info.gr_lbl;
+    xstr = modify_btn_str[0];
+  }
   XtVaSetValues
     (sd->time_info.widgets[SDTMOPT_MODIFY],
      XmNlabelString, 			xstr,
@@ -2574,27 +2577,35 @@ static char	*getwidgetval_tm_gr		(StripDialogInfo 	*sd,
 
 
 /* graph controls */
-static void	setwidgetval_gr_fg		(StripDialogInfo *BOGUS(1),
-						 Pixel BOGUS(2))
+static void	setwidgetval_gr_fg		(StripDialogInfo *sd,
+						 Pixel 	         pixel)
 {
+  XtVaSetValues
+    (sd->graph_info.widgets[SDGROPT_FG], XmNbackground, pixel, 0);
 }
 
 
-static void	setwidgetval_gr_bg		(StripDialogInfo *BOGUS(1),
-						 Pixel BOGUS(2))
+static void	setwidgetval_gr_bg		(StripDialogInfo *sd,
+						 Pixel 		 pixel)
 {
+  XtVaSetValues
+    (sd->graph_info.widgets[SDGROPT_BG], XmNbackground, pixel, 0);
 }
 
 
-static void	setwidgetval_gr_gridclr		(StripDialogInfo *BOGUS(1),
-						 Pixel BOGUS(2))
+static void	setwidgetval_gr_gridclr		(StripDialogInfo *sd,
+						 Pixel 		 pixel)
 {
+  XtVaSetValues
+    (sd->graph_info.widgets[SDGROPT_GRIDCLR], XmNbackground, pixel, 0);
 }
 
 
-static void	setwidgetval_gr_lgndclr		(StripDialogInfo *BOGUS(1),
-						 Pixel BOGUS(2))
+static void	setwidgetval_gr_lgndclr		(StripDialogInfo *sd,
+						 Pixel 		 pixel)
 {
+  XtVaSetValues
+    (sd->graph_info.widgets[SDGROPT_LGNDCLR], XmNbackground, pixel, 0);
 }
 
 
@@ -2673,17 +2684,17 @@ static void	setwidgetval_gr_modify		(StripDialogInfo 	*sd,
 						 int 			modify)
 {
   if ((sd->graph_info.modifying = modify))
-    {
-      sd->graph_info.widgets[SDGROPT_YAXISNUM] = sd->graph_info.ynum_txt;
-      sd->graph_info.widgets[SDGROPT_XAXISNUM] = sd->graph_info.xnum_txt;
-      xstr = modify_btn_str[1];
-    }
+  {
+    sd->graph_info.widgets[SDGROPT_YAXISNUM] = sd->graph_info.ynum_txt;
+    sd->graph_info.widgets[SDGROPT_XAXISNUM] = sd->graph_info.xnum_txt;
+    xstr = modify_btn_str[1];
+  }
   else
-    {
-      sd->graph_info.widgets[SDGROPT_YAXISNUM] = sd->graph_info.ynum_lbl;
-      sd->graph_info.widgets[SDGROPT_XAXISNUM] = sd->graph_info.xnum_lbl;
-      xstr = modify_btn_str[0];
-    }
+  {
+    sd->graph_info.widgets[SDGROPT_YAXISNUM] = sd->graph_info.ynum_lbl;
+    sd->graph_info.widgets[SDGROPT_XAXISNUM] = sd->graph_info.xnum_lbl;
+    xstr = modify_btn_str[0];
+  }
   XtVaSetValues
     (sd->graph_info.widgets[SDGROPT_MODIFY],
      XmNlabelString, 			xstr,
@@ -2789,69 +2800,85 @@ static void	color_btn_cb	(Widget w, XtPointer data, XtPointer BOGUS(1))
 {
   StripDialogInfo	*sd;
   StripCurveInfo	*sc;
+  cColor		*pcolor;
   int			which = (int)data;
+  int			i;
 
   XtVaGetValues (w, XmNuserData, &sd, NULL);
   sc = (StripCurveInfo *)sd->curve_info[which].curve;
-  ColorDialog_popup (sd->clrdlg, sc->details->name, sc->details->pixel);
+
+  /* need to find out which color in the config object corresponds
+   * to the color used by this curve */
+  for (i = 0; i < STRIP_MAX_CURVES; i++)
+    if (sc->details->color == &sd->config->Color.color[i])
+      break;
+
+  if (i < STRIP_MAX_CURVES)
+  {
+    sd->color_edit_which = STRIPCONFIG_COLOR_COLOR1 + i;
+    pcolor = sc->details->color;
+    ColorDialog_popup (sd->clrdlg, sc->details->name, pcolor, clrdlg_cb, sd);
+  }
 }
 
 static void	modify_btn_cb	(Widget w, XtPointer data, XtPointer BOGUS(1))
 {
   StripDialogInfo	*sd;
   StripCurveInfo	*sc;
-  StripConfigMask	mask = 0;
+  StripConfigMask	mask;
   int			which = (int)data;
   int			ival;
   double		a, b, tmp;
 
-
+  StripConfigMask_clear (&mask);
+  
   XtVaGetValues (w, XmNuserData, &sd, NULL);
   XtUnmapWidget (sd->curve_info[which].widgets[SDCURVE_PRECISION]);
   XtUnmapWidget (sd->curve_info[which].widgets[SDCURVE_MIN]);
   XtUnmapWidget (sd->curve_info[which].widgets[SDCURVE_MAX]);
   
   if (sd->curve_info[which].modifying)
-    {
-      sc = (StripCurveInfo *)sd->curve_info[which].curve;
+  {
+    sc = (StripCurveInfo *)sd->curve_info[which].curve;
       
-      getwidgetval_precision (sd, which, &ival);
-      if (StripCurve_setattr (sc, STRIPCURVE_PRECISION, ival, 0))
-	{
-	  setwidgetval_precision 	(sd, which, ival);
-	  mask |= STRIPCFGMASK_CURVE_PRECISION;
-	}
-      else setwidgetval_precision (sd, which, sc->details->precision);
-
-      /* make sure that max > min */
-      getwidgetval_min (sd, which, &a);
-      getwidgetval_max (sd, which, &b);
-      if (a > b) { tmp = a; a = b; b = tmp; }
-
-      if (a < b)
-      {
-        if (StripCurve_setattr (sc, STRIPCURVE_MIN, a, 0))
-	{
-	  setwidgetval_min (sd, which, a);
-	  mask |= STRIPCFGMASK_CURVE_MIN;
-	}
-        else setwidgetval_min (sd, which, sc->details->min);
-        
-        if (StripCurve_setattr (sc, STRIPCURVE_MAX, b, 0))
-        {
-          setwidgetval_max (sd, which, b);
-          mask |= STRIPCFGMASK_CURVE_MAX;
-        }
-        else setwidgetval_max (sd, which, sc->details->min);
-      }
-      else
-      {
-        setwidgetval_min (sd, which, sc->details->min);
-        setwidgetval_max (sd, which, sc->details->max);
-      }
-
-      if (mask) StripConfig_update (sd->config, mask);
+    getwidgetval_precision (sd, which, &ival);
+    if (StripCurve_setattr (sc, STRIPCURVE_PRECISION, ival, 0))
+    {
+      setwidgetval_precision 	(sd, which, ival);
+      StripConfigMask_set (&mask, SCFGMASK_CURVE_PRECISION);
     }
+    else setwidgetval_precision (sd, which, sc->details->precision);
+
+    /* make sure that max > min */
+    getwidgetval_min (sd, which, &a);
+    getwidgetval_max (sd, which, &b);
+    if (a > b) { tmp = a; a = b; b = tmp; }
+
+    if (a < b)
+    {
+      if (StripCurve_setattr (sc, STRIPCURVE_MIN, a, 0))
+      {
+        setwidgetval_min (sd, which, a);
+        StripConfigMask_set (&mask, SCFGMASK_CURVE_MIN);
+      }
+      else setwidgetval_min (sd, which, sc->details->min);
+        
+      if (StripCurve_setattr (sc, STRIPCURVE_MAX, b, 0))
+      {
+        setwidgetval_max (sd, which, b);
+        StripConfigMask_set (&mask, SCFGMASK_CURVE_MAX);
+      }
+      else setwidgetval_max (sd, which, sc->details->max);
+    }
+    else
+    {
+      setwidgetval_min (sd, which, sc->details->min);
+      setwidgetval_max (sd, which, sc->details->max);
+    }
+
+    if (StripConfigMask_intersect (&mask, &SCFGMASK_ALL))
+      StripConfig_update (sd->config, mask);
+  }
 
   setwidgetval_modify (sd, which, !sd->curve_info[which].modifying);
   
@@ -2863,29 +2890,37 @@ static void	modify_btn_cb	(Widget w, XtPointer data, XtPointer BOGUS(1))
 static void	penstat_tgl_cb	(Widget w, XtPointer data, XtPointer call)
 {
   XmToggleButtonCallbackStruct	*cbs = (XmToggleButtonCallbackStruct *)call;
-  StripDialogInfo	*sd;
-  StripCurve		*sc;
-  int			idx = (int)data;
+  StripDialogInfo		*sd;
+  StripCurve			*sc;
+  int				idx = (int)data;
+  StripConfigMask		mask;
 
   XtVaGetValues (w, XmNuserData, &sd, NULL);
   sc = (StripCurve *)sd->curve_info[idx].curve;
   setwidgetval_penstat (sd, idx, cbs->set);
   StripCurve_setattr (sc, STRIPCURVE_PENSTAT, cbs->set, 0);
-  StripConfig_update (sd->config, STRIPCFGMASK_CURVE_PENSTAT);
+  
+  StripConfigMask_clear (&mask);
+  StripConfigMask_set (&mask, SCFGMASK_CURVE_PENSTAT);
+  StripConfig_update (sd->config, mask);
 }
 
 static void	plotstat_tgl_cb	(Widget w, XtPointer data, XtPointer call)
 {
   XmToggleButtonCallbackStruct	*cbs = (XmToggleButtonCallbackStruct *)call;
-  StripDialogInfo	*sd;
-  StripCurve		*sc;
-  int			idx = (int)data;
+  StripDialogInfo		*sd;
+  StripCurve			*sc;
+  int				idx = (int)data;
+  StripConfigMask		mask;
 
   XtVaGetValues (w, XmNuserData, &sd, NULL);
   sc = (StripCurve *)sd->curve_info[idx].curve;
   setwidgetval_plotstat (sd, idx, cbs->set);
   StripCurve_setattr (sc, STRIPCURVE_PLOTSTAT, cbs->set, 0);
-  StripConfig_update (sd->config, STRIPCFGMASK_CURVE_PLOTSTAT);
+  
+  StripConfigMask_clear (&mask);
+  StripConfigMask_set (&mask, SCFGMASK_CURVE_PLOTSTAT);
+  StripConfig_update (sd->config, mask);
 }
 
 
@@ -2914,57 +2949,66 @@ static void	tmmodify_btn_cb	(Widget 	BOGUS(1),
                                  XtPointer 	BOGUS(2))
 {
   StripDialogInfo	*sd = (StripDialogInfo *)data;
-  StripConfigMask	mask = 0;
+  StripConfigMask	mask;
   int			i;
   int			h, m, s;
   double		dval;
+
+  StripConfigMask_clear (&mask);
 
   for (i = SDTMOPT_TSHOUR; i <= SDTMOPT_GR; i++)
     XtUnmapWidget (sd->time_info.widgets[i]);
   
   if (sd->time_info.modifying)
+  {
+    XtUnmapWidget (sd->time_info.widgets[SDTMOPT_CANCEL]);
+      
+    getwidgetval_tm_tshour (sd, &h);
+    getwidgetval_tm_tsminute (sd, &m);
+    getwidgetval_tm_tssecond (sd, &s);
+
+    h = max (0, h);
+    m = max (0, m);
+    s = max (0, s);
+      
+    if (StripConfig_setattr
+        (sd->config,
+         STRIPCONFIG_TIME_TIMESPAN, 	(unsigned)(h*3600 + m*60 + s),
+         0))
     {
-      XtUnmapWidget (sd->time_info.widgets[SDTMOPT_CANCEL]);
-      
-      getwidgetval_tm_tshour (sd, &h);
-      getwidgetval_tm_tsminute (sd, &m);
-      getwidgetval_tm_tssecond (sd, &s);
-
-      h = max (0, h);
-      m = max (0, m);
-      s = max (0, s);
-      
-      if (StripConfig_setattr
-	  (sd->config,
-	   STRIPCONFIG_TIME_TIMESPAN, 	(unsigned)(h*3600 + m*60 + s),
-	   0))
-	mask |= STRIPCFGMASK_TIME_TIMESPAN;
-      else
-	{
-	  sec2hms (sd->config->Time.timespan, &h, &m, &s);
-	  setwidgetval_tm_tshour (sd, h);
-	  setwidgetval_tm_tsminute (sd, m);
-	  setwidgetval_tm_tssecond (sd, s);
-	}
-      
-      getwidgetval_tm_ds (sd, &dval);
-      if (StripConfig_setattr
-	  (sd->config,
-	   STRIPCONFIG_TIME_SAMPLE_INTERVAL, dval,
-	   0))
-	mask |= STRIPCFGMASK_TIME_SAMPLE_INTERVAL;
-      else setwidgetval_tm_ds (sd, sd->config->Time.sample_interval);
-      
-      getwidgetval_tm_gr (sd, &dval);
-      if (StripConfig_setattr
-	  (sd->config,
-	   STRIPCONFIG_TIME_REFRESH_INTERVAL, dval,
-	   0))
-	mask |= STRIPCFGMASK_TIME_REFRESH_INTERVAL;
-      else setwidgetval_tm_gr (sd, sd->config->Time.refresh_interval);
-
-      if (mask) StripConfig_update (sd->config, mask);
+      StripConfigMask_set (&mask, SCFGMASK_TIME_TIMESPAN);
     }
+    else
+    {
+      sec2hms (sd->config->Time.timespan, &h, &m, &s);
+      setwidgetval_tm_tshour (sd, h);
+      setwidgetval_tm_tsminute (sd, m);
+      setwidgetval_tm_tssecond (sd, s);
+    }
+      
+    getwidgetval_tm_ds (sd, &dval);
+    if (StripConfig_setattr
+        (sd->config,
+         STRIPCONFIG_TIME_SAMPLE_INTERVAL, dval,
+         0))
+    {
+      StripConfigMask_set (&mask, SCFGMASK_TIME_SAMPLE_INTERVAL);
+    }
+    else setwidgetval_tm_ds (sd, sd->config->Time.sample_interval);
+      
+    getwidgetval_tm_gr (sd, &dval);
+    if (StripConfig_setattr
+        (sd->config,
+         STRIPCONFIG_TIME_REFRESH_INTERVAL, dval,
+         0))
+    {
+      StripConfigMask_set (&mask, SCFGMASK_TIME_REFRESH_INTERVAL);
+    }
+    else setwidgetval_tm_gr (sd, sd->config->Time.refresh_interval);
+
+    if (StripConfigMask_intersect (&mask, &SCFGMASK_ALL))
+      StripConfig_update (sd->config, mask);
+  }
   else XtMapWidget (sd->time_info.widgets[SDTMOPT_CANCEL]);
   
   setwidgetval_tm_modify (sd, !sd->time_info.modifying);
@@ -3006,30 +3050,33 @@ static void	grmodify_btn_cb	(Widget		BOGUS(1),
                                  XtPointer	BOGUS(2))
 {
   StripDialogInfo	*sd = (StripDialogInfo *)data;
-  StripConfigMask	mask = 0;
+  StripConfigMask	mask;
   int			int_val;
 
   XtUnmapWidget (sd->graph_info.widgets[SDGROPT_YAXISNUM]);
   XtUnmapWidget (sd->graph_info.widgets[SDGROPT_XAXISNUM]);
 
-  if (sd->graph_info.modifying)
-    {
-      XtUnmapWidget (sd->graph_info.widgets[SDGROPT_CANCEL]);
-      
-      getwidgetval_gr_yaxisnum (sd, &int_val);
-      if (!StripConfig_setattr
-	  (sd->config, STRIPCONFIG_OPTION_AXIS_YNUMTICS, int_val, 0))
-	setwidgetval_gr_yaxisnum (sd, sd->config->Option.axis_ynumtics);
-      else mask |= STRIPCFGMASK_OPTION_AXIS_YNUMTICS;
-      
-      getwidgetval_gr_xaxisnum (sd, &int_val);
-      if (!StripConfig_setattr
-	  (sd->config, STRIPCONFIG_OPTION_AXIS_XNUMTICS, int_val, 0))
-	setwidgetval_gr_xaxisnum (sd, sd->config->Option.axis_xnumtics);
-      else mask |= STRIPCFGMASK_OPTION_AXIS_XNUMTICS;
+  StripConfigMask_clear (&mask);
 
-      if (mask) StripConfig_update (sd->config, mask);
-    }
+  if (sd->graph_info.modifying)
+  {
+    XtUnmapWidget (sd->graph_info.widgets[SDGROPT_CANCEL]);
+      
+    getwidgetval_gr_yaxisnum (sd, &int_val);
+    if (!StripConfig_setattr
+        (sd->config, STRIPCONFIG_OPTION_AXIS_YNUMTICS, int_val, 0))
+      setwidgetval_gr_yaxisnum (sd, sd->config->Option.axis_ynumtics);
+    else StripConfigMask_set (&mask, SCFGMASK_OPTION_AXIS_YNUMTICS);
+      
+    getwidgetval_gr_xaxisnum (sd, &int_val);
+    if (!StripConfig_setattr
+        (sd->config, STRIPCONFIG_OPTION_AXIS_XNUMTICS, int_val, 0))
+      setwidgetval_gr_xaxisnum (sd, sd->config->Option.axis_xnumtics);
+    else StripConfigMask_set (&mask, SCFGMASK_OPTION_AXIS_XNUMTICS);
+
+    if (StripConfigMask_intersect (&mask, &SCFGMASK_ALL))
+      StripConfig_update (sd->config, mask);
+  }
   else XtMapWidget (sd->graph_info.widgets[SDGROPT_CANCEL]);
   
   setwidgetval_gr_modify (sd, !sd->graph_info.modifying);
@@ -3063,10 +3110,14 @@ static void	grcolor_btn_cb	(Widget w, XtPointer data, XtPointer BOGUS(1))
 {
   CBInfo		*cbi = (CBInfo *)data;
   StripDialogInfo	*sd = (StripDialogInfo *)cbi->p;
-  Pixel			pixel;
+  cColor		*pcolor;
+  int			which;
 
-  XtVaGetValues (w, XmNbackground, &pixel, 0);
-  ColorDialog_popup (sd->clrdlg, cbi->str, pixel);
+  XtVaGetValues (w, XmNuserData, &which, NULL);
+  sd->color_edit_which = (StripConfigAttribute)which;
+  StripConfig_getattr
+    (sd->config, (StripConfigAttribute)sd->color_edit_which, &pcolor, 0);
+  ColorDialog_popup (sd->clrdlg, cbi->str, pcolor, clrdlg_cb, sd);
 }
 
 
@@ -3076,10 +3127,15 @@ static void	gropt_slider_cb	(Widget 	BOGUS(1),
 {
   XmScaleCallbackStruct	*cbs = (XmScaleCallbackStruct *)call;
   StripDialogInfo	*sd = (StripDialogInfo *)data;
+  StripConfigMask	mask;
 
   if (StripConfig_setattr
       (sd->config, STRIPCONFIG_OPTION_GRAPH_LINEWIDTH, cbs->value, 0))
-    StripConfig_update (sd->config, STRIPCFGMASK_OPTION_GRAPH_LINEWIDTH);
+  {
+    StripConfigMask_clear (&mask);
+    StripConfigMask_set (&mask, SCFGMASK_OPTION_GRAPH_LINEWIDTH);
+    StripConfig_update (sd->config, mask);
+  }
   else setwidgetval_gr_linewidth (sd, sd->config->Option.graph_linewidth);
 }
 
@@ -3088,29 +3144,40 @@ static void	gropt_tgl_cb	(Widget w, XtPointer data, XtPointer call)
 {
   XmToggleButtonCallbackStruct	*cbs = (XmToggleButtonCallbackStruct *)call;
   StripDialogInfo	*sd = (StripDialogInfo *)data;
-  StripConfigMask	mask = 0;
+  StripConfigMask	mask;
 
+  StripConfigMask_clear (&mask);
+  
   if (w == sd->graph_info.widgets[SDGROPT_GRIDX])
+  {
+    if (StripConfig_setattr
+        (sd->config, STRIPCONFIG_OPTION_GRID_XON, cbs->set, 0))
     {
-      if (StripConfig_setattr
-	  (sd->config, STRIPCONFIG_OPTION_GRID_XON, cbs->set, 0))
-	StripConfig_update (sd->config, STRIPCFGMASK_OPTION_GRID_XON);
-      else setwidgetval_gr_linewidth (sd, sd->config->Option.grid_xon);
+      StripConfigMask_set (&mask, SCFGMASK_OPTION_GRID_XON);
+      StripConfig_update (sd->config, mask);
     }
+    else setwidgetval_gr_linewidth (sd, sd->config->Option.grid_xon);
+  }
   else if (w == sd->graph_info.widgets[SDGROPT_GRIDY])
+  {
+    if (StripConfig_setattr
+        (sd->config, STRIPCONFIG_OPTION_GRID_YON, cbs->set, 0))
     {
-      if (StripConfig_setattr
-	  (sd->config, STRIPCONFIG_OPTION_GRID_YON, cbs->set, 0))
-	StripConfig_update (sd->config, STRIPCFGMASK_OPTION_GRID_YON);
-      else setwidgetval_gr_gridy (sd, sd->config->Option.grid_yon);
+      StripConfigMask_set (&mask, SCFGMASK_OPTION_GRID_YON);
+      StripConfig_update (sd->config, mask);
     }
+    else setwidgetval_gr_gridy (sd, sd->config->Option.grid_yon);
+  }
   else if (w == sd->graph_info.widgets[SDGROPT_YAXISCLR])
+  {
+    if (StripConfig_setattr
+        (sd->config, STRIPCONFIG_OPTION_AXIS_YCOLORSTAT, cbs->set, 0))
     {
-      if (StripConfig_setattr
-	  (sd->config, STRIPCONFIG_OPTION_AXIS_YCOLORSTAT, cbs->set, 0))
-	StripConfig_update (sd->config, STRIPCFGMASK_OPTION_AXIS_YCOLORSTAT);
-      else setwidgetval_gr_yaxisclr (sd, sd->config->Option.axis_ycolorstat);
+      StripConfigMask_set (&mask, SCFGMASK_OPTION_AXIS_YCOLORSTAT);
+      StripConfig_update (sd->config, mask);
     }
+    else setwidgetval_gr_yaxisclr (sd, sd->config->Option.axis_ycolorstat);
+  }
 }
 
 
@@ -3182,10 +3249,11 @@ static void	fsdlg_cb	(Widget w, XtPointer data, XtPointer call)
         XtVaGetValues (w, XmNuserData, &sd, NULL);
         if (f = fopen (fname, sd->fs.state == FSDLG_SAVE? "w" : "r"))
         {
-          sd->fs.mask = 0;
+          StripConfigMask_clear (&sd->fs.mask);
           for (i = 0; i < FSDLG_TGL_COUNT; i++)
             if (XmToggleButtonGetState (sd->fs.tgl[i]))
-              sd->fs.mask |= FsDlgTglVal[i];
+              StripConfigMask_or (&sd->fs.mask, FsDlgTglVal[i]);
+
           if (sd->fs.state == FSDLG_SAVE)
           {
             if (!StripConfig_write (sd->config, f, sd->fs.mask))
@@ -3210,7 +3278,8 @@ static void	fsdlg_cb	(Widget w, XtPointer data, XtPointer call)
               if (*p == '/') p++;
               
               StripConfig_setattr (sd->config, STRIPCONFIG_TITLE, p, 0);
-              StripConfig_update (sd->config, sd->fs.mask | STRIPCFGMASK_TITLE);
+              StripConfigMask_set (&sd->fs.mask, SCFGMASK_TITLE);
+              StripConfig_update (sd->config, sd->fs.mask);
             }
             else
             {
@@ -3228,107 +3297,172 @@ static void	fsdlg_cb	(Widget w, XtPointer data, XtPointer call)
       }
 }
 
+static void	clrdlg_cb	(void *arg, cColor *pcolor_new)
+{
+  StripDialogInfo	*sd = (StripDialogInfo *)arg;
+  cColor		*pcolor_old;
+  StripConfigMask	mask;
+
+  StripConfig_getattr
+    (sd->config, (StripConfigAttribute)sd->color_edit_which, &pcolor_old, 0);
+  
+  /* if the referenced color cells differ, then we need to
+   * flag an update, otherwise we can just assign the
+   * new value to the old */
+  if (pcolor_new->xcolor.pixel != pcolor_old->xcolor.pixel)
+  {
+    /* keep new color, free old */
+    cColorManager_keep_color (sd->config->scm, pcolor_new);
+    cColorManager_free_color (sd->config->scm, pcolor_old);
+
+    /* set the new color */
+    StripConfig_setattr
+      (sd->config, (StripConfigAttribute)sd->color_edit_which, pcolor_new, 0);
+
+    /* initiate update */
+    StripConfigMask_clear (&mask);
+    StripConfigMask_set (&mask, (StripConfigMaskElement)sd->color_edit_which);
+    StripConfig_update (sd->config, mask);
+  }
+  else *pcolor_old = *pcolor_new;
+}
 
 static void	StripDialog_cfgupdate	(StripConfigMask mask, void *data)
 {
   StripDialogInfo	*sd = (StripDialogInfo *)data;
   StripCurveInfo	*sc;
-  int			i;
+  int			i, j;
   int			h, m, s;
 
-  if (mask & STRIPCFGMASK_TIME_TIMESPAN)
+  if (StripConfigMask_stat (&mask, SCFGMASK_TIME_TIMESPAN))
+  {
+    sec2hms (sd->config->Time.timespan, &h, &m, &s);
+    setwidgetval_tm_tshour (sd, h);
+    setwidgetval_tm_tsminute (sd, m);
+    setwidgetval_tm_tssecond (sd, s);
+  }
+
+  if (StripConfigMask_stat (&mask, SCFGMASK_TIME_SAMPLE_INTERVAL))
+  {
+    setwidgetval_tm_ds (sd, sd->config->Time.sample_interval);
+  }
+  
+  if (StripConfigMask_stat (&mask, SCFGMASK_TIME_REFRESH_INTERVAL))
+  {
+    setwidgetval_tm_gr (sd, sd->config->Time.refresh_interval);
+  }
+
+  /* colors */
+  if (StripConfigMask_intersect (&mask, &SCFGMASK_COLOR))
+  {
+    if (StripConfigMask_stat (&mask, SCFGMASK_COLOR_BACKGROUND))
     {
-      sec2hms (sd->config->Time.timespan, &h, &m, &s);
-      setwidgetval_tm_tshour (sd, h);
-      setwidgetval_tm_tsminute (sd, m);
-      setwidgetval_tm_tssecond (sd, s);
+      setwidgetval_gr_bg (sd, sd->config->Color.background.xcolor.pixel);
+    }
+    if (StripConfigMask_stat (&mask, SCFGMASK_COLOR_FOREGROUND))
+    {
+      setwidgetval_gr_fg (sd, sd->config->Color.foreground.xcolor.pixel);
+    }
+    if (StripConfigMask_stat (&mask, SCFGMASK_COLOR_GRID))
+    {
+      setwidgetval_gr_gridclr (sd, sd->config->Color.grid.xcolor.pixel);
+    }
+    if (StripConfigMask_stat (&mask, SCFGMASK_COLOR_LEGENDTEXT))
+    {
+      setwidgetval_gr_lgndclr (sd, sd->config->Color.legendtext.xcolor.pixel);
     }
 
-  if (mask & STRIPCFGMASK_TIME_SAMPLE_INTERVAL)
-    {
-      setwidgetval_tm_ds (sd, sd->config->Time.sample_interval);
-    }
+    /* find the curve whose color corresponds with the config color index */
+    for (i = 0; i < STRIP_MAX_CURVES; i++)
+      if (StripConfigMask_stat
+          (&mask, (StripConfigMaskElement)SCFGMASK_COLOR_COLOR1+i))
+        for (j = 0; j < sd->sdcurve_count; j++)
+        {
+          sc = (StripCurveInfo *)sd->curve_info[j].curve;
+          if (sc->details->color == &sd->config->Color.color[i])
+            setwidgetval_color (sd, j, sc->details->color->xcolor.pixel);
+        }
+  }
   
-  if (mask & STRIPCFGMASK_TIME_REFRESH_INTERVAL)
-    {
-      setwidgetval_tm_gr (sd, sd->config->Time.refresh_interval);
-    }
+  if (StripConfigMask_stat (&mask, SCFGMASK_OPTION_GRID_XON))
+  {
+    setwidgetval_gr_gridx (sd, sd->config->Option.grid_xon);
+  }
   
-  if (mask & STRIPCFGMASK_OPTION_GRID_XON)
-    {
-      setwidgetval_gr_gridx (sd, sd->config->Option.grid_xon);
-    }
+  if (StripConfigMask_stat (&mask, SCFGMASK_OPTION_GRID_YON))
+  {
+    setwidgetval_gr_gridy (sd, sd->config->Option.grid_yon);
+  }
   
-  if (mask & STRIPCFGMASK_OPTION_GRID_YON)
-    {
-      setwidgetval_gr_gridy (sd, sd->config->Option.grid_yon);
-    }
+  if (StripConfigMask_stat (&mask, SCFGMASK_OPTION_AXIS_YCOLORSTAT))
+  {
+    setwidgetval_gr_gridy (sd, sd->config->Option.grid_yon);
+  }
   
-  if (mask & STRIPCFGMASK_OPTION_AXIS_YCOLORSTAT)
-    {
-      setwidgetval_gr_gridy (sd, sd->config->Option.grid_yon);
-    }
+  if (StripConfigMask_stat (&mask, SCFGMASK_OPTION_AXIS_XNUMTICS))
+  {
+    setwidgetval_gr_xaxisnum (sd, sd->config->Option.axis_xnumtics);
+  }
   
-  if (mask & STRIPCFGMASK_OPTION_AXIS_XNUMTICS)
-    {
-      setwidgetval_gr_xaxisnum (sd, sd->config->Option.axis_xnumtics);
-    }
+  if (StripConfigMask_stat (&mask, SCFGMASK_OPTION_AXIS_YNUMTICS))
+  {
+    setwidgetval_gr_yaxisnum (sd, sd->config->Option.axis_ynumtics);
+  }
   
-  if (mask & STRIPCFGMASK_OPTION_AXIS_YNUMTICS)
-    {
-      setwidgetval_gr_yaxisnum (sd, sd->config->Option.axis_ynumtics);
-    }
-  
-  if (mask & STRIPCFGMASK_OPTION_AXIS_YCOLORSTAT)
-    {
-      setwidgetval_gr_yaxisclr (sd, sd->config->Option.axis_ycolorstat);
-    }
+  if (StripConfigMask_stat (&mask, SCFGMASK_OPTION_AXIS_YCOLORSTAT))
+  {
+    setwidgetval_gr_yaxisclr (sd, sd->config->Option.axis_ycolorstat);
+  }
 
-  if (mask & STRIPCFGMASK_OPTION_GRAPH_LINEWIDTH)
-    {
-      setwidgetval_gr_linewidth (sd, sd->config->Option.graph_linewidth);
-    }
+  if (StripConfigMask_stat (&mask, SCFGMASK_OPTION_GRAPH_LINEWIDTH))
+  {
+    setwidgetval_gr_linewidth (sd, sd->config->Option.graph_linewidth);
+  }
 
-  if (mask & STRIPCFGMASK_CURVE)
+  if (StripConfigMask_intersect (&mask, &SCFGMASK_CURVE))
+  {
+    for (i = 0; i < sd->sdcurve_count; i++)
     {
-      for (i = 0; i < sd->sdcurve_count; i++)
-	{
-	  sc = (StripCurveInfo *)sd->curve_info[i].curve;
-	  if (sc->details->update_mask & mask)
-	    {
-	      if (sc->details->update_mask & STRIPCFGMASK_CURVE_EGU)
-		{
-		}
-  
-	      if (sc->details->update_mask & STRIPCFGMASK_CURVE_PRECISION)
-		{
-		  setwidgetval_precision (sd, i, sc->details->precision);
-		  if (!(sc->details->update_mask & STRIPCFGMASK_CURVE_MIN))
-		    setwidgetval_min (sd, i,  sc->details->min);
-		  if (!(sc->details->update_mask & STRIPCFGMASK_CURVE_MAX))
-		    setwidgetval_max (sd, i,  sc->details->max);
-		}
-  
-	      if (sc->details->update_mask & STRIPCFGMASK_CURVE_MIN)
-		{
-		  setwidgetval_min (sd, i,  sc->details->min);
-		}
-  
-	      if (sc->details->update_mask & STRIPCFGMASK_CURVE_MAX)
-		{
-		  setwidgetval_max (sd, i,  sc->details->max);
-		}
-  
-	      if (sc->details->update_mask & STRIPCFGMASK_CURVE_PENSTAT)
-		{
-		  setwidgetval_penstat (sd, i, sc->details->penstat);
-		}
-  
-	      if (sc->details->update_mask & STRIPCFGMASK_CURVE_PLOTSTAT)
-		{
-		  setwidgetval_plotstat (sd, i, sc->details->plotstat);
-		}
-	    }
-	}
+      sc = (StripCurveInfo *)sd->curve_info[i].curve;
+      if (StripConfigMask_intersect (&mask, &sc->details->update_mask))
+      {
+        if (StripConfigMask_stat
+            (&sc->details->update_mask, SCFGMASK_CURVE_EGU))
+        {
+        }
+            
+        if (StripConfigMask_stat
+            (&sc->details->update_mask, SCFGMASK_CURVE_PRECISION))
+        {
+          setwidgetval_precision (sd, i, sc->details->precision);
+          if (!(StripConfigMask_stat
+                (&sc->details->update_mask, SCFGMASK_CURVE_MIN)))
+            setwidgetval_min (sd, i,  sc->details->min);
+          if (!(StripConfigMask_stat
+                (&sc->details->update_mask, SCFGMASK_CURVE_MAX)))
+            setwidgetval_max (sd, i,  sc->details->max);
+        }
+            
+        if (StripConfigMask_stat (&mask, SCFGMASK_CURVE_MIN))
+        {
+          setwidgetval_min (sd, i,  sc->details->min);
+        }
+            
+        if (StripConfigMask_stat (&mask, SCFGMASK_CURVE_MAX))
+        {
+          setwidgetval_max (sd, i,  sc->details->max);
+        }
+            
+        if (StripConfigMask_stat (&mask, SCFGMASK_CURVE_PENSTAT))
+        {
+          setwidgetval_penstat (sd, i, sc->details->penstat);
+        }
+            
+        if (StripConfigMask_stat (&mask, SCFGMASK_CURVE_PLOTSTAT))
+        {
+          setwidgetval_plotstat (sd, i, sc->details->plotstat);
+        }
+      }
     }
+  }
 }

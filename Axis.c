@@ -132,9 +132,12 @@ Axis	Axis_init
       else
       {
         for (i = 0; i < MAX_TICS + 1; i++)
+        {
           axis->tics[i].value = (void *)
             ((char *)axis->value_buf +
              i * AxisValueType_size[axis->type]);
+          axis->tics[i].offset = 0;
+        }
 	      
         axis->x0 = axis->y0 = axis->x1 = axis->y1 = -1;
         axis->recalc = axis->resized = axis->new_tics = 1;
@@ -554,14 +557,14 @@ static void Axis_recalc (AxisInfo *axis, Display *display)
          */
         a = *(double *)axis->minval;
         b = *(double *)axis->maxval;
-        delta = (b-a) / (double)n;
+        delta = fabs ((b-a) / (double)n);
         
         p = log10 (delta);
         /*
           q = (p > 0? floor (p) : p < 0? ceil (p) : p);
         */
         q = floor (p);
-        precision = (q < 0? -q : 0);
+        precision = (int)(q < 0? -q : 0);
         q = pow (10, q);
         
         r = q;
@@ -592,7 +595,9 @@ static void Axis_recalc (AxisInfo *axis, Display *display)
          * point tic value being compared with the maximum axis value, in
          * order to avoid inaccuracies in comparing floating point numbers.
          */
-        for (n = 0; ((m = (int)((k*(x-a)) / (b-a))) <= k) && (n < MAX_TICS); x += r)
+        for (n = 0;
+             ((m = (int)((k*(x-a)) / (b-a))) <= k) && (n < MAX_TICS);
+             x += r)
         {
           axis->tics[n].offset = m;
 	  dbl2str (x, precision, axis->tics[n].label, MAX_YLABEL_LEN);

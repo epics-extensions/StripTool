@@ -15,8 +15,10 @@
 
 #define CURVE_DATA(C)	((CurveData *)((StripCurveInfo *)C)->id)
 
-#define SDB_LTE		0
-#define SDB_GTE 	1
+#define SDB_MAX_BINLINES	2048
+
+#define SDB_LTE			0
+#define SDB_GTE 		1
 
 #define SDB_DUMP_FIELDWIDTH	30
 #define SDB_DUMP_NUMWIDTH	20
@@ -25,7 +27,8 @@
 typedef struct
 {
   StripCurveInfo	*curve;
-  DataPoint		*data;		/* array of DataPoints */
+  double		*val;
+  char			*stat;
   size_t		idx_t0, idx_t1;
 } CurveData;
 
@@ -55,7 +58,7 @@ static int	pack_array	(void **, size_t,
 
 
 /* ====== Static Data ====== */
-struct timezone	tz;
+static struct timezone	tz;
 
 
 /* ====== Functions ====== */
@@ -81,7 +84,8 @@ StripDataBuffer	StripDataBuffer_init	(void)
       for (i = 0; i < STRIP_MAX_CURVES; i++)
 	{
 	  sdb->buffers[i].curve 	= NULL;
-	  sdb->buffers[i].data	 	= NULL;
+          sdb->buffers[i].val		= NULL;
+          sdb->buffers[i].stat		= NULL;
 	  sdb->buffers[i].idx_t1	= 0;
 	  sdb->buffers[i].idx_t0	= 0;
 	}
@@ -101,8 +105,12 @@ void	StripDataBuffer_delete	(StripDataBuffer the_sdb)
   int			i;
 
   for (i = 0; i < STRIP_MAX_CURVES; i++)
-    if (sdb->buffers[i].data != NULL)
-      free (sdb->buffers[i].data);
+  {
+    if (sdb->buffers[i].val)
+      free (sdb->buffers[i].val);
+    if (sdb->buffers[i].stat)
+      free (sdb->buffers[i].stat);
+  }
 
   free (sdb);
 }
@@ -185,28 +193,34 @@ int StripDataBuffer_addcurve	(StripDataBuffer 	the_sdb,
 {
   StripDataBufferInfo	*sdb = (StripDataBufferInfo *)the_sdb;
   int 			i;
-  int			ret_val;
+  int			ret = 0;
   
   for (i = 0; i < STRIP_MAX_CURVES; i++)
     if (sdb->buffers[i].curve == NULL)		/* it's available */
       break;
 
-  if ((ret_val = (i < STRIP_MAX_CURVES)))
+  if (i < STRIP_MAX_CURVES)
+  {
+    sdb->buffers[i].val = (double *)malloc (sdb->buf_size * sizeof (double));
+    sdb->buffers[i].stat = (char *)calloc (sdb->buf_size, sizeof (char));
+    if (sdb->buffers[i].val && sdb->buffers[i].stat)
     {
-      sdb->buffers[i].data = (DataPoint *)calloc
-	(sdb->buf_size * sizeof (DataPoint), sizeof(char));
-      if (ret_val = (sdb->buffers[i].data != NULL))
-	{
-	  sdb->buffers[i].curve 	= (StripCurveInfo *)the_curve;
-	  sdb->buffers[i].idx_t0	= 0;
-	  sdb->buffers[i].idx_t1	= 0;
-
-	  /* use the id field of the strip curve to reference the buffer */
-	  ((StripCurveInfo *)the_curve)->id = &sdb->buffers[i];
-	}
+      sdb->buffers[i].curve 	= (StripCurveInfo *)the_curve;
+      sdb->buffers[i].idx_t0	= 0;
+      sdb->buffers[i].idx_t1	= 0;
+      
+      /* use the id field of the strip curve to reference the buffer */
+      ((StripCurveInfo *)the_curve)->id = &sdb->buffers[i];
+      ret = 1;
     }
-
-  return ret_val;
+    else
+    {
+      if (sdb->buffers[i].val) free (sdb->buffers[i].val);
+      if (sdb->buffers[i].stat) free (sdb->buffers[i].stat);
+    }
+  }
+  
+  return ret;
 }
 
 
@@ -218,15 +232,19 @@ int StripDataBuffer_removecurve	(StripDataBuffer the_sdb, StripCurve the_curve)
 {
   StripDataBufferInfo	*sdb = (StripDataBufferInfo *)the_sdb;
   CurveData		*cd;
-  int			ret_val;
+  int			ret_val = 1;
 
   if ((cd = CURVE_DATA(the_curve)) != NULL)
     {
       cd->curve = NULL;
-      free (cd->data);
-      cd->data = NULL;
+      free (cd->val);
+      free (cd->stat);
+      cd->val = NULL;
+      cd->stat = NULL;
       ((StripCurveInfo *)the_curve)->id = NULL;
     }
+
+  return ret_val;
 }
 
 
@@ -241,27 +259,27 @@ void	StripDataBuffer_sample	(StripDataBuffer the_sdb)
   int			need_time = 1;
 
   for (i = 0; i < STRIP_MAX_CURVES; i++)
+  {
+    if ((c = sdb->buffers[i].curve) != NULL)
     {
-      if ((c = sdb->buffers[i].curve) != NULL)
-	{
-	  if (need_time)
-	    {
-	      sdb->cur_idx = (sdb->cur_idx + 1) % sdb->buf_size;
-	      gettimeofday (&sdb->times[sdb->cur_idx], &tz);
-	      sdb->count = min ((sdb->count+1), sdb->buf_size);
-	      need_time = 0;
-	    }
-	  if ((c->status & STRIPCURVE_CONNECTED) &&
-	      (!(c->status & STRIPCURVE_WAITING) &&
-	      (c->details->penstat == STRIPCURVE_PENDOWN)))
-	    {
-	      sdb->buffers[i].data[sdb->cur_idx].value =
-		c->get_value (c->func_data);
-	      sdb->buffers[i].data[sdb->cur_idx].status = DATASTAT_PLOTABLE;
-	    }
-	  else sdb->buffers[i].data[sdb->cur_idx].status = ~DATASTAT_PLOTABLE;
-	}
+      if (need_time)
+      {
+        sdb->cur_idx = (sdb->cur_idx + 1) % sdb->buf_size;
+        gettimeofday (&sdb->times[sdb->cur_idx], &tz);
+        sdb->count = min ((sdb->count+1), sdb->buf_size);
+        need_time = 0;
+      }
+      if ((c->status & STRIPCURVE_CONNECTED) &&
+          (!(c->status & STRIPCURVE_WAITING) &&
+           (c->details->penstat == STRIPCURVE_PENDOWN)))
+      {
+        sdb->buffers[i].val[sdb->cur_idx] =
+          c->get_value (c->func_data);
+        sdb->buffers[i].stat[sdb->cur_idx] = DATASTAT_PLOTABLE;
+      }
+      else sdb->buffers[i].stat[sdb->cur_idx] = ~DATASTAT_PLOTABLE;
     }
+  }
 }
 
 
@@ -296,10 +314,10 @@ size_t		StripDataBuffer_init_range	(StripDataBuffer the_sdb,
   else r1 = sdb->buf_size - sdb->idx_t0 + sdb->idx_t1 + 1;
 
   for (i = 0; i < STRIP_MAX_CURVES; i++)
-    {
-      sdb->buffers[i].idx_t0 = sdb->idx_t0;
-      sdb->buffers[i].idx_t1 = sdb->idx_t1;
-    }
+  {
+    sdb->buffers[i].idx_t0 = sdb->idx_t0;
+    sdb->buffers[i].idx_t1 = sdb->idx_t1;
+  }
 
   return (size_t)r1;
 }
@@ -340,29 +358,31 @@ size_t	StripDataBuffer_get_times	(StripDataBuffer	the_sdb,
  */
 size_t	StripDataBuffer_get_data	(StripDataBuffer	the_sdb,
 					 StripCurve		the_curve,
-					 DataPoint		**values)
+                                         double			**val,
+                                         char			**stat)
 {
   StripDataBufferInfo	*sdb = (StripDataBufferInfo *)the_sdb;
   CurveData		*cd = CURVE_DATA(the_curve);
 
   size_t		ret_val = 0;
-
+  
   if (cd->idx_t0 != cd->idx_t1)
+  {
+    *val = &cd->val[cd->idx_t0];
+    *stat = &cd->stat[cd->idx_t0];
+    
+    if (cd->idx_t0 < cd->idx_t1)
     {
-      *values = &cd->data[cd->idx_t0];
-
-      if (cd->idx_t0 < cd->idx_t1)
-	{
-	  ret_val = cd->idx_t1 - cd->idx_t0 + 1;
-	  cd->idx_t0 = cd->idx_t1;
-	}
-      else
-	{
-	  ret_val = sdb->buf_size - cd->idx_t0;
-	  cd->idx_t0 = 0;
-	}
+      ret_val = cd->idx_t1 - cd->idx_t0 + 1;
+      cd->idx_t0 = cd->idx_t1;
     }
-  else *values = NULL;
+    else
+    {
+      ret_val = sdb->buf_size - cd->idx_t0;
+      cd->idx_t0 = 0;
+    }
+  }
+  else *val = NULL;
   
   return ret_val;
 }
@@ -388,92 +408,93 @@ int	StripDataBuffer_dump	(StripDataBuffer	the_sdb,
   struct		_cv
   {
     CurveData	*cd;
-    DataPoint	*dp;
+    double	*val;
+    char	*stat;
   }
   cv[STRIP_MAX_CURVES];
 
   /* first build the array of curves to dump */
   if (curves[0])
-    {
-      /* get curves from array */
-      for (n = 0; curves[n]; n++)
-	if ((cv[n].cd = CURVE_DATA(curves[n])) == NULL)
-	  {
-	    fprintf (stderr, "StripDataBuffer_dump(): bad curve descriptor\n");
-	    return 0;
-	  }
-    }
+  {
+    /* get curves from array */
+    for (n = 0; curves[n]; n++)
+      if ((cv[n].cd = CURVE_DATA(curves[n])) == NULL)
+      {
+        fprintf (stderr, "StripDataBuffer_dump(): bad curve descriptor\n");
+        return 0;
+      }
+  }
   else for (i = 0, n = 0; i < STRIP_MAX_CURVES; i++)	/* all curves */
+  {
+    if (sdb->buffers[i].curve != NULL)
     {
-      if (sdb->buffers[i].curve != NULL)
-	{
-	  cv[n].cd = &sdb->buffers[i];
-	  n++;
-	}
+      cv[n].cd = &sdb->buffers[i];
+      n++;
     }
+  }
   n_curves = n;
-
+  
   /* now set the begin, end times */
   if (!begin) begin = &sdb->times[sdb->idx_t0];
   if (!end) end = &sdb->times[sdb->idx_t1];
 
   /* now get the data */
   if (StripDataBuffer_init_range (the_sdb, begin, end) > 0)
+  {
+    /* first print out the curve names along the top */
+    fprintf (outfile, "%-*s", SDB_DUMP_FIELDWIDTH, "Sample Time");
+    for (i = 0; i < n_curves; i++)
+      fprintf
+        (outfile, "%*s", SDB_DUMP_FIELDWIDTH,
+         cv[i].cd->curve->details->name);
+    fprintf (outfile, "\n");
+    
+    while ((n = StripDataBuffer_get_times (the_sdb, &times)) > 0)
     {
-      /* first print out the curve names along the top */
-      fprintf (outfile, "%-*s", SDB_DUMP_FIELDWIDTH, "Sample Time");
+      /* get the value array for each curve */
       for (i = 0; i < n_curves; i++)
-	fprintf
-	  (outfile, "%*s", SDB_DUMP_FIELDWIDTH,
-	   cv[i].cd->curve->details->name);
-      fprintf (outfile, "\n");
+        if (StripDataBuffer_get_data
+            (the_sdb, (StripCurve)cv[i].cd->curve, &cv[i].val, &cv[i].stat)
+            != n)
+        {
+          fprintf
+            (stderr, "StripDataBuffer_dump(): unexpected data count!\n");
+          return 0;
+        }
       
-      while ((n = StripDataBuffer_get_times (the_sdb, &times)) > 0)
-	{
-	  /* get the value array for each curve */
-	  for (i = 0; i < n_curves; i++)
-	    if (StripDataBuffer_get_data
-		(the_sdb, (StripCurve)cv[i].cd->curve, &cv[i].dp)
-		!= n)
-	      {
-		fprintf
-		  (stderr, "StripDataBuffer_dump(): unexpected data count!\n");
-		return 0;
-	      }
-
-	  /* write out the samples */
-	  for (i = 0; i < n; i++)
-	    {
-	      /* sample time */
-	      tt = (time_t)times[i].tv_sec;
-	      msec = times[i].tv_usec / ONE_THOUSAND;
-	      strftime
-		(buf, SDB_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
-		 localtime (&tt));
-	      j = strlen (buf);
-	      buf[j++] = '.';
-	      int2str (msec, &buf[j], 3);
-	      fprintf (outfile, "%-*s", SDB_DUMP_FIELDWIDTH, buf);
-
-	      /* sampled values */
-	      for (j = 0; j < n_curves; j++)
-		{
-		  if (cv[j].dp[i].status & DATASTAT_PLOTABLE)
-		    dbl2str
-		      (cv[j].dp[i].value, cv[j].cd->curve->details->precision,
-		       buf, SDB_DUMP_NUMWIDTH);
-		  else strcpy (buf, SDB_DUMP_BADVALUESTR);
-		  fprintf (outfile, "%*s", SDB_DUMP_FIELDWIDTH, buf);
-		}
-	      
-	      /* finally, the end-line */
-	      fprintf (outfile, "\n");
-	    }
-	}
-      
-      fflush (outfile);
+      /* write out the samples */
+      for (i = 0; i < n; i++)
+      {
+        /* sample time */
+        tt = (time_t)times[i].tv_sec;
+        msec = (int)(times[i].tv_usec / ONE_THOUSAND);
+        strftime
+          (buf, SDB_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
+           localtime (&tt));
+        j = strlen (buf);
+        buf[j++] = '.';
+        int2str (msec, &buf[j], 3);
+        fprintf (outfile, "%-*s", SDB_DUMP_FIELDWIDTH, buf);
+        
+        /* sampled values */
+        for (j = 0; j < n_curves; j++)
+        {
+          if (cv[j].stat[i] & DATASTAT_PLOTABLE)
+            dbl2str
+              (cv[j].val[i], cv[j].cd->curve->details->precision,
+               buf, SDB_DUMP_NUMWIDTH);
+          else strcpy (buf, SDB_DUMP_BADVALUESTR);
+          fprintf (outfile, "%*s", SDB_DUMP_FIELDWIDTH, buf);
+        }
+        
+        /* finally, the end-line */
+        fprintf (outfile, "\n");
+      }
     }
-
+    
+    fflush (outfile);
+  }
+  
   return ret_val;
 }
 
@@ -572,152 +593,50 @@ static long	StripDataBuffer_find_date_idx 	(StripDataBufferInfo	*sdb,
  * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 static int StripDataBuffer_resize (StripDataBufferInfo *sdb, size_t buf_size)
 {
-  int			i, idx, n, x, a;
-  DataPoint		*dp;
-  struct timeval	*tp;
+  int			i;
   int			new_cur_idx = sdb->cur_idx;
   int			new_count = sdb->count;
   int 			ret_val = 0;
   
   int			new_index;
 
-  /*
-  fprintf
-    (stdout,
-     "begin StripDataBuffer_resize():\n"
-     "  buf_size	= %u\n"
-     "  sdb		= %p\n"
-     "  sdb->cur_idx	= %u\n"
-     "  sdb->buf_size	= %u\n"
-     "  sdb->count	= %d\n",
-     buf_size, sdb, sdb->cur_idx, sdb->buf_size, sdb->count);
-     */
-  
   if (sdb->buf_size == 0)
-    {
-      
-      sdb->times = (struct timeval *)malloc
-	(buf_size * sizeof(struct timeval));
-      new_index = new_count = 0;
-      ret_val = (sdb->times != NULL);
-    }
+  {
+    
+    sdb->times = (struct timeval *)malloc
+      (buf_size * sizeof(struct timeval));
+    new_index = new_count = 0;
+    ret_val = (sdb->times != NULL);
+  }
   else
-    {
-      ret_val = pack_array
-	((void *)&sdb->times, sizeof(struct timeval),
-	 sdb->buf_size, sdb->cur_idx, sdb->count,
-	 buf_size, &new_index, &new_count);
-      if (ret_val)
-	for (i = 0; i < STRIP_MAX_CURVES; i++)
-	  if (sdb->buffers[i].data)
-	    {
-	      ret_val = pack_array
-		((void *)&sdb->buffers[i].data, sizeof(DataPoint),
-		 sdb->buf_size, sdb->cur_idx, sdb->count,
-		 buf_size, 0, 0);
-	      if (!ret_val) break;
-	    }
-    }
+  {
+    ret_val = pack_array
+      ((void **)&sdb->times, sizeof(struct timeval),
+       sdb->buf_size, sdb->cur_idx, sdb->count,
+       buf_size, &new_index, &new_count);
+    if (ret_val)
+      for (i = 0; i < STRIP_MAX_CURVES; i++)
+        if (sdb->buffers[i].val)
+        {
+          ret_val = pack_array
+            ((void **)&sdb->buffers[i].val, sizeof(double),
+             sdb->buf_size, sdb->cur_idx, sdb->count,
+             buf_size, 0, 0);
+          if (ret_val)
+            ret_val = pack_array
+              ((void **)&sdb->buffers[i].stat, sizeof (char),
+               sdb->buf_size, sdb->cur_idx, sdb->count,
+               buf_size, 0, 0);
+          if (!ret_val) break;
+        }
+  }
   if (ret_val)
-    {
-      sdb->buf_size = buf_size;
-      sdb->cur_idx = new_index;
-      sdb->count = new_count;
-    }
+  {
+    sdb->buf_size = buf_size;
+    sdb->cur_idx = new_index;
+    sdb->count = new_count;
+  }
   return ret_val;
-
-  /* First resize and repack the time table array. */
-  tp = sdb->times;
-  idx = sdb->cur_idx;
-  a = sdb->buf_size;	/* size of old buffer */
-  
-  if (buf_size > a)	/* new buffer size is larger than old */
-    {
-      /* do a realloc, then memmove the trailing portion of the previous
-       * ring buffer to the very end of the new buffer */
-      tp = (struct timeval *)realloc (tp, buf_size * sizeof(struct timeval));
-      if (sdb->count > 0)
-	{
-	  n = a - idx - 1;	/* num elements to move */
-	  memmove (&tp[buf_size-n], &tp[idx+1], n * sizeof(struct timeval));
-	}
-    }
-  else if (buf_size < a)	/* new buffer size is smaller than old */
-    {
-      x = sdb->count;	/* num time stamps in old buffer */
-
-      if (x > 0)
-	{
-	  /* pack front of the array */
-	  n = min (buf_size, idx+1);	/* num elements to move */
-	  memmove (&tp[0], &tp[idx-n+1], n * sizeof(struct timeval));
-	  new_cur_idx = idx = n - 1;
-	  new_count = n;
-	  
-	  /* do we need to pack the end of the array? */
-	  if ((n < buf_size) && (x > n))
-	    {
-	      /* must move (buf_size - n) elements from the end of the array
-	       * to the idx+1 slot */
-	      n = buf_size - n;
-	      memmove (&tp[idx+1], &tp[a-1-n], n * sizeof (struct timeval));
-	      new_count += n;
-	    }
-	}
-      
-      tp = (struct timeval *)realloc (tp, buf_size * sizeof(struct timeval));
-    }
-  sdb->times = tp;
-  
-  /* now resize the data buffers */
-  for (i = 0; i < STRIP_MAX_CURVES; i++)
-    {
-      if ((dp = sdb->buffers[i].data) == NULL)
-	continue;
-      idx = sdb->cur_idx;
-      a = sdb->buf_size;	/* size of old buffer */
-      
-      if (buf_size > a)	/* new buffer size is larger than old */
-	{
-	  /* do a realloc, then memmove the trailing portion of the previous
-	   * ring buffer to the very end of the new buffer */
-	  dp = (DataPoint *)realloc (dp, buf_size * sizeof(DataPoint));
-	  if (sdb->count > 0)
-	    {
-	      n = a - idx - 1;	/* num elements to move */
-	      memmove (&dp[buf_size-n], &dp[idx+1], n * sizeof(DataPoint));
-	    }
-	}
-      else if (buf_size < a)	/* new buffer size is smaller than old */
-	{
-	  x = sdb->count; /* num data points in old buffer */
-
-	  if (x > 0)
-	    {
-	      /* pack front of the array */
-	      n = min (buf_size, idx+1);	/* num elements to move */
-	      memmove (&dp[0], &dp[idx-n+1], n * sizeof(DataPoint));
-	      idx = n - 1;
-	      
-	      /* do we need to pack the end of the array? */
-	      if ((n < buf_size) && (x > n))
-		{
-		  /* must move (buf_size - n) elements from end of the array
-		   * to the idx+1 slot */
-		  n = buf_size - n;
-		  memmove (&dp[idx+1], &dp[a-1-n], n * sizeof (DataPoint));
-		}
-	    }
-	  
-	  dp = (DataPoint *)realloc (dp, buf_size * sizeof(DataPoint));
-	}
-
-      sdb->buffers[i].data = dp;
-    }
-
-  sdb->buf_size = buf_size;
-  sdb->count = new_count;
-  sdb->cur_idx = new_cur_idx;
 }
 
 
@@ -734,11 +653,11 @@ static int	pack_array	(void 	**p,	/* address of pointer */
   int	x, y;
   char	*q;
 
-  if ((q = *p) != NULL)
+  if ((q = (char *)*p) != NULL)
     {
       if (n1 > n0)	/* new size is greater than old */
 	{
-	  if (q = realloc (q, n1*nbytes))
+	  if (q = (char *)realloc (q, n1*nbytes))
 	    {
 	      /* how many to push to the end? */
 	      x = s0-i0-1;
@@ -770,7 +689,7 @@ static int	pack_array	(void 	**p,	/* address of pointer */
 	      if (s1) *s1 = y + x;
 	    }
 	  
-	  q = realloc (q, n1*nbytes);
+	  q = (char *)realloc (q, n1*nbytes);
 	}
     }
 

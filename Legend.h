@@ -31,7 +31,7 @@
 typedef struct
 {
   int			id;
-  XPoint		pos;
+  XRectangle		rect;
   StripCurveInfo 	*crv;
 } LegendItem;
 
@@ -49,8 +49,6 @@ typedef enum
   LEGEND_YPOS,		/* (int)					rw */
   LEGEND_NUM_ITEMS,	/* (int)					r  */
   LEGEND_ITEMS,		/* (LegendItem **)				r  */
-  LEGEND_DRAWSHAPES,	/* (int)					rw */
-  LEGEND_MONOCHROME,	/* (int)					rw */
   LEGEND_LAST_ATTRIBUTE
 }
 LegendAttribute;
@@ -113,22 +111,4 @@ void	Legend_resize	(Legend the_legend, int width, int height);
  *                legend item fields to be re-drawn
  */
 void	Legend_update	(Legend the_legend);
-
-
-/***********************/
-
-
-#define NUM_SHAPES              10
-#define MAX_COORDS              14
-#define MAX_SHAPE_HEIGHT        11
-#define MAX_SHAPE_WIDTH         11
-
-extern int      shapes[NUM_SHAPES][MAX_COORDS];
-
-/* the maximum number of shapes to draw for each line */
-#define MAX_SHAPES_PER_LINE     3
-
-extern void drawShape (Display *display, Drawable canvas, GC gc,
-                       int which_shape, XPoint *center);
-
 #endif

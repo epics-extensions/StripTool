@@ -21,6 +21,7 @@
 
 #include "StripDefines.h"
 #include "StripMisc.h"
+#include "cColorManager.h"
 
 
 /* ======= Default Values ======= */
@@ -51,6 +52,7 @@
 #define STRIPDEF_OPTION_LEGEND_VISIBLE	1
 #define STRIPDEF_CURVE_NAME		"Curve"
 #define STRIPDEF_CURVE_EGU		"Undefined"
+#define STRIPDEF_CURVE_COMMENT		""
 #define STRIPDEF_CURVE_PRECISION	4
 #define STRIPDEF_CURVE_MIN		1e-7
 #define STRIPDEF_CURVE_MAX		1e+7
@@ -77,26 +79,31 @@
 #define STRIPCONFIG_NUMCOLORS		(STRIP_MAX_CURVES + 4)
 #define STRIPCONFIG_MAX_CALLBACKS	10
 
-typedef enum
+
+typedef int	StripConfigMaskElement;
+typedef int	StripConfigAttribute;
+
+
+typedef enum	_StripConfigAttributeEnum
 {
   STRIPCONFIG_TITLE = 1,		/* (char *)			rw */
   STRIPCONFIG_TIME_TIMESPAN,		/* (unsigned)			rw */
   STRIPCONFIG_TIME_SAMPLE_INTERVAL,	/* (double)			rw */
   STRIPCONFIG_TIME_REFRESH_INTERVAL,	/* (double)			rw */
-  STRIPCONFIG_COLOR_BACKGROUND,		/* (Pixel)			r  */
-  STRIPCONFIG_COLOR_FOREGROUND,		/* (Pixel)			r  */
-  STRIPCONFIG_COLOR_GRID,		/* (Pixel)			r  */
-  STRIPCONFIG_COLOR_LEGENDTEXT,		/* (Pixel)			r  */
-  STRIPCONFIG_COLOR_COLOR1,		/* (Pixel)			r  */
-  STRIPCONFIG_COLOR_COLOR2,		/* (Pixel)			r  */
-  STRIPCONFIG_COLOR_COLOR3,		/* (Pixel)			r  */
-  STRIPCONFIG_COLOR_COLOR4,		/* (Pixel)			r  */
-  STRIPCONFIG_COLOR_COLOR5,		/* (Pixel)			r  */
-  STRIPCONFIG_COLOR_COLOR6,		/* (Pixel)			r  */
-  STRIPCONFIG_COLOR_COLOR7,		/* (Pixel)			r  */
-  STRIPCONFIG_COLOR_COLOR8,		/* (Pixel)			r  */
-  STRIPCONFIG_COLOR_COLOR9,		/* (Pixel)			r  */
-  STRIPCONFIG_COLOR_COLOR10,		/* (Pixel)			r  */
+  STRIPCONFIG_COLOR_BACKGROUND,		/* (cColor *)		r  */
+  STRIPCONFIG_COLOR_FOREGROUND,		/* (cColor *)		r  */
+  STRIPCONFIG_COLOR_GRID,		/* (cColor *)		r  */
+  STRIPCONFIG_COLOR_LEGENDTEXT,		/* (cColor *)		r  */
+  STRIPCONFIG_COLOR_COLOR1,		/* (cColor *)		r  */
+  STRIPCONFIG_COLOR_COLOR2,		/* (cColor *)		r  */
+  STRIPCONFIG_COLOR_COLOR3,		/* (cColor *)		r  */
+  STRIPCONFIG_COLOR_COLOR4,		/* (cColor *)		r  */
+  STRIPCONFIG_COLOR_COLOR5,		/* (cColor *)		r  */
+  STRIPCONFIG_COLOR_COLOR6,		/* (cColor *)		r  */
+  STRIPCONFIG_COLOR_COLOR7,		/* (cColor *)		r  */
+  STRIPCONFIG_COLOR_COLOR8,		/* (cColor *)		r  */
+  STRIPCONFIG_COLOR_COLOR9,		/* (cColor *)		r  */
+  STRIPCONFIG_COLOR_COLOR10,		/* (cColor *)		r  */
   STRIPCONFIG_OPTION_GRID_XON,		/* (int)			rw */
   STRIPCONFIG_OPTION_GRID_YON,		/* (int)			rw */
   STRIPCONFIG_OPTION_AXIS_XNUMTICS,	/* (int)			rw */
@@ -104,105 +111,192 @@ typedef enum
   STRIPCONFIG_OPTION_AXIS_YCOLORSTAT,	/* (int)			rw */
   STRIPCONFIG_OPTION_GRAPH_LINEWIDTH,	/* (int)			rw */
   STRIPCONFIG_OPTION_LEGEND_VISIBLE,	/* (int)			rw */
-  STRIPCONFIG_LAST_ATTRIBUTE,
+  STRIPCONFIG_NUM_ATTRIBUTES
 }
-StripConfigAttribute;
+StripConfigAttributeEnum;
 
-typedef unsigned long	StripConfigMask;
-
-#define STRIPCFGMASK_TITLE			(StripConfigMask)(1 << 0)
-#define STRIPCFGMASK_TIME_TIMESPAN 		(StripConfigMask)(1 << 1)
-#define STRIPCFGMASK_TIME_SAMPLE_INTERVAL	(StripConfigMask)(1 << 2)
-#define STRIPCFGMASK_TIME_REFRESH_INTERVAL	(StripConfigMask)(1 << 3)
-#define STRIPCFGMASK_COLOR_BACKGROUND		(StripConfigMask)(1 << 4)
-#define STRIPCFGMASK_COLOR_FOREGROUND		(StripConfigMask)(1 << 5)
-#define STRIPCFGMASK_COLOR_GRID			(StripConfigMask)(1 << 6)
-#define STRIPCFGMASK_COLOR_LEGENDTEXT		(StripConfigMask)(1 << 7)
-#define STRIPCFGMASK_COLOR_COLOR1		(StripConfigMask)(1 << 8)
-#define STRIPCFGMASK_COLOR_COLOR2		(StripConfigMask)(1 << 9)
-#define STRIPCFGMASK_COLOR_COLOR3		(StripConfigMask)(1 << 10)
-#define STRIPCFGMASK_COLOR_COLOR4		(StripConfigMask)(1 << 11)
-#define STRIPCFGMASK_COLOR_COLOR5		(StripConfigMask)(1 << 12)
-#define STRIPCFGMASK_COLOR_COLOR6		(StripConfigMask)(1 << 13)
-#define STRIPCFGMASK_COLOR_COLOR7		(StripConfigMask)(1 << 14)
-#define STRIPCFGMASK_COLOR_COLOR8		(StripConfigMask)(1 << 15)
-#define STRIPCFGMASK_COLOR_COLOR9		(StripConfigMask)(1 << 16)
-#define STRIPCFGMASK_COLOR_COLOR10		(StripConfigMask)(1 << 17)
-#define STRIPCFGMASK_OPTION_GRID_XON		(StripConfigMask)(1 << 18)
-#define STRIPCFGMASK_OPTION_GRID_YON		(StripConfigMask)(1 << 19)
-#define STRIPCFGMASK_OPTION_AXIS_XNUMTICS	(StripConfigMask)(1 << 20)
-#define STRIPCFGMASK_OPTION_AXIS_YNUMTICS	(StripConfigMask)(1 << 21)
-#define STRIPCFGMASK_OPTION_AXIS_YCOLORSTAT	(StripConfigMask)(1 << 22)
-#define STRIPCFGMASK_OPTION_GRAPH_LINEWIDTH	(StripConfigMask)(1 << 23)
-#define STRIPCFGMASK_OPTION_LEGEND_VISIBLE	(StripConfigMask)(1 << 24)
-#define STRIPCFGMASK_CURVE_NAME			(StripConfigMask)(1 << 25)
-#define STRIPCFGMASK_CURVE_EGU			(StripConfigMask)(1 << 26)
-#define STRIPCFGMASK_CURVE_PRECISION		(StripConfigMask)(1 << 27)
-#define STRIPCFGMASK_CURVE_MIN			(StripConfigMask)(1 << 28)
-#define STRIPCFGMASK_CURVE_MAX			(StripConfigMask)(1 << 29)
-#define STRIPCFGMASK_CURVE_PENSTAT		(StripConfigMask)(1 << 30)
-#define STRIPCFGMASK_CURVE_PLOTSTAT		(StripConfigMask)(1 << 31)
+#define STRIPCONFIG_FIRST_ATTRIBUTE	1
+#define STRIPCONFIG_LAST_ATTRIBUTE	(STRIPCONFIG_NUM_ATTRIBUTES-1)
 
 
 
-#define	STRIPCFGMASK_TIME \
-(STRIPCFGMASK_TIME_TIMESPAN 		| \
- STRIPCFGMASK_TIME_SAMPLE_INTERVAL 	| \
- STRIPCFGMASK_TIME_REFRESH_INTERVAL)
+/* StripConfigMaskElement
+ *
+ *	Individual elements which can be set or unset in a StripConfigMask
+ *	data structure.  There is a one-to-one correspondance between
+ *	StripConfigAttribute values and the related StripConfigMaskElement
+ *	values.
+ */
+typedef enum 	_StripConfigMaskElementEnum
+{
+  SCFGMASK_TITLE			= STRIPCONFIG_TITLE,
 
-#define STRIPCFGMASK_COLOR \
-(STRIPCFGMASK_COLOR_BACKGROUND 	| \
- STRIPCFGMASK_COLOR_FOREGROUND 	| \
- STRIPCFGMASK_COLOR_GRID 	| \
- STRIPCFGMASK_COLOR_LEGENDTEXT 	| \
- STRIPCFGMASK_COLOR_COLOR1 	| \
- STRIPCFGMASK_COLOR_COLOR2 	| \
- STRIPCFGMASK_COLOR_COLOR3 	| \
- STRIPCFGMASK_COLOR_COLOR4 	| \
- STRIPCFGMASK_COLOR_COLOR5 	| \
- STRIPCFGMASK_COLOR_COLOR6 	| \
- STRIPCFGMASK_COLOR_COLOR7 	| \
- STRIPCFGMASK_COLOR_COLOR8 	| \
- STRIPCFGMASK_COLOR_COLOR9 	| \
- STRIPCFGMASK_COLOR_COLOR10)
- 
-#define STRIPCFGMASK_OPTION \
-(STRIPCFGMASK_OPTION_GRID_XON 		| \
- STRIPCFGMASK_OPTION_GRID_YON 		| \
- STRIPCFGMASK_OPTION_AXIS_XNUMTICS 	| \
- STRIPCFGMASK_OPTION_AXIS_YNUMTICS 	| \
- STRIPCFGMASK_OPTION_AXIS_YCOLORSTAT 	| \
- STRIPCFGMASK_OPTION_GRAPH_LINEWIDTH	| \
- STRIPCFGMASK_OPTION_LEGEND_VISIBLE)
+  /* time */
+  SCFGMASK_TIME_TIMESPAN		= STRIPCONFIG_TIME_TIMESPAN,
+  SCFGMASK_TIME_SAMPLE_INTERVAL		= STRIPCONFIG_TIME_SAMPLE_INTERVAL,
+  SCFGMASK_TIME_REFRESH_INTERVAL	= STRIPCONFIG_TIME_REFRESH_INTERVAL,
 
-#define STRIPCFGMASK_CURVE \
-(STRIPCFGMASK_CURVE_NAME 	|\
- STRIPCFGMASK_CURVE_EGU 	|\
- STRIPCFGMASK_CURVE_PRECISION 	|\
- STRIPCFGMASK_CURVE_MIN 	|\
- STRIPCFGMASK_CURVE_MAX	 	|\
- STRIPCFGMASK_CURVE_PENSTAT 	|\
- STRIPCFGMASK_CURVE_PLOTSTAT)
+  /* color */
+  SCFGMASK_COLOR_BACKGROUND		= STRIPCONFIG_COLOR_BACKGROUND,
+  SCFGMASK_COLOR_FOREGROUND		= STRIPCONFIG_COLOR_FOREGROUND,
+  SCFGMASK_COLOR_GRID			= STRIPCONFIG_COLOR_GRID,
+  SCFGMASK_COLOR_LEGENDTEXT		= STRIPCONFIG_COLOR_LEGENDTEXT,
+  SCFGMASK_COLOR_COLOR1			= STRIPCONFIG_COLOR_COLOR1,
+  SCFGMASK_COLOR_COLOR2			= STRIPCONFIG_COLOR_COLOR2,
+  SCFGMASK_COLOR_COLOR3			= STRIPCONFIG_COLOR_COLOR3,
+  SCFGMASK_COLOR_COLOR4			= STRIPCONFIG_COLOR_COLOR4,
+  SCFGMASK_COLOR_COLOR5			= STRIPCONFIG_COLOR_COLOR5,
+  SCFGMASK_COLOR_COLOR6			= STRIPCONFIG_COLOR_COLOR6,
+  SCFGMASK_COLOR_COLOR7			= STRIPCONFIG_COLOR_COLOR7,
+  SCFGMASK_COLOR_COLOR8			= STRIPCONFIG_COLOR_COLOR8,
+  SCFGMASK_COLOR_COLOR9			= STRIPCONFIG_COLOR_COLOR9,
+  SCFGMASK_COLOR_COLOR10		= STRIPCONFIG_COLOR_COLOR10,
 
-#define STRIPCFGMASK_ALL \
-(STRIPCFGMASK_TITLE	| \
- STRIPCFGMASK_TIME 	| \
- STRIPCFGMASK_COLOR	| \
- STRIPCFGMASK_OPTION	| \
- STRIPCFGMASK_CURVE)
+  /* options */
+  SCFGMASK_OPTION_GRID_XON		= STRIPCONFIG_OPTION_GRID_XON,
+  SCFGMASK_OPTION_GRID_YON		= STRIPCONFIG_OPTION_GRID_YON,
+  SCFGMASK_OPTION_AXIS_XNUMTICS		= STRIPCONFIG_OPTION_AXIS_XNUMTICS,
+  SCFGMASK_OPTION_AXIS_YNUMTICS		= STRIPCONFIG_OPTION_AXIS_YNUMTICS,
+  SCFGMASK_OPTION_AXIS_YCOLORSTAT	= STRIPCONFIG_OPTION_AXIS_YCOLORSTAT,
+  SCFGMASK_OPTION_GRAPH_LINEWIDTH	= STRIPCONFIG_OPTION_GRAPH_LINEWIDTH,
+  SCFGMASK_OPTION_LEGEND_VISIBLE	= STRIPCONFIG_OPTION_LEGEND_VISIBLE,
+
+  /* curves */
+  SCFGMASK_CURVE_NAME,
+  SCFGMASK_CURVE_EGU,
+  SCFGMASK_CURVE_COMMENT,
+  SCFGMASK_CURVE_PRECISION,
+  SCFGMASK_CURVE_MIN,
+  SCFGMASK_CURVE_MAX,
+  SCFGMASK_CURVE_PENSTAT,
+  SCFGMASK_CURVE_PLOTSTAT,
+
+  SCFGMASK_NUM_ELEMENTS
+}
+StripConfigMaskElementEnum;
+
+#define SCFGMASK_FIRST_ELEMENT	1
+#define SCFGMASK_LAST_ELEMENT	(SCFGMASK_NUM_ELEMENTS-1)
+
+
+
+/* StripConfigMask
+ *
+ *	Structure containing info bits.  Must be accessed through
+ *	utility functions.
+ */
+#define STRIPCFGMASK_NBYTES	\
+((SCFGMASK_NUM_ELEMENTS+CHAR_BIT) / CHAR_BIT)
+
+typedef struct _StripConfigMask
+{
+  char	bytes[STRIPCFGMASK_NBYTES];
+}
+StripConfigMask;
+
+/* StripConfigMask_clear
+ *
+ *	Zeroes out all bits.
+ */
+void	StripConfigMask_clear	(StripConfigMask *);
+
+
+/* StripConfigMask_set
+ *
+ *	Sets the specified bit high.
+ */
+#if 0
+void	StripConfigMask_set	(StripConfigMask *, StripConfigMaskElement);
+#else
+#define StripConfigMask_set(pmask, elem) \
+((pmask)->bytes[((elem)-1)/CHAR_BIT] |= (1 << (((elem)-1)%CHAR_BIT)))
+#endif
+
+/* StripConfigMask_unset
+ *
+ *	Sets the specified bit low.
+ */
+#if 0
+void	StripConfigMask_unset	(StripConfigMask *, StripConfigMaskElement);
+#else
+#define StripConfigMask_unset(pmask, elem) \
+((pmask)->bytes[((elem)-1)/CHAR_BIT] &= ~(1 << (((elem)-1)%CHAR_BIT)))
+#endif
+
+
+/* StripConfigMask_stat
+ *
+ *	Returns the status of the specified bit.
+ */
+#if 0
+int	StripConfigMask_stat	(StripConfigMask *, StripConfigMaskElement);
+#else
+#define StripConfigMask_stat(pmask, elem) \
+((pmask)->bytes[((elem)-1)/CHAR_BIT] & (1 << (((elem)-1)%CHAR_BIT)))
+#endif
+
+
+/* StripConfigMask_test
+ *
+ *	Takes two masks, A and B.  Returns true if B AND A == B.
+ */
+int	StripConfigMask_test	(StripConfigMask *A, StripConfigMask *B);
+
+
+/* StripConfigMask_and
+ *
+ *	A = A AND B
+ */
+void	StripConfigMask_and	(StripConfigMask *A, StripConfigMask *B);
+
+
+/* StripConfigMask_or
+ *
+ *	A = A OR B
+ */
+void	StripConfigMask_or	(StripConfigMask *A, StripConfigMask *B);
+
+
+/* StripConfigMask_xor
+ *
+ *	A = A XOR B
+ */
+void	StripConfigMask_xor	(StripConfigMask *A, StripConfigMask *B);
+
+
+/* StripConfigMask_intersect
+ *
+ *	returns {A AND B} != {}
+ */
+int	StripConfigMask_intersect (StripConfigMask *A, StripConfigMask *B);
+
+
+/* STRIPCFGMASK_XXX
+ *
+ *	Predefined Masks comprised of related sets of elements.
+ */
+extern StripConfigMask	SCFGMASK_TIME;
+extern StripConfigMask	SCFGMASK_COLOR;
+extern StripConfigMask	SCFGMASK_OPTION;
+extern StripConfigMask	SCFGMASK_CURVE;
+extern StripConfigMask	SCFGMASK_ALL;
+
+
+
 
 /* ======= Data Types ======= */
 typedef void	(*StripConfigUpdateFunc) (StripConfigMask, void *);
   
 typedef struct _StripCurveDetail
 {
-  char			name[STRIP_MAX_NAME_CHAR];
-  char			egu[STRIP_MAX_EGU_CHAR];
+  char			name[STRIP_MAX_NAME_CHAR+1];
+  char			egu[STRIP_MAX_EGU_CHAR+1];
+  char			comment[STRIP_MAX_COMMENT_CHAR+1];
   int			precision;
   double		min, max;
   int			penstat, plotstat;
   short			valid;
-  Pixel			pixel;
+  cColor		*color;
   void			*id;
   StripConfigMask	update_mask;	/* fields updated since last update */
   StripConfigMask	set_mask;	/* fields without default values */
@@ -211,6 +305,8 @@ StripCurveDetail;
 
 typedef struct _StripConfig
 {
+  cColorManager		scm;
+  XVisualInfo			xvi;
   char				*title;
   FILE				*logfile;
   
@@ -221,11 +317,11 @@ typedef struct _StripConfig
   } Time;
 
   struct _Color {
-    Pixel			background;
-    Pixel			foreground;
-    Pixel			grid;
-    Pixel			legendtext;
-    Pixel			color[STRIP_MAX_CURVES];
+    cColor			background;
+    cColor			foreground;
+    cColor			grid;
+    cColor			legendtext;
+    cColor			color[STRIP_MAX_CURVES];
   } Color;
 
   struct _Option {
@@ -252,10 +348,16 @@ typedef struct _StripConfig
     } Callbacks[STRIPCONFIG_MAX_CALLBACKS];
     int	callback_count;
   } UpdateInfo;
-    
-  void				*private_data;
 }
 StripConfig;
+
+
+/*
+ * StripConfig_preinit
+ *
+ *	Initializes global constants (SCFGMASK_TIME, etc.)
+ */
+void	StripConfig_preinit	(void);
 
 
 
@@ -267,9 +369,8 @@ StripConfig;
  *	stdio stream, if it's not null.  See StripConfig_load() below for
  * 	specifics on how the file is read.
  */
-StripConfig	*StripConfig_init	(Display *,
-					 Screen *,
-					 Window,
+StripConfig	*StripConfig_init	(cColorManager,
+                                         XVisualInfo *,
 					 FILE *,
 					 StripConfigMask);
 
@@ -329,15 +430,19 @@ int	StripConfig_addcallback	(StripConfig *,
 /*
  * StripConfig_update
  *
- *	Causes all update event callbacks which match the mask to be called.
+ *	Causes all pending update event callbacks which match the
+ *	mask to be called.
  */
 void	StripConfig_update	(StripConfig *, StripConfigMask);
 
+
+
 /*
- * StripConfig_getcmap
+ * StripConfig_reset_details
  *
- *	Returns the colormap associated with the StripConfig.
+ *	Given a StripCurveDetail pointer, intializes all fields
+ *	to defaults.
  */
-Colormap	StripConfig_getcmap	(StripConfig *);
+void	StripConfig_reset_details	(StripConfig *, StripCurveDetail *);
 
 #endif

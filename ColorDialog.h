@@ -12,14 +12,25 @@
 #ifndef _ColorDialog
 #define _ColorDialog
 
+#include "cColorManager.h"
+#include "StripConfig.h"
+
 #include <Xm/Xm.h>
 #include <X11/Xlib.h>
 
+/* ======= Data Types ======= */
+typedef void	(*CDcallback)	(void *, cColor *);	/* client, call data */
 typedef void *	ColorDialog;
 
-ColorDialog	ColorDialog_init	(Display *, Colormap, char *);
+ColorDialog	ColorDialog_init	(Widget,		/* parent */
+					 char *,		/* title */
+					 StripConfig *);
 void		ColorDialog_delete	(ColorDialog);
-void		ColorDialog_popup	(ColorDialog, char *, Pixel);
+void		ColorDialog_popup	(ColorDialog,
+					 char *,
+					 cColor *,
+					 CDcallback, /* called on Ok, Apply */
+					 void *);    /* callback data */
 void		ColorDialog_popdown	(ColorDialog);
 
 #endif

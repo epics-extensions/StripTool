@@ -23,30 +23,22 @@
 #include "auto_scroll.bm"
 
 #ifdef USE_XPM
-#  include <xpm.h>		/* VTR stuff*/
+#  include <X11/xpm.h>		
 #  include "StripIcon.xpm" 	
 #else
 #  include "StripIcon.bm"
 #endif
 
-#if defined(HP_UX) || defined(SOLARIS) /*VTR*/
+#include "LiteClue.h"
+
+#if defined(HP_UX) || defined(SOLARIS) || defined(linux)
 #  include <unistd.h>
 #else
 #  include <vfork.h>
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-  
-#include <fdmgr.h>
-#include "LiteClue.h"
-
-#ifdef __cplusplus
-}
-#endif
-
 #include <Xm/Xm.h>
+#include <Xm/AtomMgr.h>
 #include <Xm/DrawingA.h>
 #include <Xm/DialogS.h>
 #include <Xm/Form.h>
@@ -58,37 +50,17 @@ extern "C" {
 #include <Xm/List.h>
 #include <Xm/FileSB.h>
 #include <Xm/RowColumn.h>
+#include <Xm/DragDrop.h>
 #include <X11/Xlib.h>
+
 #include <math.h>
+#include <string.h>
 
-#define DEF_WOFFSET		3
+#define DEF_WOFFSET	3
 
-#define FDMGR_PEND_SEC		1
-#define FDMGR_PEND_USEC		0
-
-#define MAX_CLIENT_TIMEOUTS	32
+#define STRIP_MAX_FDS	64
 
 
-#if defined (NEW_FDMGR_ALARMID)
-  typedef fdmgrAlarmId	_fdmgrAlarmType;
-#elif defined (NEW_FDMGR_ALARM)
-  typedef fdmgrAlarm *	_fdmgrAlarmType;
-#else
-  typedef alarm	*	_fdmgrAlarmType;
-#endif
-
-/* ====== Strip timeout stuff (used by Strip_addtimeout) ====== */
-typedef struct _StripTOinfo
-{
-  _fdmgrAlarmType	alarm_id;
-  StripTOCallback	cb_func;
-  void			*cb_data;
-}
-StripTOinfo;
-
-/* by definition of the C language, all elements of will be initialized
- * to 0, since this is a static object */
-static StripTOinfo	timeout_info[MAX_CLIENT_TIMEOUTS] = {0};
 
 /* ====== StripEvent stuff ====== */
 typedef enum
@@ -103,7 +75,7 @@ typedef enum
 {
   STRIPEVENTMASK_SAMPLE		= (1 << STRIPEVENT_SAMPLE),
   STRIPEVENTMASK_REFRESH	= (1 << STRIPEVENT_REFRESH),
-  STRIPEVENTMASK_CHECK_CONNECT	= (1 << STRIPEVENT_CHECK_CONNECT),
+  STRIPEVENTMASK_CHECK_CONNECT	= (1 << STRIPEVENT_CHECK_CONNECT)
 } StripEventMask;
 
 static char	*StripEventTypeStr[LAST_STRIPEVENT] =
@@ -150,6 +122,13 @@ enum
   STRIPBTN_COUNT
 };
   
+typedef struct _stripFdInfo
+{
+  XtInputId		id;
+  int			fd;
+}
+stripFdInfo;
+  
 typedef struct _StripInfo
 {
   /* == X Stuff == */
@@ -162,8 +141,8 @@ typedef struct _StripInfo
   Widget		fs_dlg;
   char			app_name[128];
 
-  /* == fdmgr stuff == */
-  fdctx			*fdmgr_context;
+  /* == file descriptor management ==  */
+  stripFdInfo		fdinfo[STRIP_MAX_FDS];
 
   /* == Strip Components == */
   StripConfig		*config;
@@ -186,7 +165,7 @@ typedef struct _StripInfo
   struct timeval	last_event[LAST_STRIPEVENT];
   struct timeval	next_event[LAST_STRIPEVENT];
 
-  _fdmgrAlarmType	tid;
+  XtIntervalId		tid;
 }
 StripInfo;
 
@@ -219,16 +198,19 @@ static void	Strip_watchevent	(StripInfo *, unsigned);
 static void	Strip_ignoreevent	(StripInfo *, unsigned);
 
 static void	Strip_dispatch		(StripInfo *);
-static void	Strip_eventmgr		(void *);
-static void	Strip_timeoutcb		(void *);
+static void	Strip_eventmgr		(XtPointer, XtIntervalId *);
 
-static void	Strip_process_X		(void *);
 static void	Strip_child_msg		(void *);
 static void	Strip_config_callback	(StripConfigMask, void *);
 
 static void	Strip_forgetcurve	(StripInfo *, StripCurve);
 
+static void	Strip_graphdrop_handle	(Widget, XtPointer, XtPointer);
+static void	Strip_graphdrop_xfer 	(Widget, XtPointer, Atom *, Atom *,
+                                         XtPointer, unsigned long *, int *);
+
 static void	callback		(Widget, XtPointer, XtPointer);
+
 
 static void	dlgrequest_connect	(void *, void *);
 static void	dlgrequest_show		(void *, void *);
@@ -260,342 +242,377 @@ static void		ListDialog_cb		(Widget, XtPointer, XtPointer);
 
 
 /* ====== Functions ====== */
-Strip	Strip_init	(char 	*app_name,
-			 int 	*argc,
+Strip	Strip_init	(int 	*argc,
 			 char 	*argv[],
 			 FILE 	*logfile)
 {
   StripInfo		*si;
   Dimension		width, height;
   XSetWindowAttributes	xswa;
-  Widget		form, frame, rowcol, hintshell;
+  XVisualInfo		xvi;
+  Widget		form, rowcol, hintshell;
   Pixmap		pixmap;
   Pixel			fg, bg;
   SDWindowMenuItem	wm_items[STRIPWINDOW_COUNT];
-  int			fd;
-  int			i;
+  cColorManager	scm;
+  int			i, n;
+  Arg			args[10];
+  Atom			import_list[10];
+  int			stat = 1;
   double		tmp_dbl;
+  StripConfigMask	scfg_mask;
 
+  StripConfig_preinit();
+  StripConfigMask_clear (&scfg_mask);
 
   if ((si = (StripInfo *)malloc (sizeof (StripInfo))) != NULL)
+  {
+    /* create the application context and top-level shell, but don't
+     * realize the shell until the appropriate visual has been
+     * chosen.
+     */
+    XtSetLanguageProc (NULL, NULL, NULL);
+    si->toplevel = XtVaAppInitialize
+      (&si->app, STRIP_APP_CLASS, (XrmOptionDescList)0,
+       (Cardinal)0, argc, (String *)argv, fallback_resources,
+       XmNmappedWhenManaged, False,
+       NULL);
+    si->display = XtDisplay (si->toplevel);
+
+    /* initialize the color manager */
+    scm = cColorManager_init (si->display, /*STRIPCONFIG_NUMCOLORS*/ 0);
+    if (scm)
     {
-      /* create the application context and shell */
-      XtSetLanguageProc (NULL, NULL, NULL);
-      strcpy (si->app_name, (app_name? app_name : argv[0]));
-      si->toplevel = XtVaAppInitialize
-	(&si->app, (String)STRIP_APP_CLASS, (XrmOptionDescList)0,
-	 (Cardinal)0, argc, (String *)argv, fallback_resources,
-	 XmNmappedWhenManaged, False,
-	 NULL);
-
-      hintshell = XtVaCreatePopupShell
-        ("hintShell", xcgLiteClueWidgetClass, si->toplevel, 0);
-
+      xvi = *cColorManager_get_visinfo (scm);
+      XtVaSetValues
+        (si->toplevel,
+         XmNvisual, 	xvi.visual,
+         XmNcolormap, 	cColorManager_getcmap (scm),
+         0);
       XtRealizeWidget (si->toplevel);
-      si->display = XtDisplay (si->toplevel);
+    }
+    else
+    {
+      fprintf (stdout, "Strip_init: cannot initialize color manager.\n");
+      XtDestroyWidget (si->toplevel);
+      free (si);
+      return NULL;
+    }
 
-      si->config = StripConfig_init
-	(si->display, XtScreen (si->toplevel), XtWindow (si->toplevel),
-	 NULL, 0);
-      if (!si->config)
-	{
-	  free (si);
-	  XtDestroyWidget (si->toplevel);
-	  return NULL;
-	}
-      si->config->logfile = logfile;
-      XtVaSetValues
-	(si->toplevel, XmNcolormap, StripConfig_getcmap(si->config), NULL);
+    /* initialize any miscellaeous routines */
+    StripMisc_init (si->display, xvi.screen);
 
+    /* initialize the Config module */
+    if (!(si->config = StripConfig_init (scm, &xvi, NULL, scfg_mask)))
+    {
+      fprintf
+        (stdout,
+         "Strip_init: cannot initialize configuration manager.\n");
+      cColorManager_delete (scm);
+      XtDestroyWidget (si->toplevel);
+      free (si);
+      return NULL;
+    }
+    si->config->logfile = logfile;
+
+    /* build the other shells now that the toplevel
+     * has been taken care of.
+     */
+    hintshell = XtVaCreatePopupShell
+      ("hintShell", xcgLiteClueWidgetClass, si->toplevel, 0);
+
+    si->shell = XtVaCreatePopupShell
+      ("StripGraph",
+       topLevelShellWidgetClass,	si->toplevel,
+       XmNdeleteResponse,		XmDO_NOTHING,
+       XmNmappedWhenManaged,		False,
+       XmNvisual,			si->config->xvi.visual,
+       XmNcolormap,			cColorManager_getcmap (scm),
+       NULL);
+
+    width = (Dimension)
+      (((double)DisplayWidth (si->display, DefaultScreen (si->display)) /
+        (double)DisplayWidthMM (si->display, DefaultScreen (si->display)))
+       * STRIP_GRAPH_WIDTH_MM);
+    height = (Dimension)
+      (((double)DisplayHeight (si->display, DefaultScreen (si->display)) /
+        (double)DisplayHeightMM (si->display, DefaultScreen (si->display)))
+       * STRIP_GRAPH_HEIGHT_MM);
+    XtVaSetValues
+      (si->shell,
+       XmNwidth,	width,
+       XmNheight,	height,
+       NULL);
+    form = XtVaCreateManagedWidget
+      ("graphBaseForm",
+       xmFormWidgetClass,		si->shell,
+       0);
+
+    /* the the motif foreground and background colors */
+    XtVaGetValues
+      (form,
+       XmNforeground,		&fg,
+       XmNbackground,		&bg,
+       0);
+
+    /* the graph control panel */
+    si->graph_panel = XtVaCreateManagedWidget
+      ("graphPanel",
+       xmFrameWidgetClass,		form,
+       XmNtopAttachment,		XmATTACH_NONE,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNrightAttachment,		XmATTACH_FORM,
+       XmNbottomAttachment,		XmATTACH_FORM,
+       0);
+    rowcol = XtVaCreateManagedWidget
+      ("controlsRowColumn",
+       xmRowColumnWidgetClass,	si->graph_panel,
+       XmNorientation,		XmHORIZONTAL,
+       0);
       
-      si->shell = XtVaAppCreateShell
-	(NULL,				"StripGraph",
-	 topLevelShellWidgetClass,	si->display,
-	 XmNdeleteResponse,		XmDO_NOTHING,
-	 XmNmappedWhenManaged,		False,
-	 XmNcolormap,			StripConfig_getcmap (si->config),
-	 NULL);
+    /* pan left button */
+    pixmap = XCreatePixmapFromBitmapData
+      (si->display, RootWindow (si->display, xvi.screen), pan_left_bits,
+       pan_left_width, pan_left_height, fg, bg,
+       xvi.depth);
+    si->btn[STRIPBTN_LEFT] = XtVaCreateManagedWidget
+      ("panLeftButton",
+       xmPushButtonWidgetClass,	rowcol,
+       XmNlabelType,			XmPIXMAP,
+       XmNlabelPixmap,		pixmap,
+       0);
 
-      width = (Dimension)
-	(((double)DisplayWidth (si->display, DefaultScreen (si->display)) /
-          (double)DisplayWidthMM (si->display, DefaultScreen (si->display)))
-         * STRIP_GRAPH_WIDTH_MM);
-      height = (Dimension)
-	(((double)DisplayHeight (si->display, DefaultScreen (si->display)) /
-          (double)DisplayHeightMM (si->display, DefaultScreen (si->display)))
-         * STRIP_GRAPH_HEIGHT_MM);
-      XtVaSetValues
-	(si->shell,
-	 XmNwidth,	width,
-	 XmNheight,	height,
-	 NULL);
-      form = XtVaCreateManagedWidget
-        ("graphBaseForm",
-         xmFormWidgetClass,		si->shell,
-         0);
-
-      /* the the motif foreground and background colors */
-      XtVaGetValues
-        (form,
-         XmNforeground,		&fg,
-         XmNbackground,		&bg,
-         0);
-
-      /* the graph control panel */
-      si->graph_panel = XtVaCreateManagedWidget
-        ("graphPanel",
-         xmFrameWidgetClass,		form,
-         XmNtopAttachment,		XmATTACH_NONE,
-         XmNleftAttachment,		XmATTACH_FORM,
-         XmNrightAttachment,		XmATTACH_FORM,
-         XmNbottomAttachment,		XmATTACH_FORM,
-         0);
-      rowcol = XtVaCreateManagedWidget
-        ("controlsRowColumn",
-         xmRowColumnWidgetClass,	si->graph_panel,
-         XmNorientation,		XmHORIZONTAL,
-         0);
+    /* pan right button */
+    pixmap = XCreatePixmapFromBitmapData
+      (si->display, RootWindow (si->display, xvi.screen), pan_right_bits,
+       pan_right_width, pan_right_height, fg, bg,
+       xvi.depth);
+    si->btn[STRIPBTN_RIGHT] = XtVaCreateManagedWidget
+      ("panRightButton",
+       xmPushButtonWidgetClass,	rowcol,
+       XmNlabelType,			XmPIXMAP,
+       XmNlabelPixmap,		pixmap,
+       0);
       
-      /* pan left button */
-      pixmap = XCreatePixmapFromBitmapData
-        (si->display, XDefaultRootWindow (si->display), pan_left_bits,
-         pan_left_width, pan_left_height, fg, bg,
-         DefaultDepthOfScreen (XtScreen (rowcol)));
-      si->btn[STRIPBTN_LEFT] = XtVaCreateManagedWidget
-        ("panLeftButton",
-         xmPushButtonWidgetClass,	rowcol,
-         XmNlabelType,			XmPIXMAP,
-         XmNlabelPixmap,		pixmap,
-         0);
+    XtVaCreateManagedWidget
+      ("separator",
+       xmSeparatorWidgetClass, 	rowcol,
+       XmNorientation,		XmVERTICAL,
+       0);
 
-      /* pan right button */
-      pixmap = XCreatePixmapFromBitmapData
-        (si->display, XDefaultRootWindow (si->display), pan_right_bits,
-         pan_right_width, pan_right_height, fg, bg,
-         DefaultDepthOfScreen (XtScreen (rowcol)));
-      si->btn[STRIPBTN_RIGHT] = XtVaCreateManagedWidget
-        ("panRightButton",
-         xmPushButtonWidgetClass,	rowcol,
-         XmNlabelType,			XmPIXMAP,
-         XmNlabelPixmap,		pixmap,
-         0);
+    /* zoom in button */
+    pixmap = XCreatePixmapFromBitmapData
+      (si->display, RootWindow (si->display, xvi.screen), zoom_in_bits,
+       zoom_in_width, zoom_in_height, fg, bg,
+       xvi.depth);
+    si->btn[STRIPBTN_ZOOMIN] = XtVaCreateManagedWidget
+      ("zoomInButton",
+       xmPushButtonWidgetClass, 	rowcol,
+       XmNlabelType,			XmPIXMAP,
+       XmNlabelPixmap,		pixmap,
+       0);
+
+    /* zoom out button */
+    pixmap = XCreatePixmapFromBitmapData
+      (si->display, RootWindow (si->display, xvi.screen), zoom_out_bits,
+       zoom_out_width, zoom_out_height, fg, bg,
+       xvi.depth);
+    si->btn[STRIPBTN_ZOOMOUT] = XtVaCreateManagedWidget
+      ("zoomOutButton",
+       xmPushButtonWidgetClass, 	rowcol,
+       XmNlabelType,			XmPIXMAP,
+       XmNlabelPixmap,		pixmap,
+       0);
       
-      XtVaCreateManagedWidget
-        ("separator",
-         xmSeparatorWidgetClass, 	rowcol,
-         XmNorientation,		XmVERTICAL,
-         0);
+    XtVaCreateManagedWidget
+      ("separator",
+       xmSeparatorWidgetClass, 	rowcol,
+       XmNorientation,		XmVERTICAL,
+       0);
 
-      /* zoom in button */
-      pixmap = XCreatePixmapFromBitmapData
-        (si->display, XDefaultRootWindow (si->display), zoom_in_bits,
-         zoom_in_width, zoom_in_height, fg, bg,
-         DefaultDepthOfScreen (XtScreen (rowcol)));
-      si->btn[STRIPBTN_ZOOMIN] = XtVaCreateManagedWidget
-        ("zoomInButton",
-         xmPushButtonWidgetClass, 	rowcol,
-         XmNlabelType,			XmPIXMAP,
-         XmNlabelPixmap,		pixmap,
-         0);
+    /* auto scroll button */
+    pixmap = XCreatePixmapFromBitmapData
+      (si->display, RootWindow (si->display, xvi.screen), auto_scroll_bits,
+       auto_scroll_width, auto_scroll_height, fg, bg,
+       xvi.depth);
+    si->btn[STRIPBTN_AUTOSCROLL] = XtVaCreateManagedWidget
+      ("autoScrollButton",
+       xmPushButtonWidgetClass, 	rowcol,
+       XmNlabelType,			XmPIXMAP,
+       XmNlabelPixmap,		pixmap,
+       0);
 
-      /* zoom out button */
-      pixmap = XCreatePixmapFromBitmapData
-        (si->display, XDefaultRootWindow (si->display), zoom_out_bits,
-         zoom_out_width, zoom_out_height, fg, bg,
-         DefaultDepthOfScreen (XtScreen (rowcol)));
-      si->btn[STRIPBTN_ZOOMOUT] = XtVaCreateManagedWidget
-        ("zoomOutButton",
-         xmPushButtonWidgetClass, 	rowcol,
-         XmNlabelType,			XmPIXMAP,
-         XmNlabelPixmap,		pixmap,
-         0);
+    for (i = 0; i < STRIPBTN_COUNT; i++)
+      XtAddCallback (si->btn[i], XmNactivateCallback, callback, si);
       
-      XtVaCreateManagedWidget
-        ("separator",
-         xmSeparatorWidgetClass, 	rowcol,
-         XmNorientation,		XmVERTICAL,
-         0);
+    XcgLiteClueAddWidget (hintshell, si->btn[STRIPBTN_LEFT], "Pan left", 0, 0);
+    XcgLiteClueAddWidget (hintshell, si->btn[STRIPBTN_RIGHT], "Pan right", 0, 0);
+    XcgLiteClueAddWidget (hintshell, si->btn[STRIPBTN_ZOOMIN], "Zoom in", 0, 0);
+    XcgLiteClueAddWidget (hintshell, si->btn[STRIPBTN_ZOOMOUT], "Zoom out", 0, 0);
+    XcgLiteClueAddWidget
+      (hintshell, si->btn[STRIPBTN_AUTOSCROLL], "Auto scroll", 0, 0);
 
-      /* auto scroll button */
-      pixmap = XCreatePixmapFromBitmapData
-        (si->display, XDefaultRootWindow (si->display), auto_scroll_bits,
-         auto_scroll_width, auto_scroll_height, fg, bg,
-         DefaultDepthOfScreen (XtScreen (rowcol)));
-      si->btn[STRIPBTN_AUTOSCROLL] = XtVaCreateManagedWidget
-        ("autoScrollButton",
-         xmPushButtonWidgetClass, 	rowcol,
-         XmNlabelType,			XmPIXMAP,
-         XmNlabelPixmap,		pixmap,
-         0);
+    /* the graph drawing area */
+    si->canvas = XtVaCreateManagedWidget
+      ("drawing area",
+       xmDrawingAreaWidgetClass,	form,
+       XmNmappedWhenManaged,		True,
+       XmNuserData,			si,
+       XmNtopAttachment,		XmATTACH_FORM,
+       XmNleftAttachment,		XmATTACH_FORM,
+       XmNrightAttachment,		XmATTACH_FORM,
+       XmNbottomAttachment,		XmATTACH_WIDGET,
+       XmNbottomWidget,			si->graph_panel,
+       NULL);
 
-      for (i = 0; i < STRIPBTN_COUNT; i++)
-        XtAddCallback (si->btn[i], XmNactivateCallback, callback, si);
+    
+    /* register the drawing area as a drop site accepting compound text
+     * and string type data.  Note that, since there is no way to
+     * register client data fo rthe callback, we need to store the
+     * StripInfo pointer as the widget's user data */
+    i = 0; n = 0;
+    import_list[i++] = XmInternAtom (si->display, "COMPOUND_TEXT", False);
+    XtSetArg (args[n], XmNimportTargets, import_list); n++;
+    XtSetArg (args[n], XmNnumImportTargets, i); n++;
+    XtSetArg (args[n], XmNdropSiteOperations, XmDROP_COPY); n++;
+    XtSetArg (args[n], XmNdropProc, Strip_graphdrop_handle); n++;
+    XmDropSiteRegister (si->canvas, args, n);
       
-      XcgLiteClueAddWidget (hintshell, si->btn[STRIPBTN_LEFT], "Pan left", 0, 0);
-      XcgLiteClueAddWidget (hintshell, si->btn[STRIPBTN_RIGHT], "Pan right", 0, 0);
-      XcgLiteClueAddWidget (hintshell, si->btn[STRIPBTN_ZOOMIN], "Zoom in", 0, 0);
-      XcgLiteClueAddWidget (hintshell, si->btn[STRIPBTN_ZOOMOUT], "Zoom out", 0, 0);
-      XcgLiteClueAddWidget
-        (hintshell, si->btn[STRIPBTN_AUTOSCROLL], "Auto scroll", 0, 0);
 
-      /* the graph drawing area */
-      si->canvas = XtVaCreateManagedWidget
-	("drawing area",
-	 xmDrawingAreaWidgetClass,	form,
-	 XmNmappedWhenManaged,		True,
-         XmNtopAttachment,		XmATTACH_FORM,
-         XmNleftAttachment,		XmATTACH_FORM,
-         XmNrightAttachment,		XmATTACH_FORM,
-         XmNbottomAttachment,		XmATTACH_WIDGET,
-         XmNbottomWidget,		si->graph_panel,
-	 NULL);
+    /* popup menu, etc. */
+    si->popup_menu = PopupMenu_build (si->canvas);
+    si->message_box = (Widget)0;
+    si->list_dlg = ListDialog_init ((Strip)si, si->toplevel);
+    XtVaSetValues (si->popup_menu, XmNuserData, si, NULL);
+    XtRealizeWidget (si->shell);
 
-      /* popup menu, etc. */
-      si->popup_menu = PopupMenu_build (si->canvas);
-      si->message_box = (Widget)0;
-      si->list_dlg = ListDialog_init ((Strip)si, si->toplevel);
-      XtVaSetValues (si->popup_menu, XmNuserData, si, NULL);
-      XtRealizeWidget (si->shell);
+    si->fs_dlg = 0;
 
-      si->fs_dlg = 0;
-
-      for (i = 0; i < STRIPWINDOW_COUNT; i++)
-	{
-	  strcpy (wm_items[i].name, StripWindowTypeStr[i]);
-	  wm_items[i].window_id = (void *)i;
-	  wm_items[i].cb_func = dlgrequest_window_popup;
-	  wm_items[i].cb_data = (void *)si;
-	}
+    for (i = 0; i < STRIPWINDOW_COUNT; i++)
+    {
+      strcpy (wm_items[i].name, StripWindowTypeStr[i]);
+      wm_items[i].window_id = (void *)i;
+      wm_items[i].cb_func = dlgrequest_window_popup;
+      wm_items[i].cb_data = (void *)si;
+    }
 	  
-      si->dialog	= StripDialog_init (si->display, si->config);
-      StripDialog_setattr
-	(si->dialog,
-	 STRIPDIALOG_CONNECT_FUNC,	dlgrequest_connect,
-	 STRIPDIALOG_CONNECT_DATA,	si,
-	 STRIPDIALOG_SHOW_FUNC,		dlgrequest_show,
-	 STRIPDIALOG_SHOW_DATA,		si,
-	 STRIPDIALOG_CLEAR_FUNC,	dlgrequest_clear,
-	 STRIPDIALOG_CLEAR_DATA,	si,
-	 STRIPDIALOG_DELETE_FUNC,	dlgrequest_delete,
-	 STRIPDIALOG_DELETE_DATA,	si,
-	 STRIPDIALOG_DISMISS_FUNC,	dlgrequest_dismiss,
-	 STRIPDIALOG_DISMISS_DATA,	si,
-	 STRIPDIALOG_QUIT_FUNC,		dlgrequest_quit,
-	 STRIPDIALOG_QUIT_DATA,		si,
-	 STRIPDIALOG_WINDOW_MENU,	wm_items, STRIPWINDOW_COUNT,
-	 0);
+    si->dialog	= StripDialog_init (si->toplevel, si->config);
+    StripDialog_setattr
+      (si->dialog,
+       STRIPDIALOG_CONNECT_FUNC,	dlgrequest_connect,
+       STRIPDIALOG_CONNECT_DATA,	si,
+       STRIPDIALOG_SHOW_FUNC,		dlgrequest_show,
+       STRIPDIALOG_SHOW_DATA,		si,
+       STRIPDIALOG_CLEAR_FUNC,		dlgrequest_clear,
+       STRIPDIALOG_CLEAR_DATA,		si,
+       STRIPDIALOG_DELETE_FUNC,		dlgrequest_delete,
+       STRIPDIALOG_DELETE_DATA,		si,
+       STRIPDIALOG_DISMISS_FUNC,	dlgrequest_dismiss,
+       STRIPDIALOG_DISMISS_DATA,	si,
+       STRIPDIALOG_QUIT_FUNC,		dlgrequest_quit,
+       STRIPDIALOG_QUIT_DATA,		si,
+       STRIPDIALOG_WINDOW_MENU,	wm_items, STRIPWINDOW_COUNT,
+       0);
 
-      si->data = StripDataSource_init ();
-      tmp_dbl = ceil
-	((double)si->config->Time.timespan /
-	 si->config->Time.sample_interval);
-      /*
-      fprintf (stdout, "Strip_init(): sdb = %p\n", si->data);
-      fprintf (stdout, "Strip_init(): tmp_dbl = %0.2lf\n", tmp_dbl);
-      */
-      StripDataSource_setattr (si->data, SDS_NUMSAMPLES, (size_t)tmp_dbl, 0);
+    si->data = StripDataSource_init();
+    tmp_dbl = ceil
+      ((double)si->config->Time.timespan /
+       si->config->Time.sample_interval);
+    StripDataSource_setattr (si->data, SDS_NUMSAMPLES, (size_t)tmp_dbl, 0);
       
-      si->graph = StripGraph_init
-	(si->display, XtWindow (si->canvas), si->config, si->shell);
+    si->graph = StripGraph_init
+      (si->display, XtWindow (si->canvas), si->config, si->shell);
 
-      StripGraph_setattr
-	(si->graph,
-	 STRIPGRAPH_DATA_SOURCE,	si->data,
-	 0);
+    StripGraph_setattr
+      (si->graph,
+       STRIPGRAPH_DATA_SOURCE,	si->data,
+       0);
 
-      si->connect_func = si->disconnect_func = si->client_io_func = NULL;
-      si->connect_data = si->disconnect_data = si->client_io_data = NULL;
+    si->connect_func = si->disconnect_func = si->client_io_func = NULL;
+    si->connect_data = si->disconnect_data = si->client_io_data = NULL;
 
-      si->tid = (_fdmgrAlarmType)0;
+    si->tid = (XtIntervalId)0;
 
-      si->event_mask = 0;
-      for (i = 0; i < LAST_STRIPEVENT; i++)
-	{
-	  si->last_event[i].tv_sec = 0;
-	  si->last_event[i].tv_usec = 0;
-	  si->next_event[i].tv_sec = 0;
-	  si->next_event[i].tv_usec = 0;
-	}
+    si->event_mask = 0;
+    for (i = 0; i < LAST_STRIPEVENT; i++)
+    {
+      si->last_event[i].tv_sec	= 0;
+      si->last_event[i].tv_usec	= 0;
+      si->next_event[i].tv_sec 	= 0;
+      si->next_event[i].tv_usec = 0;
+    }
 
-      for (i = 0; i < STRIP_MAX_CURVES; i++)
-	{
-	  si->curves[i].scfg 		= si->config;
-	  si->curves[i].details 	= NULL;
-	  si->curves[i].func_data 	= NULL;
-	  si->curves[i].get_value	= NULL;
-	  si->curves[i].connect_request.tv_sec = 0;
-	  si->curves[i].id 		= NULL;
-	  si->curves[i].status		= 0;
-	}
+    for (i = 0; i < STRIP_MAX_CURVES; i++)
+    {
+      si->curves[i].scfg 			= si->config;
+      si->curves[i].details 			= NULL;
+      si->curves[i].func_data 			= NULL;
+      si->curves[i].get_value			= NULL;
+      si->curves[i].connect_request.tv_sec 	= 0;
+      si->curves[i].id 				= NULL;
+      si->curves[i].status			= 0;
+    }
 
       
 #ifdef USE_PSPRINTER
-      if (getenv("PSPRINTER"))
-      {
-	strcpy (si->print_info.pr_name, getenv("PSPRINTER"));
-	strcpy (si->print_info.dev_name, "ps");
-        si->print_info.is_color = 0;
-      }
-      else
-      {
-        strcpy (si->print_info.dev_name, STRIP_PRINTER_DEVNAME);
-        strcpy (si->print_info.pr_name, STRIP_PRINTER_NAME); 
-        si->print_info.is_color = STRIP_PRINTER_ISCOLOR;
-      }
+    if (getenv("PSPRINTER"))
+    {
+      strcpy (si->print_info.pr_name, getenv("PSPRINTER"));
+      strcpy (si->print_info.dev_name, "ps");
+      si->print_info.is_color = 0;
+    }
+    else
+    {
+      strcpy (si->print_info.dev_name, STRIP_PRINTER_DEVNAME);
+      strcpy (si->print_info.pr_name, STRIP_PRINTER_NAME); 
+      si->print_info.is_color = STRIP_PRINTER_ISCOLOR;
+    }
 #else
-        strcpy (si->print_info.dev_name, STRIP_PRINTER_DEVNAME);
-        strcpy (si->print_info.pr_name, STRIP_PRINTER_NAME); 
-        si->print_info.is_color = STRIP_PRINTER_ISCOLOR;
+    strcpy (si->print_info.dev_name, STRIP_PRINTER_DEVNAME);
+    strcpy (si->print_info.pr_name, STRIP_PRINTER_NAME); 
+    si->print_info.is_color = STRIP_PRINTER_ISCOLOR;
 #endif
 
-        /* load the icon pixmap */
+    /* load the icon pixmap */
 #ifdef USE_XPM
-      if (XpmSuccess == XpmCreatePixmapFromData 
-          (si->display, XDefaultRootWindow(si->display), stripTool_icon_xpm, 
-           &pixmap, NULL, NULL))
-        XtVaSetValues(si->shell, XtNiconPixmap, pixmap, NULL);
+    if (XpmSuccess == XpmCreatePixmapFromData 
+        (si->display, RootWindow (si->display, xvi.screen), stripTool_icon_xpm, 
+         &pixmap, NULL, NULL))
+      XtVaSetValues(si->shell, XtNiconPixmap, pixmap, NULL);
 #else
-      pixmap = XCreatePixmapFromBitmapData
-        (si->display, XDefaultRootWindow (si->display), StripIcon_bits,
-         StripIcon_width, StripIcon_height, fg, bg,
-         DefaultDepthOfScreen (XtScreen (si->shell)));
-      if (pixmap)
-        XtVaSetValues(si->shell, XtNiconPixmap, pixmap, NULL);
+    pixmap = XCreatePixmapFromBitmapData
+      (si->display, RootWindow (si->display, xvi.screen), StripIcon_bits,
+       StripIcon_width, StripIcon_height, fg, bg,
+       xvi.depth);
+    if (pixmap)
+      XtVaSetValues(si->shell, XtNiconPixmap, pixmap, NULL);
 #endif
       
 
-      si->grab_count = 0;
+    si->grab_count = 0;
 
-      si->fdmgr_context = fdmgr_init ();
-      fd = ConnectionNumber (si->display);
-      Strip_addfd (si, fd, Strip_process_X, si);
+    StripConfig_addcallback
+      (si->config, SCFGMASK_ALL, Strip_config_callback, si);
 
-      StripConfig_addcallback
-	(si->config,
-	 STRIPCFGMASK_TITLE |
-	 STRIPCFGMASK_TIME |
-	 STRIPCFGMASK_OPTION |
-	 STRIPCFGMASK_CURVE,
-	 Strip_config_callback, si);
+    /* this little snippet insures that an expose event will be generated
+     * every time the window is resized --not just when its size increases
+     */
+    xswa.bit_gravity = ForgetGravity;
+    xswa.background_pixel = si->config->Color.background.xcolor.pixel;
+    XChangeWindowAttributes
+      (si->display, XtWindow (si->canvas),
+       CWBitGravity | CWBackPixel, &xswa);
+    XChangeWindowAttributes
+      (si->display, XtWindow (si->shell),
+       CWBitGravity | CWBackPixel, &xswa);
+    XtAddCallback (si->canvas, XmNresizeCallback, callback, si);
+    XtAddCallback (si->canvas, XmNexposeCallback, callback, si);
+    XtAddCallback (si->canvas, XmNinputCallback, callback, si);
+    XUnmapWindow (si->display, XtWindow (si->shell));
 
-      /* this little snippet insures that an expose event will be generated
-       * every time the window is resized --not just when its size increases
-       */
-      xswa.bit_gravity = ForgetGravity;
-      xswa.background_pixel = si->config->Color.background;
-      XChangeWindowAttributes
-	(si->display, XtWindow (si->canvas),
-	 CWBitGravity | CWBackPixel, &xswa);
-      XChangeWindowAttributes
-	(si->display, XtWindow (si->shell),
-	 CWBitGravity | CWBackPixel, &xswa);
-      XtAddCallback (si->canvas, XmNresizeCallback, callback, si);
-      XtAddCallback (si->canvas, XmNexposeCallback, callback, si);
-      XtAddCallback (si->canvas, XmNinputCallback, callback, si);
-      XUnmapWindow (si->display, XtWindow (si->shell));
-
-      si->status = STRIPSTAT_OK;
-    }
+    si->status = STRIPSTAT_OK;
+    memset (si->fdinfo, 0, STRIP_MAX_FDS * sizeof (stripFdInfo));
+  }
 
   return (Strip)si;
 }
@@ -635,10 +652,10 @@ int	Strip_setattr	(Strip the_strip, ...)
   for (attrib = va_arg (ap, StripAttribute);
        (attrib != 0);
        attrib = va_arg (ap, StripAttribute))
-    {
-      if ((ret_val = ((attrib > 0) && (attrib < STRIP_LAST_ATTRIBUTE))))
-	switch (attrib)
-	  {
+  {
+    if ((ret_val = ((attrib > 0) && (attrib < STRIP_LAST_ATTRIBUTE))))
+      switch (attrib)
+      {
 	  case STRIP_CONNECT_FUNC:
 	    si->connect_func = va_arg (ap, StripCallback);
 	    break;
@@ -651,8 +668,8 @@ int	Strip_setattr	(Strip the_strip, ...)
 	  case STRIP_DISCONNECT_DATA:
 	    si->disconnect_data = va_arg (ap, void *);
 	    break;
-	  }
-    }
+      }
+  }
 
   va_end (ap);
   return ret_val;
@@ -674,10 +691,10 @@ int	Strip_getattr	(Strip the_strip, ...)
   for (attrib = va_arg (ap, StripAttribute);
        (attrib != 0);
        attrib = va_arg (ap, StripAttribute))
-    {
-      if ((ret_val = ((attrib > 0) && (attrib < STRIP_LAST_ATTRIBUTE))))
-	switch (attrib)
-	  {
+  {
+    if ((ret_val = ((attrib > 0) && (attrib < STRIP_LAST_ATTRIBUTE))))
+      switch (attrib)
+      {
 	  case STRIP_CONNECT_FUNC:
 	    *(va_arg (ap, StripCallback *)) = si->connect_func;
 	    break;
@@ -690,8 +707,8 @@ int	Strip_getattr	(Strip the_strip, ...)
 	  case STRIP_DISCONNECT_DATA:
 	    *(va_arg (ap, void **)) = si->disconnect_data;
 	    break;
-	  }
-    }
+      }
+  }
 
   va_end (ap);
   return ret_val;
@@ -703,41 +720,38 @@ int	Strip_getattr	(Strip the_strip, ...)
  */
 int	Strip_addfd	(Strip 			the_strip,
 			 int 			fd,
-			 StripFDCallback 	func,
-			 void 			*data)
+			 XtInputCallbackProc 	func,
+			 XtPointer		data)
 {
   StripInfo	*si = (StripInfo *)the_strip;
+  int		i;
 
-  return fdmgr_add_callback (si->fdmgr_context, fd, fdi_read, func, data);
+  for (i = 0; i < STRIP_MAX_FDS; i++)
+    if (!si->fdinfo[i].id) break;
+
+  if (i < STRIP_MAX_FDS)
+  {
+    si->fdinfo[i].id = XtAppAddInput
+      (si->app, fd, (XtPointer)XtInputReadMask, func, data);
+    si->fdinfo[i].fd = fd;
+  }
+
+  return (i < STRIP_MAX_FDS);
 }
 
 
 /*
  * Strip_addtimeout
  */
-int	Strip_addtimeout	(Strip			the_strip,
-				 double 		sec,
-				 StripTOCallback 	cb_func,
-				 void 			*cb_data)
+XtIntervalId	Strip_addtimeout	(Strip			the_strip,
+                                         double 		sec,
+                                         XtTimerCallbackProc 	cb_func,
+                                         XtPointer		cb_data)
 {
   StripInfo		*si = (StripInfo *)the_strip;
-  StripTOinfo		*p;
-  int			ret = 0;
-  struct timeval	t;
 
-  for (p = timeout_info; p < (timeout_info + MAX_CLIENT_TIMEOUTS); p++)
-    if (!p->alarm_id) break;
-
-  if (!p->alarm_id)
-    {
-      p->alarm_id = fdmgr_add_timeout
-	(si->fdmgr_context, dbl2time (&t, sec), Strip_timeoutcb, p);
-      p->cb_func = cb_func;
-      p->cb_data = cb_data;
-      ret = (p->alarm_id != 0);
-    }
-  
-  return ret;
+  return XtAppAddTimeOut
+    (si->app, (unsigned long)(sec * 1000), cb_func, cb_data);
 }
 
 
@@ -747,8 +761,19 @@ int	Strip_addtimeout	(Strip			the_strip,
 int	Strip_clearfd	(Strip the_strip, int fd)
 {
   StripInfo	*si = (StripInfo *)the_strip;
+  int		i;
+
+  for (i = 0; i < STRIP_MAX_FDS; i++)
+    if (si->fdinfo[i].fd == fd)
+      break;
+
+  if (i < STRIP_MAX_FDS)
+  {
+    XtRemoveInput (si->fdinfo[i].id);
+    si->fdinfo[i].id = 0;
+  }
   
-  return fdmgr_clear_callback (si->fdmgr_context, fd, fdi_read);
+  return (i < STRIP_MAX_FDS);
 }
 
 
@@ -762,14 +787,15 @@ void	Strip_go	(Strip the_strip)
   int		some_curves_connected = 0;
   int		some_curves_waiting = 0;
   int		i;
+  XEvent	xevent;
 
   for (i = 0; i < STRIP_MAX_CURVES; i++)
-    {
-      if (si->curves[i].status & STRIPCURVE_CONNECTED)
-	some_curves_connected = 1;
-      if (si->curves[i].connect_request.tv_sec != 0)
-	some_curves_waiting = 1;
-    }
+  {
+    if (si->curves[i].status & STRIPCURVE_CONNECTED)
+      some_curves_connected = 1;
+    if (si->curves[i].connect_request.tv_sec != 0)
+      some_curves_waiting = 1;
+  }
 
   if (some_curves_connected)
     window_map (si->display, XtWindow(si->shell));
@@ -784,11 +810,10 @@ void	Strip_go	(Strip the_strip)
 
   /* wait for file IO activities on all registered file descriptors */
   while (!(si->status & STRIPSTAT_TERMINATED))
-    {
-      tv.tv_sec = FDMGR_PEND_SEC;
-      tv.tv_usec = FDMGR_PEND_USEC;
-      fdmgr_pend_event (si->fdmgr_context, &tv);
-    }
+  {
+    XtAppNextEvent (si->app, &xevent);
+    XtDispatchEvent (&xevent);
+  }
 }
 
 
@@ -804,22 +829,22 @@ StripCurve	Strip_getcurve	(Strip the_strip)
 
   for (i = 0; i < STRIP_MAX_CURVES; i++)
     if (si->curves[i].details == NULL)
-	break;
+      break;
 
   if (i < STRIP_MAX_CURVES)
-    {
-      /* now find an available StripCurveDetail in the StripConfig */
-      for (j = 0; j < STRIP_MAX_CURVES; j++)
-	if (si->config->Curves.Detail[j]->id == NULL)
-	  break;
+  {
+    /* now find an available StripCurveDetail in the StripConfig */
+    for (j = 0; j < STRIP_MAX_CURVES; j++)
+      if (si->config->Curves.Detail[j]->id == NULL)
+        break;
 
-      if (j < STRIP_MAX_CURVES)
-	{
-	  si->curves[i].details = si->config->Curves.Detail[j];
-	  si->curves[i].details->id = &si->curves[i];
-	  ret_val = (StripCurve)&si->curves[i];
-	}
+    if (j < STRIP_MAX_CURVES)
+    {
+      si->curves[i].details = si->config->Curves.Detail[j];
+      si->curves[i].details->id = &si->curves[i];
+      ret_val = (StripCurve)&si->curves[i];
     }
+  }
 
   return ret_val;
 }
@@ -838,15 +863,15 @@ void	Strip_freecurve	(Strip the_strip, StripCurve the_curve)
   for (i = 0; (i < STRIP_MAX_CURVES) && (sci != &si->curves[i]); i++);
 
   if (i < STRIP_MAX_CURVES)
-    {
-      curve[0] = the_curve;
-      curve[1] = (StripCurve)0;
-      ListDialog_removecurves (si->list_dlg, curve);
-      if (ListDialog_count (si->list_dlg) == 0)
-	ListDialog_popdown (si->list_dlg);
-      Strip_disconnectcurve (the_strip, the_curve);
-      Strip_forgetcurve (si, the_curve);
-    }
+  {
+    curve[0] = the_curve;
+    curve[1] = (StripCurve)0;
+    ListDialog_removecurves (si->list_dlg, curve);
+    if (ListDialog_count (si->list_dlg) == 0)
+      ListDialog_popdown (si->list_dlg);
+    Strip_disconnectcurve (the_strip, the_curve);
+    Strip_forgetcurve (si, the_curve);
+  }
 }
 
 
@@ -859,27 +884,27 @@ void	Strip_freesomecurves	(Strip the_strip, StripCurve curves[])
   int			i;
 
   for (i = 0; curves[i]; i++)
-    {
-      StripGraph_removecurve (si->graph, curves[i]);
-      StripDataSource_removecurve (si->data, curves[i]);
-      if (si->disconnect_func != NULL)
-	si->disconnect_func (curves[i], si->disconnect_data);
-    }
+  {
+    StripGraph_removecurve (si->graph, curves[i]);
+    StripDataSource_removecurve (si->data, curves[i]);
+    if (si->disconnect_func != NULL)
+      si->disconnect_func (curves[i], si->disconnect_data);
+  }
 
   if (i > 0)
-    {
-      ListDialog_removecurves (si->list_dlg, curves);
-      if (ListDialog_count (si->list_dlg) == 0)
-	ListDialog_popdown (si->list_dlg);
-      StripDialog_removesomecurves (si->dialog, curves);
-      StripGraph_draw
-	(si->graph,
-	 SGCOMPMASK_LEGEND | SGCOMPMASK_DATA | SGCOMPMASK_YAXIS,
-	 (Region *)0);
+  {
+    ListDialog_removecurves (si->list_dlg, curves);
+    if (ListDialog_count (si->list_dlg) == 0)
+      ListDialog_popdown (si->list_dlg);
+    StripDialog_removesomecurves (si->dialog, curves);
+    StripGraph_draw
+      (si->graph,
+       SGCOMPMASK_LEGEND | SGCOMPMASK_DATA | SGCOMPMASK_YAXIS,
+       (Region *)0);
 
-      for (i = 0; curves[i]; i++)
-	Strip_forgetcurve (si, curves[i]);
-    }
+    for (i = 0; curves[i]; i++)
+      Strip_forgetcurve (si, curves[i]);
+  }
 }
 
 
@@ -894,27 +919,27 @@ int	Strip_connectcurve	(Strip the_strip, StripCurve the_curve)
   int			ret_val;
 
   if (si->connect_func != NULL)
-    {
+  {
 #if 0
-      StripCurve_setstat
-	(the_curve, STRIPCURVE_WAITING | STRIPCURVE_CHECK_CONNECT);
+    StripCurve_setstat
+      (the_curve, STRIPCURVE_WAITING | STRIPCURVE_CHECK_CONNECT);
 #else
-      StripCurve_setstat (the_curve, STRIPCURVE_WAITING);
+    StripCurve_setstat (the_curve, STRIPCURVE_WAITING);
 #endif
-      gettimeofday (&sci->connect_request, &tz);
+    gettimeofday (&sci->connect_request, &tz);
       
-      if (ret_val = si->connect_func (the_curve, si->connect_data))
-	if (!StripCurve_getstat (the_curve,  STRIPCURVE_CONNECTED))
-	  Strip_setwaiting (the_strip, the_curve);
-      StripDialog_addcurve (si->dialog, the_curve);
-    }
+    if (ret_val = si->connect_func (the_curve, si->connect_data))
+      if (!StripCurve_getstat (the_curve,  STRIPCURVE_CONNECTED))
+        Strip_setwaiting (the_strip, the_curve);
+    StripDialog_addcurve (si->dialog, the_curve);
+  }
   else
-    {
-      fprintf (stderr,
-	       "Strip_connectcurve:\n"
-	       "  Warning! no connection routine\n");
-      ret_val = 0;
-    }
+  {
+    fprintf (stderr,
+             "Strip_connectcurve:\n"
+             "  Warning! no connection routine\n");
+    ret_val = 0;
+  }
 
   return ret_val;
 }
@@ -933,10 +958,10 @@ void	Strip_setconnected	(Strip the_strip, StripCurve the_curve)
    * is connected
    */
   if (!StripCurve_getstat (the_curve, STRIPCURVE_CONNECTED))
-    {
-      StripDataSource_addcurve (si->data, the_curve);
-      StripGraph_addcurve (si->graph, the_curve);
-    }
+  {
+    StripDataSource_addcurve (si->data, the_curve);
+    StripGraph_addcurve (si->graph, the_curve);
+  }
   StripCurve_clearstat
     (the_curve, STRIPCURVE_WAITING | STRIPCURVE_CHECK_CONNECT);
   StripCurve_setstat (the_curve, STRIPCURVE_CONNECTED);
@@ -1019,6 +1044,7 @@ void	Strip_clear	(Strip the_strip)
   StripInfo		*si = (StripInfo *)the_strip;
   StripCurve		curves[STRIP_MAX_CURVES+1];
   int			i, j;
+  StripConfigMask	mask;
 
   Strip_ignoreevent
     (si,
@@ -1028,16 +1054,18 @@ void	Strip_clear	(Strip the_strip)
   
   for (i = 0, j = 0; i < STRIP_MAX_CURVES; i++)
     if (si->curves[i].details != NULL)
-      {
-	curves[j] = (StripCurve)(&si->curves[i]);
-	j++;
-      }
+    {
+      curves[j] = (StripCurve)(&si->curves[i]);
+      j++;
+    }
 
   curves[j] = (StripCurve)0;
   Strip_freesomecurves ((Strip)si, curves);
 
   StripConfig_setattr (si->config, STRIPCONFIG_TITLE, NULL, 0);
-  StripConfig_update (si->config, STRIPCFGMASK_TITLE);
+  StripConfigMask_clear (&mask);
+  StripConfigMask_set (&mask, SCFGMASK_TITLE);
+  StripConfig_update (si->config, mask);
 }
 
 
@@ -1093,41 +1121,114 @@ int	Strip_readconfig	(Strip            the_strip,
 /* ====== Static Functions ====== */
 
 /*
- * Strip_process_X
+ * Strip_forgetcurve
  */
-static void	Strip_process_X	(void *the_strip)
+static void	Strip_forgetcurve	(StripInfo 	*si,
+                                         StripCurve 	the_curve)
 {
-  StripInfo	*si = (StripInfo *)the_strip;
-  XEvent	event;
-  
-  while (XtAppPending (si->app) && !(si->status & STRIPSTAT_TERMINATED))
-    {
-      XtAppNextEvent (si->app, &event);
-      XtDispatchEvent (&event);
-    }
+  StripCurveInfo	*sci = (StripCurveInfo *)the_curve;
+
+  StripConfig_reset_details (si->config, sci->details);
+  sci->details = NULL;
+  sci->get_value = NULL;
+  sci->func_data = NULL;
 }
 
 
 /*
- * Strip_forgetcurve
+ * Strip_graphdrop_handle
+ *
+ *	Handles drop events on the graph drawing area widget.
  */
-static void	Strip_forgetcurve	(StripInfo 	*BOGUS(1),
-                                         StripCurve 	the_curve)
+static void	Strip_graphdrop_handle	(Widget 	w,
+                                         XtPointer 	BOGUS(1),
+                                         XtPointer 	call)
 {
-  StripCurveInfo	*sci = (StripCurveInfo *)the_curve;
+  StripInfo			*si;
+  Display			*dpy;
+  Widget			dc;
+  XmDropProcCallback		drop_data;
+  XmDropTransferEntryRec	xfer_entries[10];
+  XmDropTransferEntry		xfer_list;
+  Cardinal			n_export_targets;
+  Atom				*export_targets;
+  Atom				COMPOUND_TEXT;
+  Arg				args[10];
+  int				n, i;
+  Boolean			ok;
+
+  dpy = XtDisplay (w);
+
+  XtVaGetValues (w, XmNuserData, &si, 0);
+  drop_data = (XmDropProcCallback) call;
+  dc = drop_data->dragContext;
+
+  /* retireve the data targets, and search for COMPOUND_TEXT */
+  COMPOUND_TEXT = XmInternAtom (dpy, "COMPOUND_TEXT", False);
   
-  StripCurve_clearstat
-    (the_curve,
-     STRIPCURVE_CONNECTED |
-     STRIPCURVE_WAITING |
-     STRIPCURVE_EGU_SET |
-     STRIPCURVE_PRECISION_SET |
-     STRIPCURVE_MIN_SET |
-     STRIPCURVE_MAX_SET);
-  sci->details->id = NULL;
-  sci->details = NULL;
-  sci->get_value = NULL;
-  sci->func_data = NULL;
+  n = 0;
+  XtSetArg (args[n], XmNexportTargets, &export_targets); n++;
+  XtSetArg (args[n], XmNnumExportTargets, &n_export_targets); n++;
+  XtGetValues (dc, args, n);
+
+  for (i = 0, ok = False; (i < n_export_targets) && !ok; i++)
+    if (ok = (export_targets[i] == COMPOUND_TEXT))
+      break;
+
+  n = 0;
+  if (!ok || (drop_data->dropAction != XmDROP))
+  {
+    XtSetArg (args[n], XmNtransferStatus, XmTRANSFER_FAILURE); n++;
+    XtSetArg (args[n], XmNnumDropTransfers, 0); n++;
+  }
+  else
+  {
+    xfer_entries[0].target = COMPOUND_TEXT;
+    xfer_entries[0].client_data = (char *)si;
+    xfer_list = xfer_entries;
+    XtSetArg (args[n], XmNdropTransfers, xfer_entries); n++;
+    XtSetArg (args[n], XmNnumDropTransfers, 1); n++;
+    XtSetArg (args[n], XmNtransferProc, Strip_graphdrop_xfer); n++;
+  }
+
+  XmDropTransferStart (dc, args, n);
+}
+
+
+
+/*
+ * Strip_graphdrop_xfer
+ *
+ *	Handles the transfer of data initiated by the drop handler
+ *	routine.
+ */
+static void	Strip_graphdrop_xfer	(Widget		BOGUS(w),
+                                         XtPointer	client,
+                                         Atom		*BOGUS(sel_type),
+                                         Atom		*type,
+                                         XtPointer	value,
+                                         unsigned long	*BOGUS(length),
+                                         int		*BOGUS(format))
+{
+  StripInfo	*si = (StripInfo *)client;
+  StripCurve	curve;
+  Atom		COMPOUND_TEXT;
+  XmString	xstr;
+  char		*name;
+
+  COMPOUND_TEXT = XmInternAtom (si->display, "COMPOUND_TEXT", False);
+  if (*type == COMPOUND_TEXT)
+  {
+    xstr = XmCvtCTToXmString ((char *)value);
+    XmStringGetLtoR (xstr, XmFONTLIST_DEFAULT_TAG, &name);
+    fprintf (stdout, "dropped string is: %s\n", name);
+
+    if (curve = Strip_getcurve ((Strip)si))
+    {
+      StripCurve_setattr (curve, STRIPCURVE_NAME, name, 0);
+      Strip_connectcurve ((Strip)si, curve);
+    }
+  }
 }
 
 
@@ -1156,221 +1257,271 @@ static void	Strip_config_callback	(StripConfigMask mask, void *data)
   double	tmp_dbl;
 
 
-  if (mask & STRIPCFGMASK_TITLE)
+  if (StripConfigMask_stat (&mask, SCFGMASK_TITLE))
+  {
+    StripGraph_setattr
+      (si->graph, STRIPGRAPH_TITLE, si->config->title, 0);
+    comp_mask |= SGCOMPMASK_TITLE;
+  }
+
+  if (StripConfigMask_intersect (&mask, &SCFGMASK_TIME))
+  {
+    /* If the plotted timespan has changed, then the graph needs to be
+     * redrawn and the data buffer resized.  Force a refresh event by
+     * setting the last refresh time to 0 and calling dispatch().  If
+     * the sample interval has changed then the data buffer must be
+     * resized.  In any time-related event, the dispatch function needs
+     * to be called.
+     *
+     * 8/18/97: if in browse mode, do not force refresh, but set the
+     *          graph's time range appropriately, and then force it
+     *	  to redraw by setting the component mask.
+     */
+    if (StripConfigMask_stat (&mask, SCFGMASK_TIME_TIMESPAN))
+      if (si->status & STRIPSTAT_BROWSE_MODE)
+      {
+        struct timeval	t0, t1;
+          
+        StripGraph_getattr (si->graph, STRIPGRAPH_END_TIME, &t1, 0);
+        dbl2time (&tv, si->config->Time.timespan);
+        subtract_times (&t0, &tv, &t1);
+          
+        StripGraph_setattr
+          (si->graph,
+           STRIPGRAPH_BEGIN_TIME,	&t0,
+           STRIPGRAPH_END_TIME,	&t1,
+           0);
+        comp_mask |=  SGCOMPMASK_DATA | SGCOMPMASK_XAXIS;
+      }
+      else si->last_event[STRIPEVENT_REFRESH].tv_sec = 0;
+
+    if (StripConfigMask_stat (&mask, SCFGMASK_TIME_TIMESPAN) ||
+        StripConfigMask_stat (&mask, SCFGMASK_TIME_SAMPLE_INTERVAL))
     {
-      StripGraph_setattr
-	(si->graph, STRIPGRAPH_TITLE, si->config->title, 0);
-      comp_mask |= SGCOMPMASK_TITLE;
+      tmp_dbl = ceil
+        ((double)si->config->Time.timespan /
+         si->config->Time.sample_interval);
+      StripDataSource_setattr
+        (si->data, SDS_NUMSAMPLES, (size_t)tmp_dbl, 0);
     }
+      
+    Strip_dispatch (si);
+  }
+
+
+  /* colors */
+  if (StripConfigMask_intersect (&mask, &SCFGMASK_COLOR))
+  {
+    if (StripConfigMask_stat (&mask, SCFGMASK_COLOR_BACKGROUND))
+    {
+      /* set the cavas' background color so that when an expose
+       * occurs we won't see ugly colors */
+      XtVaSetValues
+        (si->canvas,
+         XmNbackground,	si->config->Color.background.xcolor.pixel,
+         0);
+      
+      /* have to redraw everything when the background color changes */
+      comp_mask |= SGCOMPMASK_ALL;
+      StripGraph_setstat
+        (si->graph, SGSTAT_GRAPH_REFRESH | SGSTAT_LEGEND_REFRESH);
+    }
+    if (StripConfigMask_stat (&mask, SCFGMASK_COLOR_FOREGROUND))
+    {
+      comp_mask |= SGCOMPMASK_YAXIS | SGCOMPMASK_XAXIS;
+    }
+    if (StripConfigMask_stat (&mask, SCFGMASK_COLOR_GRID))
+    {
+      comp_mask |= SGCOMPMASK_GRID;
+    }
+    if (StripConfigMask_stat (&mask, SCFGMASK_COLOR_LEGENDTEXT))
+    {
+      comp_mask |= SGCOMPMASK_LEGEND;
+      StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
+    }
+
+    /* if any of the curves have changed color, must redraw */
+    for (i = 0; i < STRIP_MAX_CURVES; i++)
+      if (StripConfigMask_stat
+          (&mask, (StripConfigMaskElement)SCFGMASK_COLOR_COLOR1+i))
+      {
+        /* no way of knowing if the curve whose color changed was the
+         * one defining the yaxis color */
+        comp_mask |= SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS;
+        StripGraph_setstat
+          (si->graph, SGSTAT_GRAPH_REFRESH | SGSTAT_LEGEND_REFRESH);
+      }
+  }
+
   
-  if (mask & STRIPCFGMASK_TIME)
+  /* graph options */
+  if (StripConfigMask_intersect (&mask, &SCFGMASK_OPTION))
+  {
+    if (StripConfigMask_stat (&mask, SCFGMASK_OPTION_GRID_XON))
     {
-      /* If the plotted timespan has changed, then the graph needs to be
-       * redrawn and the data buffer resized.  Force a refresh event by
-       * setting the last refresh time to 0 and calling dispatch().  If
-       * the sample interval has changed then the data buffer must be
-       * resized.  In any time-related event, the dispatch function needs
-       * to be called.
-       *
-       * 8/18/97: if in browse mode, do not force refresh, but set the
-       *          graph's time range appropriately, and then force it
-       *	  to redraw by setting the component mask.
-       */
-      if (mask & STRIPCFGMASK_TIME_TIMESPAN)
-        if (si->status & STRIPSTAT_BROWSE_MODE)
+      comp_mask |= SGCOMPMASK_GRID;
+    }
+    if (StripConfigMask_stat (&mask, SCFGMASK_OPTION_GRID_YON))
+    {
+      comp_mask |= SGCOMPMASK_GRID;
+    }
+    if (StripConfigMask_stat (&mask, SCFGMASK_OPTION_AXIS_YCOLORSTAT))
+    {
+      comp_mask |= SGCOMPMASK_YAXIS;
+    }
+    if (StripConfigMask_stat (&mask, SCFGMASK_OPTION_AXIS_XNUMTICS))
+    {
+      comp_mask |= SGCOMPMASK_XAXIS | SGCOMPMASK_GRID;
+    }
+    if (StripConfigMask_stat (&mask, SCFGMASK_OPTION_AXIS_YNUMTICS))
+    {
+      comp_mask |= SGCOMPMASK_YAXIS | SGCOMPMASK_GRID;
+    }
+    if (StripConfigMask_stat (&mask, SCFGMASK_OPTION_GRAPH_LINEWIDTH))
+    {
+      comp_mask |= SGCOMPMASK_DATA;
+      StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
+    }
+    if (StripConfigMask_stat (&mask, SCFGMASK_OPTION_LEGEND_VISIBLE))
+    {
+      comp_mask |= SGCOMPMASK_LEGEND;
+      StripGraph_setstat (si->graph, SGSTAT_MANAGE_GEOMETRY);
+    }
+  }
+
+  if (StripConfigMask_stat (&mask, SCFGMASK_CURVE_NAME))
+  {
+    dcon.n = conn.n = 0;
+    for (i = 0; i < STRIP_MAX_CURVES; i++)
+    {
+      if (StripConfigMask_stat
+          (&si->config->Curves.Detail[i]->update_mask,
+           SCFGMASK_CURVE_NAME))
+      {
+        if ((sci = (StripCurveInfo *)si->config->Curves.Detail[i]->id)
+            != NULL)
         {
-          struct timeval	t0, t1;
-          
-          StripGraph_getattr (si->graph, STRIPGRAPH_END_TIME, &t1, 0);
-          dbl2time (&tv, si->config->Time.timespan);
-          subtract_times (&t0, &tv, &t1);
-          
-          StripGraph_setattr
-            (si->graph,
-             STRIPGRAPH_BEGIN_TIME,	&t0,
-             STRIPGRAPH_END_TIME,	&t1,
-             0);
-          comp_mask |=  SGCOMPMASK_DATA | SGCOMPMASK_XAXIS;
+          /* the detail structure is used by some StripCurve */
+          if (StripCurve_getstat
+              (sci, STRIPCURVE_CONNECTED | STRIPCURVE_WAITING))
+            dcon.curves[dcon.n++] = (StripCurve)sci;
         }
-        else si->last_event[STRIPEVENT_REFRESH].tv_sec = 0;
-
-      if (mask &
-	  (STRIPCFGMASK_TIME_TIMESPAN | STRIPCFGMASK_TIME_SAMPLE_INTERVAL))
-	{
-	  tmp_dbl = ceil
-	    ((double)si->config->Time.timespan /
-	     si->config->Time.sample_interval);
-	  StripDataSource_setattr
-	    (si->data, SDS_NUMSAMPLES, (size_t)tmp_dbl, 0);
-	}
-      
-      Strip_dispatch (si);
-    }
-
-  if (mask & STRIPCFGMASK_OPTION)
-    {
-      if (mask & STRIPCFGMASK_OPTION_GRID_XON)
-	{
-	  comp_mask |= SGCOMPMASK_GRID;
-	}
-      if (mask & STRIPCFGMASK_OPTION_GRID_YON)
-	{
-	  comp_mask |= SGCOMPMASK_GRID;
-	}
-      if (mask & STRIPCFGMASK_OPTION_AXIS_YCOLORSTAT)
-	{
-	  comp_mask |= SGCOMPMASK_YAXIS;
-	}
-      if (mask & STRIPCFGMASK_OPTION_AXIS_XNUMTICS)
-	{
-	  comp_mask |= SGCOMPMASK_XAXIS | SGCOMPMASK_GRID;
-	}
-      if (mask & STRIPCFGMASK_OPTION_AXIS_YNUMTICS)
-	{
-	  comp_mask |= SGCOMPMASK_YAXIS | SGCOMPMASK_GRID;
-	}
-      if (mask & STRIPCFGMASK_OPTION_GRAPH_LINEWIDTH)
-	{
-	  comp_mask |= SGCOMPMASK_DATA;
-	  StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
-	}
-      if (mask & STRIPCFGMASK_OPTION_LEGEND_VISIBLE)
-	{
-	  comp_mask |= SGCOMPMASK_LEGEND;
-	  StripGraph_setstat (si->graph, SGSTAT_MANAGE_GEOMETRY);
-	}
-    }
-
-  if (mask & STRIPCFGMASK_CURVE_NAME)
-    {
-      dcon.n = conn.n = 0;
-      for (i = 0; i < STRIP_MAX_CURVES; i++)
-	{
-	  if (si->config->Curves.Detail[i]->update_mask &
-	      STRIPCFGMASK_CURVE_NAME)
-	    {
-	      if ((sci = (StripCurveInfo *)si->config->Curves.Detail[i]->id)
-		  != NULL)
-		{
-		  /* the detail structure is used by some StripCurve */
-		  if (StripCurve_getstat
-		      (sci, STRIPCURVE_CONNECTED | STRIPCURVE_WAITING))
-		    dcon.curves[dcon.n++] = (StripCurve)sci;
-		}
-	      else
-		{
-		  /* find an available StripCurve to contain the details */
-		  for (j = 0; j < STRIP_MAX_CURVES; j++)
-		    if (si->curves[j].details == NULL)
-		      break;
-		  if (j < STRIP_MAX_CURVES)
-		    {
-		      sci = &si->curves[j];
-		      sci->details = si->config->Curves.Detail[i];
-		      sci->details->id = sci;
-		    }
-		}
-	      
-	      if (sci != NULL)
-		conn.curves[conn.n++] = (StripCurve)sci;
-	    }
-	}
-
-      /* disconnect any currently connected curves whose names have changed */
-      for (i = 0; i < dcon.n; i++)
-	{
-	  StripGraph_removecurve (si->graph, dcon.curves[i]);
-	  StripDataSource_removecurve (si->data, dcon.curves[i]);
-	  if (si->disconnect_func != NULL)
-	    si->disconnect_func (dcon.curves[i], si->disconnect_data);
-	  StripCurve_clearstat
-	    (dcon.curves[i], STRIPCURVE_CONNECTED | STRIPCURVE_WAITING);
-	  sci = (StripCurveInfo *)dcon.curves[i];
-	}
-      /* remove the disconnected curves from the dialog */
-      if (dcon.n > 0)
-	{
-	  dcon.curves[dcon.n] = (StripCurve)0;
-	  StripDialog_removesomecurves (si->dialog, dcon.curves);
-	  ListDialog_removecurves (si->list_dlg, dcon.curves);
-	  if (ListDialog_count (si->list_dlg) == 0)
-	    ListDialog_popdown (si->list_dlg);
-	}
-      /* finally attempt to connect all new curves */
-      for (i = 0; i < conn.n; i++)
-	{
-	  if (!Strip_connectcurve ((Strip)si, conn.curves[i]))
-	    {
-	      fprintf
-		(stderr,
-		 "Strip_config_callback:\n"
-		 "  Warning! connect failed for curve, %s\n",
-		(char *) StripCurve_getattr_val
-		 (conn.curves[i], STRIPCURVE_NAME));
-	      Strip_forgetcurve (si, conn.curves[i]);
-	    }
-	}
-    }
-
-  if (mask & STRIPCFGMASK_CURVE)
-    {
-      if (mask & STRIPCFGMASK_CURVE_NAME)
-	{
-	  comp_mask |= SGCOMPMASK_LEGEND | SGCOMPMASK_DATA | SGCOMPMASK_YAXIS;
-	  StripGraph_setstat
-	    (si->graph, SGSTAT_GRAPH_REFRESH | SGSTAT_LEGEND_REFRESH);
-	}
-      if (mask & STRIPCFGMASK_CURVE_EGU)
-	{
-	  comp_mask |= SGCOMPMASK_LEGEND;
-	  StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
-	}
-      if (mask & STRIPCFGMASK_CURVE_PRECISION)
-	{
-	  comp_mask |= SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS;
-	  StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
-	}
-      if (mask & STRIPCFGMASK_CURVE_MIN)
-	{
-	  comp_mask |= SGCOMPMASK_LEGEND | SGCOMPMASK_DATA | SGCOMPMASK_YAXIS;
-	  StripGraph_setstat
-	    (si->graph, SGSTAT_GRAPH_REFRESH | SGSTAT_LEGEND_REFRESH);
-	}
-      if (mask & STRIPCFGMASK_CURVE_MAX)
-	{
-	  comp_mask |= SGCOMPMASK_LEGEND | SGCOMPMASK_DATA | SGCOMPMASK_YAXIS;
-	  StripGraph_setstat
-	    (si->graph, SGSTAT_GRAPH_REFRESH | SGSTAT_LEGEND_REFRESH);
-	}
-      if (mask & STRIPCFGMASK_CURVE_PENSTAT)
-	{
-	  comp_mask |= SGCOMPMASK_DATA;
-	  StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
-	}
-      
-      if (mask & STRIPCFGMASK_CURVE_PLOTSTAT)
-	{
-          /* re-arrange the plot order */
-          int shift;
-          
-          for (i = 0; i < STRIP_MAX_CURVES; i++)
-            if (si->curves[i].details->update_mask &
-	      STRIPCFGMASK_CURVE_PLOTSTAT)
-            {
-              for (j = 0, shift = 0; j < STRIP_MAX_CURVES; j++)
-                if (si->config->Curves.plot_order[j] == i)
-                  shift = 1;
-                else if (shift)
-                  si->config->Curves.plot_order[j-1] =
-                    si->config->Curves.plot_order[j];
-              si->config->Curves.plot_order[STRIP_MAX_CURVES-1] = i;
+        else
+        {
+          /* find an available StripCurve to contain the details */
+          for (j = 0; j < STRIP_MAX_CURVES; j++)
+            if (si->curves[j].details == NULL)
               break;
-            }
-          
-	  comp_mask |= SGCOMPMASK_DATA;
-	  StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
+          if (j < STRIP_MAX_CURVES)
+          {
+            sci = &si->curves[j];
+            sci->details = si->config->Curves.Detail[i];
+            sci->details->id = sci;
+          }
         }
+	      
+        if (sci != NULL)
+          conn.curves[conn.n++] = (StripCurve)sci;
+      }
     }
+
+    /* disconnect any currently connected curves whose names have changed */
+    for (i = 0; i < dcon.n; i++)
+    {
+      StripGraph_removecurve (si->graph, dcon.curves[i]);
+      StripDataSource_removecurve (si->data, dcon.curves[i]);
+      if (si->disconnect_func != NULL)
+        si->disconnect_func (dcon.curves[i], si->disconnect_data);
+      StripCurve_clearstat
+        (dcon.curves[i], STRIPCURVE_CONNECTED | STRIPCURVE_WAITING);
+      sci = (StripCurveInfo *)dcon.curves[i];
+    }
+    /* remove the disconnected curves from the dialog */
+    if (dcon.n > 0)
+    {
+      dcon.curves[dcon.n] = (StripCurve)0;
+      StripDialog_removesomecurves (si->dialog, dcon.curves);
+      ListDialog_removecurves (si->list_dlg, dcon.curves);
+      if (ListDialog_count (si->list_dlg) == 0)
+        ListDialog_popdown (si->list_dlg);
+    }
+    /* finally attempt to connect all new curves */
+    for (i = 0; i < conn.n; i++)
+    {
+      if (!Strip_connectcurve ((Strip)si, conn.curves[i]))
+      {
+        fprintf
+          (stderr,
+           "Strip_config_callback:\n"
+           "  Warning! connect failed for curve, %s\n",
+           (char *) StripCurve_getattr_val
+           (conn.curves[i], STRIPCURVE_NAME));
+        Strip_forgetcurve (si, conn.curves[i]);
+      }
+    }
+  }
+
+  if (StripConfigMask_intersect (&mask, &SCFGMASK_CURVE))
+  {
+    if (StripConfigMask_stat (&mask, SCFGMASK_CURVE_NAME))
+    {
+      comp_mask |= SGCOMPMASK_LEGEND | SGCOMPMASK_DATA | SGCOMPMASK_YAXIS;
+      StripGraph_setstat
+        (si->graph, SGSTAT_GRAPH_REFRESH | SGSTAT_LEGEND_REFRESH);
+    }
+    if (StripConfigMask_stat (&mask, SCFGMASK_CURVE_EGU))
+    {
+      comp_mask |= SGCOMPMASK_LEGEND;
+      StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
+    }
+    if (StripConfigMask_stat (&mask, SCFGMASK_CURVE_PRECISION))
+    {
+      comp_mask |= SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS;
+      StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
+    }
+    if (StripConfigMask_stat (&mask, SCFGMASK_CURVE_MIN))
+    {
+      comp_mask |= SGCOMPMASK_LEGEND | SGCOMPMASK_DATA | SGCOMPMASK_YAXIS;
+      StripGraph_setstat
+        (si->graph, SGSTAT_GRAPH_REFRESH | SGSTAT_LEGEND_REFRESH);
+    }
+    if (StripConfigMask_stat (&mask, SCFGMASK_CURVE_MAX))
+    {
+      comp_mask |= SGCOMPMASK_LEGEND | SGCOMPMASK_DATA | SGCOMPMASK_YAXIS;
+      StripGraph_setstat
+        (si->graph, SGSTAT_GRAPH_REFRESH | SGSTAT_LEGEND_REFRESH);
+    }
+    if (StripConfigMask_stat (&mask, SCFGMASK_CURVE_PENSTAT))
+    {
+      comp_mask |= SGCOMPMASK_DATA;
+      StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
+    }
+      
+    if (StripConfigMask_stat (&mask, SCFGMASK_CURVE_PLOTSTAT))
+    {
+      /* re-arrange the plot order */
+      int shift;
+          
+      for (i = 0; i < STRIP_MAX_CURVES; i++)
+        if (si->curves[i].details)
+          if (StripConfigMask_stat
+              (&si->curves[i].details->update_mask,
+               SCFGMASK_CURVE_PLOTSTAT))
+          {
+            for (j = 0, shift = 0; j < STRIP_MAX_CURVES; j++)
+              if (si->config->Curves.plot_order[j] == i)
+                shift = 1;
+              else if (shift)
+                si->config->Curves.plot_order[j-1] =
+                  si->config->Curves.plot_order[j];
+            si->config->Curves.plot_order[STRIP_MAX_CURVES-1] = i;
+            break;
+          }
+      
+      comp_mask |= SGCOMPMASK_DATA;
+      StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
+    }
+  }
 
   if (comp_mask) StripGraph_draw (si->graph, comp_mask, (Region *)0);
 }
@@ -1379,7 +1530,7 @@ static void	Strip_config_callback	(StripConfigMask mask, void *data)
 /*
  * Strip_eventmgr
  */
-static void	Strip_eventmgr		(void *arg)
+static void	Strip_eventmgr		(XtPointer arg, XtIntervalId *BOGUS(id))
 {
   StripInfo		*si = (StripInfo *)arg;
   struct timeval	event_time;
@@ -1461,20 +1612,8 @@ static void	Strip_eventmgr		(void *arg)
     }
   }
   
-  si->tid = (_fdmgrAlarmType)0;
+  si->tid = (XtInputId)0;
   Strip_dispatch (si);
-}
-
-
-/*
- * Strip_timeoutcb
- */
-static void	Strip_timeoutcb		(void *arg)
-{
-  StripTOinfo	*p = (StripTOinfo *)arg;
-
-  p->alarm_id = 0;
-  p->cb_func (p->cb_data);
 }
 
 
@@ -1507,10 +1646,10 @@ static void	Strip_dispatch		(StripInfo *si)
   struct timeval	*next;
   double		interval[LAST_STRIPEVENT];
   int			i;
+  double		sec;
 
   /* first, if an alarm has already been registered, disable it */
-  if (si->tid != (_fdmgrAlarmType)0)
-    fdmgr_clear_timeout (si->fdmgr_context, (_fdmgrAlarmType)si->tid);
+  if (si->tid != (XtIntervalId)0) XtRemoveTimeOut (si->tid);
   
   interval[STRIPEVENT_SAMPLE] 		= si->config->Time.sample_interval;
   interval[STRIPEVENT_REFRESH] 		= si->config->Time.refresh_interval;
@@ -1520,55 +1659,52 @@ static void	Strip_dispatch		(StripInfo *si)
   
   /* first determine the event time for each possible next event */
   for (i = 0; i < LAST_STRIPEVENT; i++)
-    {
-      if (!(si->event_mask & (1 << i))) continue;
+  {
+    if (!(si->event_mask & (1 << i))) continue;
       
 #ifdef DEBUG_EVENT
-      fprintf
-	(stdout, "=> last %-15s:\n%s\n",
-	 StripEventTypeStr[i],
-	 time_str (&si->last_event[i]));
+    fprintf
+      (stdout, "=> last %-15s:\n%s\n",
+       StripEventTypeStr[i],
+       time_str (&si->last_event[i]));
 #endif
-      dbl2time (&t, interval[i]);
-      add_times (&si->next_event[i], &si->last_event[i], &t);
+    dbl2time (&t, interval[i]);
+    add_times (&si->next_event[i], &si->last_event[i], &t);
 
-      if (next == NULL)
-	next = &si->next_event[i];
-      else if (compare_times (&si->next_event[i], next) <= 0)
-	next = &si->next_event[i];
-    }
+    if (next == NULL)
+      next = &si->next_event[i];
+    else if (compare_times (&si->next_event[i], next) <= 0)
+      next = &si->next_event[i];
+  }
   
   /* event time */
   /* now calculate the number of milliseconds until the next event */
   gettimeofday (&now, &tz);
 
   if (next != NULL)
-    {
+  {
 #ifdef DEBUG_EVENT
-      fprintf (stdout, "============\n");
-      for (i = 0; i < LAST_STRIPEVENT; i++)
-	{
-	  if (si->event_mask & (1 << i))
-	    fprintf
-	      (stdout, "=> Next %s\n%s\n",
-	       StripEventTypeStr[i],
-	       time_str (&si->next_event[i]));
-	}
-      fprintf (stdout, "=> Next Event\n%s\n", time_str (next));
-      fprintf (stdout, "=> Current Time\n%s\n", time_str (&now));
-      fprintf (stdout, "=> si->next_event - current_time = %lf (seconds)\n",
-	       subtract_times (&t, &now, next));
-      fprintf (stdout, "============\n");
+    fprintf (stdout, "============\n");
+    for (i = 0; i < LAST_STRIPEVENT; i++)
+    {
+      if (si->event_mask & (1 << i))
+        fprintf
+          (stdout, "=> Next %s\n%s\n",
+           StripEventTypeStr[i],
+           time_str (&si->next_event[i]));
+    }
+    fprintf (stdout, "=> Next Event\n%s\n", time_str (next));
+    fprintf (stdout, "=> Current Time\n%s\n", time_str (&now));
+    fprintf (stdout, "=> si->next_event - current_time = %lf (seconds)\n",
+             subtract_times (&t, &now, next));
+    fprintf (stdout, "============\n");
 #endif
 
-      /* finally, register the timer callback */
-      if (subtract_times (&t, &now, next) < 0)
-	{
-	  t.tv_sec = 0;
-	  t.tv_usec = 0;
-	}
-      si->tid = fdmgr_add_timeout (si->fdmgr_context, &t, Strip_eventmgr, si);
-    }
+    /* finally, register the timer callback */
+    if ((sec = subtract_times (&t, &now, next)) < 0)
+      sec = 0;
+    si->tid = Strip_addtimeout ((Strip)si, sec, Strip_eventmgr, (XtPointer)si);
+  }
 
 #ifdef DEBUG_EVENT
   fflush (stdout);
@@ -1586,6 +1722,7 @@ static void	callback	(Widget w, XtPointer client, XtPointer call)
   StripInfo			*si;
   XWindowAttributes		xwa;
   XRectangle			r;
+  StripConfigMask		scfg_mask;
 
   static int 			x, y;
   static Region			expose_region = (Region)0;
@@ -1676,7 +1813,7 @@ static void	callback	(Widget w, XtPointer client, XtPointer call)
          */
         else if (w == si->btn[STRIPBTN_ZOOMIN] || w == si->btn[STRIPBTN_ZOOMOUT])
         {
-          struct timeval	t, tb, t1, t0;
+          struct timeval	t, tb, t1;
           unsigned		t_new;
           
           StripGraph_getattr (si->graph, STRIPGRAPH_END_TIME, &tb, 0);
@@ -1699,8 +1836,12 @@ static void	callback	(Widget w, XtPointer client, XtPointer call)
 
           StripGraph_setattr (si->graph, STRIPGRAPH_END_TIME, &t1, 0);
           si->status |= STRIPSTAT_BROWSE_MODE;
-          StripConfig_setattr (si->config, STRIPCONFIG_TIME_TIMESPAN, t_new, 0);
-          StripConfig_update (si->config, STRIPCFGMASK_TIME_TIMESPAN);
+          StripConfig_setattr
+            (si->config, STRIPCONFIG_TIME_TIMESPAN, t_new, 0);
+
+          StripConfigMask_clear (&scfg_mask);
+          StripConfigMask_set (&scfg_mask, SCFGMASK_TIME_TIMESPAN);
+          StripConfig_update (si->config, scfg_mask);
         }
 
         /*
@@ -1744,10 +1885,10 @@ static void	dlgrequest_connect	(void *client, void *call)
   StripCurve	curve;
   
   if ((curve = Strip_getcurve ((Strip)si)) != 0)
-    {
-      StripCurve_setattr (curve, STRIPCURVE_NAME, name, 0);
-      Strip_connectcurve ((Strip)si, curve);
-    }
+  {
+    StripCurve_setattr (curve, STRIPCURVE_NAME, name, 0);
+    Strip_connectcurve ((Strip)si, curve);
+  }
 }
 
 
@@ -1794,12 +1935,12 @@ static void	dlgrequest_dismiss	(void *client, void *BOGUS(1))
   if (window_ismapped (si->display, XtWindow (si->shell)))
     StripDialog_popdown (si->dialog);
   else
-    {
-      StripDialog_getattr (si->dialog, STRIPDIALOG_SHELL_WIDGET, &tmp_w, 0);
-      MessageBox_popup
-	(tmp_w, &si->message_box,
-	 "You can't dismiss all your windows", "Ok");
-    }
+  {
+    StripDialog_getattr (si->dialog, STRIPDIALOG_SHELL_WIDGET, &tmp_w, 0);
+    MessageBox_popup
+      (tmp_w, &si->message_box,
+       "You can't dismiss all your windows", "Ok");
+  }
 }
 
 
@@ -1831,14 +1972,14 @@ static void	dlgrequest_window_popup	(void *client, void *call)
   StripWindowType	which = (StripWindowType)call;
 
   switch (which)
-    {
-    case STRIPWINDOW_GRAPH:
-      window_map (si->display, XtWindow (si->shell));
-      break;
-    case STRIPWINDOW_LISTDLG:
-      ListDialog_popup (si->list_dlg);
-      break;
-    }
+  {
+      case STRIPWINDOW_GRAPH:
+        window_map (si->display, XtWindow (si->shell));
+        break;
+      case STRIPWINDOW_LISTDLG:
+        ListDialog_popup (si->list_dlg);
+        break;
+  }
 }
 
 
@@ -1923,19 +2064,19 @@ static Widget	PopupMenu_build	(Widget parent)
 
 
   for (i = 0, n = 0; i < POPUPMENU_ITEMCOUNT+2; i++)
-    {
-      if (buttonType[i] == XmPUSHBUTTON) {
-	label[i]   = XmStringCreateLocalized (PopupMenuItemStr[n]);
-	acc_lbl[i] = XmStringCreateLocalized (PopupMenuItemAccelStr[n]);
-	keySyms[i] = PopupMenuItemMnemonic[n];
-	n++;
-      }
-      else {
-	label[i]   = XmStringCreateLocalized ("Separator");
-	acc_lbl[i] = XmStringCreateLocalized (" ");
-	keySyms[i] = ' ';
-      }
+  {
+    if (buttonType[i] == XmPUSHBUTTON) {
+      label[i]   = XmStringCreateLocalized (PopupMenuItemStr[n]);
+      acc_lbl[i] = XmStringCreateLocalized (PopupMenuItemAccelStr[n]);
+      keySyms[i] = PopupMenuItemMnemonic[n];
+      n++;
     }
+    else {
+      label[i]   = XmStringCreateLocalized ("Separator");
+      acc_lbl[i] = XmStringCreateLocalized (" ");
+      keySyms[i] = ' ';
+    }
+  }
 
   n = 0;
   XtSetArg(args[n], XmNbuttonCount,           POPUPMENU_ITEMCOUNT+2); n++;
@@ -1948,10 +2089,10 @@ static Widget	PopupMenu_build	(Widget parent)
   menu = XmCreateSimplePopupMenu(parent, "popup", args, n);
  
   for (i = 0; i < POPUPMENU_ITEMCOUNT+2; i++)
-    {
-      if (label[i])   XmStringFree (label[i]);
-      if (acc_lbl[i]) XmStringFree (acc_lbl[i]);
-    }
+  {
+    if (label[i])   XmStringFree (label[i]);
+    if (acc_lbl[i]) XmStringFree (acc_lbl[i]);
+  }
 
   return menu;
 }
@@ -2074,7 +2215,7 @@ static void	PopupMenu_cb	(Widget w, XtPointer client, XtPointer BOGUS(1))
       default:
         fprintf (stderr, "Argh!\n");
         exit (1);
-    }
+  }
 }
 
 
@@ -2082,9 +2223,9 @@ static void	PopupMenu_cb	(Widget w, XtPointer client, XtPointer BOGUS(1))
 /* ====== ListDialog stuff ====== */
 typedef enum
 {
- LISTDLG_FREE = 0,
- LISTDLG_DISMISS,
- LISTDLG_MAP
+  LISTDLG_FREE = 0,
+  LISTDLG_DISMISS,
+  LISTDLG_MAP
 }
 LDevent;
 
@@ -2101,59 +2242,59 @@ static ListDialog	*ListDialog_init (Strip strip, Widget parent)
   int		i;
 
   if ((ld = (ListDialog *)malloc (sizeof (ListDialog))) != NULL)
-    {
-      ld->strip = strip;
-      for (i = 0; i < STRIP_MAX_CURVES; i++)
-	ld->curves[i] = (StripCurve)0;
+  {
+    ld->strip = strip;
+    for (i = 0; i < STRIP_MAX_CURVES; i++)
+      ld->curves[i] = (StripCurve)0;
       
-      ld->msg_box = XmCreateMessageBox
-	(XmCreateDialogShell (parent, "StripUnconnectedList", NULL, 0),
-	 "Unconnected Signals",
-	 NULL,
-	 0);
+    ld->msg_box = XmCreateMessageBox
+      (XmCreateDialogShell (parent, "StripUnconnectedList", NULL, 0),
+       "Unconnected Signals",
+       NULL,
+       0);
 	 
-      msg_lbl = XmStringCreateLocalized
-	("The following signals are not connected.");
-      ok_lbl = XmStringCreateLocalized ("Free Selected Signals");
-      cancel_lbl = XmStringCreateLocalized ("Keep Waiting");
+    msg_lbl = XmStringCreateLocalized
+      ("The following signals are not connected.");
+    ok_lbl = XmStringCreateLocalized ("Free Selected Signals");
+    cancel_lbl = XmStringCreateLocalized ("Keep Waiting");
 
-      XtVaSetValues
-	(ld->msg_box,
-	 XmNdialogType,			XmDIALOG_MESSAGE,
-	 XmNdefaultButtonType,		XmDIALOG_CANCEL_BUTTON,
-	 XmNnoResize,			True,
-	 XmNdefaultPosition,		False,
-	 XmNautoUnmanage,		False,
-	 XmNmessageString,		msg_lbl,
-	 XmNokLabelString,		ok_lbl,
-	 XmNcancelLabelString,		cancel_lbl,
-	 XmNuserData,			ld,
-	 NULL);
+    XtVaSetValues
+      (ld->msg_box,
+       XmNdialogType,			XmDIALOG_MESSAGE,
+       XmNdefaultButtonType,		XmDIALOG_CANCEL_BUTTON,
+       XmNnoResize,			True,
+       XmNdefaultPosition,		False,
+       XmNautoUnmanage,		False,
+       XmNmessageString,		msg_lbl,
+       XmNokLabelString,		ok_lbl,
+       XmNcancelLabelString,		cancel_lbl,
+       XmNuserData,			ld,
+       NULL);
 
-      XtUnmanageChild
-	(XmMessageBoxGetChild (ld->msg_box, XmDIALOG_HELP_BUTTON));
+    XtUnmanageChild
+      (XmMessageBoxGetChild (ld->msg_box, XmDIALOG_HELP_BUTTON));
 
-      XtAddCallback
-	(ld->msg_box, XmNokCallback, ListDialog_cb, (XtPointer)LISTDLG_FREE);
-      XtAddCallback
-	(ld->msg_box, XmNcancelCallback, ListDialog_cb,
-	 (XtPointer)LISTDLG_DISMISS);
-      XtAddCallback
-	(ld->msg_box, XmNmapCallback, ListDialog_cb, (XtPointer)LISTDLG_MAP);
+    XtAddCallback
+      (ld->msg_box, XmNokCallback, ListDialog_cb, (XtPointer)LISTDLG_FREE);
+    XtAddCallback
+      (ld->msg_box, XmNcancelCallback, ListDialog_cb,
+       (XtPointer)LISTDLG_DISMISS);
+    XtAddCallback
+      (ld->msg_box, XmNmapCallback, ListDialog_cb, (XtPointer)LISTDLG_MAP);
 
-      XmStringFree (msg_lbl);
-      XmStringFree (ok_lbl);
-      XmStringFree (cancel_lbl);
+    XmStringFree (msg_lbl);
+    XmStringFree (ok_lbl);
+    XmStringFree (cancel_lbl);
 
-      ld->list = XmCreateScrolledList
-	 (ld->msg_box, "ScrolledList", NULL, 0);
-      XtVaSetValues
-	(ld->list,
-	 XmNselectionPolicy,	XmEXTENDED_SELECT,
-	 XmNvisibleItemCount,	STRIP_MAX_CURVES,
-	 NULL);
-      XtManageChild (ld->list);
-    }
+    ld->list = XmCreateScrolledList
+      (ld->msg_box, "ScrolledList", NULL, 0);
+    XtVaSetValues
+      (ld->list,
+       XmNselectionPolicy,	XmEXTENDED_SELECT,
+       XmNvisibleItemCount,	STRIP_MAX_CURVES,
+       NULL);
+    XtManageChild (ld->list);
+  }
 
   return ld;
 }
@@ -2172,21 +2313,21 @@ static void	ListDialog_popup	(ListDialog *ld)
   i = 0;
   j = 0;
   do 
-    {
-      /* find the first empty slot */
-      for (; j < STRIP_MAX_CURVES; j++)
-	if (!ld->curves[j])
-	  {
-	    for (i = j+1; i < STRIP_MAX_CURVES; i++)
-	      if (ld->curves[i])
-		{
-		  ld->curves[j] = ld->curves[i];
-		  ld->curves[i] = (StripCurve)0;
-		  break;
-		}
-	    break;
-	  }
-    }
+  {
+    /* find the first empty slot */
+    for (; j < STRIP_MAX_CURVES; j++)
+      if (!ld->curves[j])
+      {
+        for (i = j+1; i < STRIP_MAX_CURVES; i++)
+          if (ld->curves[i])
+          {
+            ld->curves[j] = ld->curves[i];
+            ld->curves[i] = (StripCurve)0;
+            break;
+          }
+        break;
+      }
+  }
   while ((i < STRIP_MAX_CURVES) && (j < STRIP_MAX_CURVES));
 
   for (i = 0; (i < STRIP_MAX_CURVES) && ld->curves[i]; i++)
@@ -2213,7 +2354,7 @@ static void	ListDialog_popup	(ListDialog *ld)
  */
 static void	ListDialog_delete	(ListDialog *ld)
 {
-/*  XtDestroyWidget (ld->msg_box); */
+  /*  XtDestroyWidget (ld->msg_box); */
   free (ld);
 }
 
@@ -2237,18 +2378,18 @@ static void	ListDialog_addcurves	(ListDialog *ld, StripCurve curves[])
 
   /* union {ld->curves} with {curves}; no duplicates */
   for (i = 0; curves[i]; i++)
-    {
-      for (j = 0, k = -1; j < STRIP_MAX_CURVES; j++)
-	if (ld->curves[j] == curves[i])		/* duplicate */
-	  {
-	    k = -1;
-	    break;
-	  }
-	else if (ld->curves[j] == (StripCurve)0)
-	  k = j;
+  {
+    for (j = 0, k = -1; j < STRIP_MAX_CURVES; j++)
+      if (ld->curves[j] == curves[i])		/* duplicate */
+      {
+        k = -1;
+        break;
+      }
+      else if (ld->curves[j] == (StripCurve)0)
+        k = j;
 
-      if (k >= 0) ld->curves[k] = curves[i];
-    }
+    if (k >= 0) ld->curves[k] = curves[i];
+  }
 
   /* if the list is mapped, then update the list contents */
   if (ListDialog_isviewable (ld))
@@ -2265,11 +2406,11 @@ static void	ListDialog_removecurves	(ListDialog *ld, StripCurve curves[])
 
   /* subtract {curves} from {ld->curves} */
   for (i = 0; curves[i]; i++)
-    {
-      for (j = 0; j < STRIP_MAX_CURVES; j++)
-	if (ld->curves[j] == curves[i])
-	  ld->curves[j] = (StripCurve)0;
-    }
+  {
+    for (j = 0; j < STRIP_MAX_CURVES; j++)
+      if (ld->curves[j] == curves[i])
+        ld->curves[j] = (StripCurve)0;
+  }
 
   /* if the list is mapped, then update the list contents */
   if (ListDialog_isviewable (ld))
@@ -2335,10 +2476,10 @@ static void	ListDialog_cb	(Widget w, XtPointer client, XtPointer BOGUS(1))
   XtVaGetValues (w, XmNuserData, &ld, NULL);
   
   switch (event)
-    {
-    case LISTDLG_FREE:
+  {
+      case LISTDLG_FREE:
       
-      if (XmListGetSelectedPos (ld->list, &selected, &count) != False)
+        if (XmListGetSelectedPos (ld->list, &selected, &count) != False)
 	{
 	  XtVaGetValues (w, XmNuserData, &ld, NULL);
 	  for (i = 0; i < count; i++)
@@ -2346,55 +2487,55 @@ static void	ListDialog_cb	(Widget w, XtPointer client, XtPointer BOGUS(1))
 	  curves[i] = (StripCurve)0;
 	  Strip_freesomecurves (ld->strip, curves);
 	}
-      break;
+        break;
 
       
-    case LISTDLG_DISMISS:
+      case LISTDLG_DISMISS:
       
-      break;
+        break;
 
       
-    case LISTDLG_MAP:
+      case LISTDLG_MAP:
       
-      /* find out where the pointer is */
-      display = XtDisplay (w);
-      screen = DefaultScreen (display);
-      XQueryPointer
-	(XtDisplay (w), RootWindow (display, screen), 
-	 &root, &child,
-	 &root_x, &root_y,
-	 &win_x, &win_y,
-	 &mask);
+        /* find out where the pointer is */
+        display = XtDisplay (w);
+        screen = DefaultScreen (display);
+        XQueryPointer
+          (XtDisplay (w), RootWindow (display, screen), 
+           &root, &child,
+           &root_x, &root_y,
+           &win_x, &win_y,
+           &mask);
 
-      if (child != (Window)0)
-	XGetWindowAttributes (display, child, &xwa);
-      else XGetWindowAttributes (display, root, &xwa);
+        if (child != (Window)0)
+          XGetWindowAttributes (display, child, &xwa);
+        else XGetWindowAttributes (display, root, &xwa);
 
-      XtVaGetValues (w, XmNwidth, &width, XmNheight, &height, NULL);
+        XtVaGetValues (w, XmNwidth, &width, XmNheight, &height, NULL);
 
-      /* place the dialog box in the center of the window in which the
-       * pointer currently resides */
-      XtVaSetValues
-	(w,
-	 XmNx,			xwa.x + ((xwa.width - (int)width)/2),
-	 XmNy,			xwa.y + ((xwa.height - (int)height)/2),
-	 NULL);
+        /* place the dialog box in the center of the window in which the
+         * pointer currently resides */
+        XtVaSetValues
+          (w,
+           XmNx,			xwa.x + ((xwa.width - (int)width)/2),
+           XmNy,			xwa.y + ((xwa.height - (int)height)/2),
+           NULL);
       
-      break;
-    }
+        break;
+  }
 }
 
 
 static void	fsdlg_popup	(StripInfo *si, fsdlg_functype func)
 {
   if (!si->fs_dlg)
-    {
-      si->fs_dlg = XmCreateFileSelectionDialog
-	(si->shell, "Data dump file", NULL, 0);
-      XtVaSetValues (si->fs_dlg, XmNfileTypeMask, XmFILE_REGULAR, NULL);
-      XtAddCallback (si->fs_dlg, XmNokCallback, fsdlg_cb, si);
-      XtAddCallback (si->fs_dlg, XmNcancelCallback, fsdlg_cb, NULL);
-    }
+  {
+    si->fs_dlg = XmCreateFileSelectionDialog
+      (si->shell, "Data dump file", NULL, 0);
+    XtVaSetValues (si->fs_dlg, XmNfileTypeMask, XmFILE_REGULAR, NULL);
+    XtAddCallback (si->fs_dlg, XmNokCallback, fsdlg_cb, si);
+    XtAddCallback (si->fs_dlg, XmNcancelCallback, fsdlg_cb, NULL);
+  }
   XtVaSetValues (si->fs_dlg, XmNuserData, func, NULL);
   XtManageChild (si->fs_dlg);
 }
@@ -2414,8 +2555,8 @@ static void	fsdlg_cb	(Widget w, XtPointer data, XtPointer call)
   if (si)
     if (XmStringGetLtoR (cbs->value, XmFONTLIST_DEFAULT_TAG, &fname))
       if (fname != NULL)
-	{
-	  XtVaGetValues (w, XmNuserData, &func, NULL);
-	  func ((Strip)si, fname);
-	}
+      {
+        XtVaGetValues (w, XmNuserData, &func, NULL);
+        func ((Strip)si, fname);
+      }
 }

@@ -20,14 +20,14 @@ typedef void *	StripDataSource;
 
 typedef enum
 {
-  DATASTAT_PLOTABLE	= 1,	/* the point is plotable */
+  DATASTAT_PLOTABLE	= 1	/* the point is plotable */
 } DataStatus;
 
 /* ======= Attributes ======= */
 typedef enum
 {
   SDS_NUMSAMPLES = 1,	/* (size_t)	number of samples to keep 	rw */
-  SDS_LAST_ATTRIBUTE,
+  SDS_LAST_ATTRIBUTE
 } SDSAttribute;
 
 

@@ -14,19 +14,24 @@
 
 /* the maximum number of curves
  *
- * Note: increasing this value will require that StripConfig be modified
+ * Note: increasing this value will require modifying StripConfig
  */
-#define STRIP_MAX_CURVES	10
+#if !defined (STRIP_MAX_CURVES)
+#  define STRIP_MAX_CURVES	10
+#endif
 
 
 /* maximum number of bytes to use for caching sampled data */
 #define STRIP_MAX_CACHE_BYTES		(8L*1024L*1024L)	/* 8 megs */
 
 /* the maximum number of characters in a curve's name string */
-#define STRIP_MAX_NAME_CHAR		64
+#define STRIP_MAX_NAME_CHAR		63
 
 /* the maximum number of characters in a curve's engineering units string */
-#define STRIP_MAX_EGU_CHAR		32
+#define STRIP_MAX_EGU_CHAR		31
+
+/* the maximum number of characters in a curve's comment string */
+#define STRIP_MAX_COMMENT_CHAR		255
 
 /* the smallest fraction of a second which is still accurate */
 #define STRIP_TIMER_ACCURACY		0.001
@@ -42,7 +47,7 @@
 #define STRIP_CONNECTION_TIMEOUT	5.0
 
 /* the default fallback font name */
-#define STRIP_FALLBACK_FONT_STR		"fixed"
+#define STRIP_FALLBACK_FONT_STR		"*fixed-medium-r-normal--10*"
 
 /* the default dimensions (in millimeters) for the graph window */
 #define STRIP_GRAPH_WIDTH_MM		200.0

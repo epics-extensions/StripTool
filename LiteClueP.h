@@ -25,10 +25,7 @@ gary@compgen.com
 
 */
 /* Revision History:
-$Log$
-Revision 1.1  1997/09/04 17:59:35  jba
-StripTool-2-2-92 FROM CEBAF 9/3/97
-
+LiteClueP.h,v
  * Revision 1.1  1997/08/22  15:21:51  larrieu
  * added new buttons for graph panel & freeware hints
  *

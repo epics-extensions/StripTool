@@ -18,13 +18,6 @@
 
 typedef void *	StripDataBuffer;
 
-/* DataPoint:	one of these is stored for each sample for each curve */
-typedef struct
-{
-  double	value;
-  short		status;
-} DataPoint;
-
 typedef enum
 {
   DATASTAT_PLOTABLE	= 1,	/* the point is plotable */
@@ -114,6 +107,8 @@ void	StripDataBuffer_sample	(StripDataBuffer);
 size_t	StripDataBuffer_init_range	(StripDataBuffer,
 					 struct timeval *,  /* begin */
 					 struct timeval *); /* end */
+
+
 /*
  * StripDataBuffer_get_times
  *
@@ -133,7 +128,8 @@ size_t	StripDataBuffer_get_times	(StripDataBuffer, struct timeval **);
  */
 size_t	StripDataBuffer_get_data	(StripDataBuffer,
 					 StripCurve,
-					 DataPoint **);
+                                         double **,
+                                         char **);
 
 
 /*

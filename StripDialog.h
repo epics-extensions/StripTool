@@ -64,7 +64,7 @@ StripDialogAttribute;
  *
  *	Creates a new strip data structure, setting all values to defaults.
  */
-StripDialog 	StripDialog_init	(Display *, StripConfig *);
+StripDialog 	StripDialog_init	(Widget, StripConfig *);
 
 
 /*

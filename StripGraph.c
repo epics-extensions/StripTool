@@ -10,7 +10,7 @@
 
 
 #include <X11/Xlib.h>
-#include <Xm/Xm.h> /*VTR*/
+#include <Xm/Xm.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -86,19 +86,12 @@ typedef struct
   Axis			xAxis;
   Axis			yAxis;
   Legend		legend;
-  LegendItem		*legend_items;
 
   struct _grid
   {
     XSegment	h_seg[MAX_TICS+1];
     XSegment	v_seg[MAX_TICS+1];
   } grid;
-  
-  struct _monochrome
-  {
-    XPoint	shape_pos[MAX_SHAPES_PER_LINE];
-    int		shape_drawn[MAX_SHAPES_PER_LINE];
-  } monochrome[STRIP_MAX_CURVES];
   
   char			*title;
   unsigned		draw_mask;
@@ -138,7 +131,7 @@ StripGraph StripGraph_init (Display 	*display,
     sgi->shell		= shell; /*VTR*/
     sgi->window 	= window;
     sgi->gc 	= XCreateGC
-      (sgi->display, DefaultRootWindow(sgi->display), 0, NULL);
+      (sgi->display, RootWindow (sgi->display, sgi->screen), 0, NULL);
 
     /* zero out these fields which are determined by calling Strip_resize */
     sgi->pixmap	= 0;
@@ -149,8 +142,7 @@ StripGraph StripGraph_init (Display 	*display,
     sgi->latest_plotted_t.tv_usec	= 0;
     sgi->marker_t.tv_sec		= 0;
     sgi->marker_t.tv_usec		= 0;
-    sgi->legend_items 		= NULL;
-    sgi->title 			= NULL;
+    sgi->title 				= 0;
 
     /* other initializations */
     sgi->data 		= 0;
@@ -177,7 +169,8 @@ StripGraph StripGraph_init (Display 	*display,
 
     /* default area is entire window */
     XGetWindowAttributes (sgi->display, sgi->window, &win_attrib);
-    XSetForeground(sgi->display, sgi->gc, sgi->config->Color.background);
+    XSetForeground
+      (sgi->display, sgi->gc, sgi->config->Color.background.xcolor.pixel);
     sgi->window_rect.x = 0;
     sgi->window_rect.y = 0;
     sgi->window_rect.width = win_attrib.width;
@@ -366,8 +359,8 @@ int	StripGraph_getattr	(StripGraph the_sgi, ...)
 
 static void StripGraph_manage_geometry (StripGraphInfo *sgi)
 {
-  double		pixels_per_mm;
-  double		num_pixels;
+  double	pixels_per_mm;
+  double	num_pixels;
 
   /*  
       int i;
@@ -385,8 +378,7 @@ static void StripGraph_manage_geometry (StripGraphInfo *sgi)
       */
 
   /* pixels per horizontal millimeter */
-  pixels_per_mm = (double)DisplayWidth (sgi->display, sgi->screen) /
-    (double)DisplayWidthMM (sgi->display, sgi->screen);
+  pixels_per_mm = horizontal_pixels_per_mm;
   
   /* legend dimensions */
   if (sgi->config->Option.legend_visible)
@@ -400,7 +392,7 @@ static void StripGraph_manage_geometry (StripGraphInfo *sgi)
     sgi->rect[SGCOMP_LEGEND].width 	= (unsigned short)num_pixels;
     sgi->rect[SGCOMP_LEGEND].height 	= sgi->window_rect.height;
     sgi->rect[SGCOMP_LEGEND].x 		= sgi->window_rect.width -
-      					  sgi->rect[SGCOMP_LEGEND].width;
+      					  sgi->rect[SGCOMP_LEGEND].width - 1;
     sgi->rect[SGCOMP_LEGEND].y 		= 0;
       
     Legend_setattr
@@ -432,8 +424,7 @@ static void StripGraph_manage_geometry (StripGraphInfo *sgi)
     (sgi->window_rect.width - num_pixels - sgi->rect[SGCOMP_LEGEND].width);
 
   /* data area dimensions --vertical */
-  pixels_per_mm = (double)DisplayHeight (sgi->display, sgi->screen) /
-    (double)DisplayHeightMM (sgi->display, sgi->screen);
+  pixels_per_mm = vertical_pixels_per_mm;
   
   /* x-axis height */
   num_pixels = STRIP_MARGIN * sgi->window_rect.height;
@@ -502,8 +493,9 @@ static void StripGraph_manage_geometry (StripGraphInfo *sgi)
   sgi->pixmap = XCreatePixmap
     (sgi->display, sgi->window,
      sgi->window_rect.width, sgi->window_rect.height,
-     DefaultDepth (sgi->display, sgi->screen));
-  XSetForeground (sgi->display, sgi->gc, sgi->config->Color.background);
+     sgi->config->xvi.depth);
+  XSetForeground
+    (sgi->display, sgi->gc, sgi->config->Color.background.xcolor.pixel);
   XFillRectangle
     (sgi->display, sgi->pixmap, sgi->gc, 
      0, 0, sgi->window_rect.width+1, sgi->window_rect.height+1);
@@ -514,8 +506,9 @@ static void StripGraph_manage_geometry (StripGraphInfo *sgi)
   sgi->plotpix = XCreatePixmap
     (sgi->display, sgi->window,
      sgi->rect[SGCOMP_DATA].width, sgi->rect[SGCOMP_DATA].height,
-     DefaultDepth (sgi->display, sgi->screen));
-  XSetForeground (sgi->display, sgi->gc, sgi->config->Color.background);
+     sgi->config->xvi.depth);
+  XSetForeground
+    (sgi->display, sgi->gc, sgi->config->Color.background.xcolor.pixel);
   XFillRectangle
     (sgi->display, sgi->plotpix, sgi->gc, 
      0, 0, sgi->rect[SGCOMP_DATA].width+1, sgi->rect[SGCOMP_DATA].height+1);
@@ -579,12 +572,14 @@ void StripGraph_draw	(StripGraph 	the_graph,
     XSetRegion (sgi->display, sgi->gc, clip_region);
       
     /* clear the pixmap */
-    XSetForeground (sgi->display, sgi->gc, sgi->config->Color.background);
+    XSetForeground
+      (sgi->display, sgi->gc, sgi->config->Color.background.xcolor.pixel);
     XFillRectangle
       (sgi->display, sgi->pixmap, sgi->gc,
        0, 0, sgi->window_rect.width+1, sgi->window_rect.height+1);
 
-    XSetForeground (sgi->display, sgi->gc, sgi->config->Color.foreground);
+    XSetForeground
+      (sgi->display, sgi->gc, sgi->config->Color.foreground.xcolor.pixel);
     XSetLineAttributes
       (sgi->display, sgi->gc,
        BORDERLINEWIDTH, LineSolid,
@@ -592,7 +587,12 @@ void StripGraph_draw	(StripGraph 	the_graph,
 
     if (sgi->draw_mask & SGCOMPMASK_XAXIS)
     {
-      Axis_setattr (sgi->xAxis, AXIS_MIN, &sgi->t0, AXIS_MAX, &sgi->t1, 0);
+      Axis_setattr
+        (sgi->xAxis,
+         AXIS_MIN,	&sgi->t0,
+         AXIS_MAX, 	&sgi->t1,
+         AXIS_VALCOLOR,	sgi->config->Color.foreground.xcolor.pixel,
+         0);
       Axis_draw
         (sgi->xAxis,
          sgi->display, sgi->pixmap, sgi->gc,
@@ -615,18 +615,19 @@ void StripGraph_draw	(StripGraph 	the_graph,
       if (sgi->selected_curve != NULL)
         Axis_setattr
           (sgi->yAxis,
-           AXIS_MIN, 	(double)sgi->selected_curve->details->min,
-           AXIS_MAX, 	(double)sgi->selected_curve->details->max,
+           AXIS_MIN,		(double)sgi->selected_curve->details->min,
+           AXIS_MAX, 		(double)sgi->selected_curve->details->max,
            AXIS_PRECISION,	sgi->selected_curve->details->precision,
-           AXIS_VALCOLOR, 	sgi->selected_curve->details->pixel,
+           AXIS_VALCOLOR,
+           sgi->selected_curve->details->color->xcolor.pixel,
            0);
       else
         Axis_setattr
           (sgi->yAxis,
            AXIS_MIN, 		(double)0,
            AXIS_MAX, 		(double)1,
-           AXIS_PRECISION,		(int)DEF_AXIS_PRECISION,
-           AXIS_VALCOLOR, 		sgi->config->Color.foreground,
+           AXIS_PRECISION,	(int)DEF_AXIS_PRECISION,
+           AXIS_VALCOLOR,	sgi->config->Color.foreground.xcolor.pixel,
            0);
 	  
       Axis_draw
@@ -698,7 +699,8 @@ void StripGraph_draw	(StripGraph 	the_graph,
         StripGraph_clearstat (sgi, SGSTAT_GRIDX_RECALC);
       }
 	  
-      XSetForeground (sgi->display, sgi->gc, sgi->config->Color.grid);
+      XSetForeground
+        (sgi->display, sgi->gc, sgi->config->Color.grid.xcolor.pixel);
       XDrawSegments
         (sgi->display, sgi->pixmap, sgi->gc,
          sgi->grid.v_seg, sgi->config->Option.axis_xnumtics);
@@ -727,7 +729,8 @@ void StripGraph_draw	(StripGraph 	the_graph,
         StripGraph_clearstat (sgi, SGSTAT_GRIDY_RECALC);
       }
 	  
-      XSetForeground (sgi->display, sgi->gc, sgi->config->Color.grid);
+      XSetForeground
+        (sgi->display, sgi->gc, sgi->config->Color.grid.xcolor.pixel);
       XDrawSegments
         (sgi->display, sgi->pixmap, sgi->gc,
          sgi->grid.h_seg, sgi->config->Option.axis_ynumtics);
@@ -739,7 +742,7 @@ void StripGraph_draw	(StripGraph 	the_graph,
       if (sgi->title != NULL)
       {
         XSetForeground
-          (sgi->display, sgi->gc, sgi->config->Color.foreground);
+          (sgi->display, sgi->gc, sgi->config->Color.foreground.xcolor.pixel);
         font = get_font
           (sgi->display, sgi->rect[SGCOMP_DATA].y - 2,
            NULL, 0, 0, STRIPCHARSET_ALL);
@@ -814,7 +817,8 @@ static void StripGraph_plotdata	(StripGraphInfo *sgi)
   if (StripGraph_getstat (sgi, SGSTAT_GRAPH_REFRESH))
   {
     /* clear the pixmap */
-    XSetForeground (sgi->display, sgi->gc, sgi->config->Color.background);
+    XSetForeground
+      (sgi->display, sgi->gc, sgi->config->Color.background.xcolor.pixel);
     XFillRectangle
       (sgi->display, sgi->plotpix, sgi->gc,
        0, 0, sgi->rect[SGCOMP_DATA].width+1, sgi->rect[SGCOMP_DATA].height+1);
@@ -849,7 +853,7 @@ static void StripGraph_plotdata	(StripGraphInfo *sgi)
 
       /* clear the vacated area */
       XSetForeground
-        (sgi->display, sgi->gc, sgi->config->Color.background);
+        (sgi->display, sgi->gc, sgi->config->Color.background.xcolor.pixel);
       XFillRectangle
         (sgi->display, sgi->plotpix, sgi->gc,
          sgi->rect[SGCOMP_DATA].width - n, 0,
@@ -941,7 +945,8 @@ static void StripGraph_plotdata	(StripGraphInfo *sgi)
         delta = curve->details->max - curve->details->min;
         if (delta == 0) continue;
 	      
-        XSetForeground (sgi->display, sgi->gc, curve->details->pixel);
+        XSetForeground
+          (sgi->display, sgi->gc, curve->details->color->xcolor.pixel);
 	      
         /* get the y-coordinates */
         i = 0;	      
@@ -1129,7 +1134,7 @@ void	StripGraph_inputevent	(StripGraph the_sgi, XEvent *event)
           {
             item = Legend_getitem_xy
               (sgi->legend, event->xbutton.x, event->xbutton.y);
-            if (item != NULL)
+            if (item)
             {
               sgi->selected_curve = item->crv;
               StripGraph_draw

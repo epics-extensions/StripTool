@@ -28,10 +28,7 @@ Thanks to Contributers:
 J Satchell, Eric Marttila 
 */
 /* Revision History:
-$Log$
-Revision 1.1  1997/09/04 17:59:33  jba
-StripTool-2-2-92 FROM CEBAF 9/3/97
-
+LiteClue.c,v
  * Revision 1.1  1997/08/22  15:21:48  larrieu
  * added new buttons for graph panel & freeware hints
  *
@@ -80,6 +77,12 @@ $log
 #include "LiteClueP.h"
 
 #include <stdio.h>
+
+#if defined(__cplusplus) || defined(C_plusplus)
+#  define BOGUS(x)
+#else
+#  define BOGUS(x)	BOGUS_ARG_ ## x
+#endif
 
 #define CheckWidgetClass(routine) \
 	if (XtClass(w) != xcgLiteClueWidgetClass) \
@@ -311,7 +314,7 @@ when a public routine is called with the wrong class of widget
 */
 static void wrong_widget(char * routine)
 {
-	int mypid = getpid(); 
+	pid_t mypid = getpid(); 
 	fprintf(stderr, "Wrong class of widget passed to %s\n", routine);
 	fflush(stderr); 
 	kill(mypid, SIGABRT); 
@@ -364,7 +367,7 @@ static struct liteClue_context_str * alloc_link_liteClue_context(XcgLiteClueWidg
 /*
 	free a widget context
 */
-void free_widget_context(XcgLiteClueWidget cw, struct liteClue_context_str * obj)
+void free_widget_context(XcgLiteClueWidget BOGUS(cw), struct liteClue_context_str * obj)
 {
 	xcgListRemove((ListThread *)obj);
 	/* free up all things object points to */
@@ -376,8 +379,8 @@ void free_widget_context(XcgLiteClueWidget cw, struct liteClue_context_str * obj
 
 /* -------------------- Widget Methods ---------------------- */
 /* Initialize method */
-static void Initialize(Widget treq, Widget tnew, ArgList args, 
-Cardinal *num_args)
+static void Initialize(Widget BOGUS(treq), Widget tnew, ArgList BOGUS(args), 
+Cardinal *BOGUS(num_args))
 {
 	XcgLiteClueWidget cw = (XcgLiteClueWidget) tnew;
 
@@ -391,7 +394,7 @@ Cardinal *num_args)
 	create_GC(cw );
 }
 
-static Boolean setValues( Widget _current, Widget _request, Widget _new, ArgList args, Cardinal * num_args)
+static Boolean setValues( Widget _current, Widget BOGUS(_request), Widget _new, ArgList BOGUS(args), Cardinal * BOGUS(num_args))
 {
 	XcgLiteClueWidget cw_new = (XcgLiteClueWidget) _new;
 	XcgLiteClueWidget cw_cur = (XcgLiteClueWidget) _current;
@@ -412,7 +415,7 @@ static Boolean setValues( Widget _current, Widget _request, Widget _new, ArgList
 
 /* At this point the help may be popup 
 */
-static void timeout_event( XtPointer client_data, XtIntervalId *id)
+static void timeout_event( XtPointer client_data, XtIntervalId *BOGUS(id))
 {
 #define BorderPix 2
 	struct liteClue_context_str * obj = (struct liteClue_context_str *) client_data;
@@ -469,7 +472,7 @@ static void timeout_event( XtPointer client_data, XtIntervalId *id)
 Pointer enters watched widget, set a timer at which time it will
 popup the help
 */
-static void Enter_event(Widget w, XtPointer client_data, XEvent * xevent, Boolean * continue_to_dispatch )
+static void Enter_event(Widget w, XtPointer client_data, XEvent * xevent, Boolean * BOGUS(continue_to_dispatch) )
 {
 	struct liteClue_context_str * obj = (struct liteClue_context_str *) client_data;
 	XcgLiteClueWidget cw = obj->cw;
@@ -500,7 +503,7 @@ static void Enter_event(Widget w, XtPointer client_data, XEvent * xevent, Boolea
 /*
 Remove timer, if its pending. Then popdown help.
 */
-static void Leave_event(Widget w, XtPointer client_data, XEvent * xevent, Boolean * continue_to_dispatch )
+static void Leave_event(Widget BOGUS(w), XtPointer client_data, XEvent * xevent, Boolean * BOGUS(continue_to_dispatch) )
 {
 	struct liteClue_context_str * obj = (struct liteClue_context_str *) client_data;
 	XcgLiteClueWidget cw = obj->cw;
@@ -554,7 +557,7 @@ Return:
 
 ;-
 */
-void XcgLiteClueAddWidget(Widget w, Widget watch,  char * text, int size, int option )
+void XcgLiteClueAddWidget(Widget w, Widget watch,  char * text, int size, int BOGUS(option) )
 {
 #	define ROUTINE "XcgLiteClueAddWidget"
 	XcgLiteClueWidget cw = (XcgLiteClueWidget) w;

@@ -271,9 +271,15 @@ void	StripDataSource_sample	(StripDataSource the_sds)
           (!(c->status & STRIPCURVE_WAITING) &&
            (c->details->penstat == STRIPCURVE_PENDOWN)))
       {
-        sds->buffers[i].val[sds->cur_idx] =
-          c->get_value (c->func_data);
+        sds->buffers[i].val[sds->cur_idx] = c->get_value (c->func_data);
         sds->buffers[i].stat[sds->cur_idx] = DATASTAT_PLOTABLE;
+#if 0
+        fprintf
+          (stdout,
+           "StripDataSource_sample(): curve %d = %12.8f\n",
+           i, sds->buffers[i].val[sds->cur_idx]);
+        fflush (stdout);
+#endif
       }
       else sds->buffers[i].stat[sds->cur_idx] = ~DATASTAT_PLOTABLE;
     }

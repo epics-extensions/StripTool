@@ -21,8 +21,6 @@
 /* ======= Data Types ======= */
 typedef void *	Strip;
 typedef int	(*StripCallback) 	(StripCurve, void *);
-typedef void	(*StripFDCallback) 	(void *);
-typedef void	(*StripTOCallback) 	(void *);
 
 
 
@@ -46,13 +44,11 @@ StripAttribute;
  * Strip_init
  *
  *	Creates a new strip data structure, setting all values to defaults.
- *	The first argument is the application name.  the other two are the
- *	command line specs.  If the application name is NULL, then argv[0]
- *	is used.  The last argument is the FILE pointer to which all error/
- *	status messages are written.
+ *	The first two arguments are the command line specs.  The last
+ *	argument is the FILE pointer to which all error/status messages are
+ *	written.
  */
-Strip 	Strip_init	(char	*app_name,
-			 int 	*argc,
+Strip 	Strip_init	(int 	*argc,
 			 char 	*argv[],
 			 FILE 	*logfile);
 
@@ -109,8 +105,8 @@ void	Strip_freesomecurves	(Strip, StripCurve[]);
  */
 int	Strip_addfd	(Strip,
 			 int,			/* file descriptor */
-			 StripFDCallback,	/* callback function */
-			 void *);		/* callback data */
+			 XtInputCallbackProc,	/* callback function */
+			 XtPointer);		/* callback data */
 
 
 /*
@@ -119,10 +115,10 @@ int	Strip_addfd	(Strip,
  *	Calls the given callback once the specified time span has passed.
  *	If the timeout cannot be registered, false is returned.
  */
-int	Strip_addtimeout(Strip,
-			 double,		/* num seconds */
-			 StripTOCallback,	/* callback function */
-			 void *);		/* callback data */
+XtIntervalId	Strip_addtimeout	(Strip,
+                                         double,		/* seconds */
+                                         XtTimerCallbackProc,	/* function */
+                                         XtPointer);		/* data */
 
 
 /*
@@ -228,5 +224,5 @@ int	Strip_writeconfig	(Strip, FILE *, StripConfigMask);
  *	specified mask are then pushed into the current configuration.  See
  *	StripConfig.h for more info.
  */
-int	Strip_readconfig	(Strip, FILE *, StripConfigMask, char *); /*VTR*/
+int	Strip_readconfig	(Strip, FILE *, StripConfigMask, char *);
 #endif

@@ -24,7 +24,7 @@
  * either C++ or C.  (C++ complains about unused arguments, C complains
  * about missing arguments)
  */
-#ifdef __cplusplus
+#if defined(__cplusplus) || defined(C_plusplus)
 #  define BOGUS(x)
 #else
 #  define BOGUS(x)	BOGUS_ARG_ ## x
@@ -57,6 +57,18 @@ typedef enum
 StripCharSet;
 
 
+/* ====== Various useful constants initialized by StripMisc_init() ====== */
+extern float	vertical_pixels_per_mm;
+extern float	horizontal_pixels_per_mm;
+
+/*
+ * StripMisc_init
+ *
+ *	Initializes global constants.
+ */
+void	StripMisc_init	(Display *, int);	/* display, screen */
+
+
 /* ====== Various Font Data and Functions ====== */
 
 /*
@@ -78,6 +90,16 @@ XFontStruct	*get_font	(Display *,
 				 int,		/* width */
 				 int,		/* num characters */
 				 StripCharSet);	/* indicates a character set */
+
+
+/*
+ * shrink_font
+ *
+ *	Given an XFontStruct pointer returned from get_font(), this
+ *	routine will return a pointer to the next smaller font, if
+ *	one is available, otherwise 0.
+ */
+XFontStruct	*shrink_font	(XFontStruct *);
 
 
 
@@ -110,8 +132,6 @@ void	MessageBox_popup	(Widget,	/* parent */
 				 Widget *,	/* MessageBox */
 				 char *,	/* message */
 				 char *);	/* button label
-
-
 
 /* ====== Miscellaneous ====== */
 

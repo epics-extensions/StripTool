@@ -50,6 +50,7 @@ typedef enum
 {
   STRIPCURVE_NAME = 1,		/* (char *)				rw */
   STRIPCURVE_EGU,		/* (char *)				rw */
+  STRIPCURVE_COMMENT,		/* (char *)				rw */
   STRIPCURVE_PRECISION,		/* (int)				rw */
   STRIPCURVE_MIN,		/* (double)				rw */
   STRIPCURVE_MAX,		/* (double)				rw */
@@ -57,24 +58,37 @@ typedef enum
   STRIPCURVE_PLOTSTAT,		/* (int)   curve data plotted?		rw */
   STRIPCURVE_WAITSTAT,		/* (int)   waiting for connection?	rw */
   STRIPCURVE_CONNECTSTAT,	/* (int)   curve connected?		rw */
-  STRIPCURVE_COLOR,		/* (Pixel)				r  */
+  STRIPCURVE_COLOR,		/* (cColor *)			r  */
   STRIPCURVE_FUNCDATA,		/* (void *)				rw */
   STRIPCURVE_SAMPLEFUNC,	/* (StripCurveSampleFunc)		rw */
   STRIPCURVE_HISTORYFUNC,	/* (StripCurveSampleFunc)		rw */
-  STRIPCURVE_LAST_ATTRIBUTE,
+  STRIPCURVE_LAST_ATTRIBUTE
 }
 StripCurveAttribute;
+
+enum	_scidx
+{
+  SCIDX_WAITING	= 0,
+  SCIDX_CHECK_CONNECT,
+  SCIDX_CONNECTED,
+  SCIDX_EGU_SET,
+  SCIDX_COMMENT_SET,
+  SCIDX_PRECISION_SET,
+  SCIDX_MIN_SET,
+  SCIDX_MAX_SET
+};
 
 
 typedef enum
 {
-  STRIPCURVE_WAITING 		= (1 << 0),
-  STRIPCURVE_CHECK_CONNECT	= (1 << 1),
-  STRIPCURVE_CONNECTED		= (1 << 2),
-  STRIPCURVE_EGU_SET		= STRIPCFGMASK_CURVE_EGU,
-  STRIPCURVE_PRECISION_SET	= STRIPCFGMASK_CURVE_PRECISION,
-  STRIPCURVE_MIN_SET		= STRIPCFGMASK_CURVE_MIN,
-  STRIPCURVE_MAX_SET		= STRIPCFGMASK_CURVE_MAX
+  STRIPCURVE_WAITING 		= (1 << SCIDX_WAITING),
+  STRIPCURVE_CHECK_CONNECT	= (1 << SCIDX_CHECK_CONNECT),
+  STRIPCURVE_CONNECTED		= (1 << SCIDX_CONNECTED),
+  STRIPCURVE_EGU_SET		= (1 << SCIDX_EGU_SET),
+  STRIPCURVE_COMMENT_SET	= (1 << SCIDX_COMMENT_SET),
+  STRIPCURVE_PRECISION_SET	= (1 << SCIDX_PRECISION_SET),
+  STRIPCURVE_MIN_SET		= (1 << SCIDX_MIN_SET),
+  STRIPCURVE_MAX_SET		= (1 << SCIDX_MAX_SET)
 }
 StripCurveStatus;
 
@@ -115,9 +129,9 @@ void	*StripCurve_getattr_val	(StripCurve, StripCurveAttribute);
  *	Get: 	returns true iff the specified status bit is high.
  *	Clear: 	sets the specified status bit low.
  */
-StripCurveStatus	StripCurve_setstat	(StripCurve, unsigned);
+void			StripCurve_setstat	(StripCurve, unsigned);
 StripCurveStatus	StripCurve_getstat	(StripCurve, unsigned);
-StripCurveStatus	StripCurve_clearstat	(StripCurve, unsigned);
+void			StripCurve_clearstat	(StripCurve, unsigned);
 
 
 

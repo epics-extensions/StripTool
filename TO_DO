@@ -1,16 +1,7 @@
-Things that need to be done:
-
-(1) better handling of X visuals:  currently, only PseudoColor is supported
-(2) better printing:		   PS would be nice :)
-(3) along with (1), better handling of colors (read-only if desired)
-(4) log axis along with other functions
-(5) better axis representation (more natural tic-marks)
-(6) panning
-(7) load history (archived) data
-(8) lots of other things --please send suggestions and/or code!
-
-  I've started working on (1) and (3), but have been waylayed.  My plan is
-to add another module, StripColorManager, which will handle all the
-color manipulation.
-
-Chris Larrieu
+- log axis along with other functions
+- autoscaling option
+- better time axis representation
+- load history (archived) data
+- multiple strip charts per window
+- expression evaluation
+- SDDS export

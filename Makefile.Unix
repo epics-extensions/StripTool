@@ -6,66 +6,42 @@
 # EPICS
 #	root directory of EPICS distribution
 #
-# STRIP_DATASRC
-#	CA	for Channel Access
-#	CDEV	for cdev
-#	BOTH	for Channel Access *and* cdev	>>>> not yet supported <<<<
+# HAVE_XPM
+#	YES	use xpm to create cute color icon
 #
 # USE_ARCHIVE_DATASRC
-#	YES	uses archive data
-#
-# CDEV
-#	root directory of the cdev distribution
-#
-# LIBDIR
-#	directory under $(CDEV)/lib where the cdev library exists
+#	YES	uses archive data	(not yet implemented)
 #
 # LIBTYPE
 #	ARCHIVE		force archive libraries
 #	SHARED		force shared libraries
 #	NULL		(if not defined) default
 
-EPICS		= ../../../..
+EPICS = ../../../..
+
+#TOP	= $(EPICS)
 include Target.include
 include $(EPICS)/config/CONFIG_EXTENSIONS
 
-
-#X11_INC 	= /usr/include/X11R5
-#X11_LIB 	= /usr/lib/X11R5
-#MOTIF_INC 	= /usr/include/Motif1.2
-#MOTIF_LIB 	= /usr/lib/Motif1.2
-#XPM_INC		= /usr/local/include/Xpm
-#XPM_LIB		= /usr/local/lib/Xpm
-
-STRIP_DATASRC	= CA
-#CDEV		= XXX
-#LIBDIR		= XXX
 LIBTYPE		= DEFAULT
 
 
-USR_CFLAGS 	= -I$(MOTIF_INC)
+USR_CFLAGS	= -DUSE_CA
+USR_CFLAGS 	+= -I$(MOTIF_INC)
 USR_CFLAGS	+= -I$(X11_INC)
-#USR_CFLAGS	+= -I$(XPM_INC)
-#USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
-#USR_CFLAGS	+= -DUSE_XPM
+USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
 #USR_CFLAGS 	+= -DDEBUG_EVENT
-USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\".\"
-#CFLAGS          += -g
+#USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\".\"
+#USR_CFLAGS 	+= -DDEBUG_COLORALLOC
+
+CFLAGS          += -g
 #CFLAGS         += -pg
 #CFLAGS         += -p
 #CFLAGS         += +O4
 #CFLAGS         += -O2
 #CFLAGS         += -O
-#CFLAGS         += -DDEBUG_EVENT
+
 UNIX_OPT_FLAGS  =
-
-
-#
-# if linking with cdev, force static library
-#
-ifeq ($(STRIP_DATASRC), CDEV)
-	LIBTYPE = ARCHIVE
-endif
 
 #
 # the $(LINK.c) macro uses the c compiler for linking, so linker
@@ -87,12 +63,21 @@ endif
 USR_LDFLAGS 	+= -L$(EPICS_EXTENSIONS_LIB)
 USR_LDFLAGS	+= -L$(MOTIF_LIB)
 USR_LDFLAGS	+= -L$(X11_LIB) 
-#USR_LDFLAGS	+= -L$(XPM_LIB)
-#USR_LDLIBS 	+= -lXpm
-USR_LDLIBS 	+= -lXm -lXt -lX11 -lXext
+
+USR_LDLIBS 	= -lXm -lXt -lX11 -lXext
+USR_LDLIBS	+= -lca -lDb -lCom
+USR_LDLIBS	+= -lm
+
+ifeq ($(HAVE_XPM), YES)
+  USR_CFLAGS	+= -DUSE_XPM
+  USR_CFLAGS	+= -I$(XPM_INC)
+  USR_LDFLAGS	:= -L$(XPM_LIB) $(USR_LDFLAGS)
+  USR_LDLIBS	:= -lXpm $(USR_LDLIBS)
+endif
 
 
 MODULES		= StripConfig
+MODULES		+= cColorManager
 MODULES		+= StripCurve
 MODULES		+= Strip
 MODULES		+= StripDialog
@@ -104,24 +89,7 @@ MODULES		+= Axis
 MODULES		+= Legend
 MODULES		+= LiteClue
 MODULES		+= StripTool
-
-
-ifeq ($(STRIP_DATASRC), CA)
-	MODULES		+= StripCA
-	USR_CFLAGS	+= -DUSE_CA
-	USR_LDLIBS	+= -lca -lDb -lCom -lm
-endif
-
-ifeq ($(STRIP_DATASRC), CDEV)
-	MODULES		+= StripCDEV
-	USR_CFLAGS	+= -I$(CDEV)/include
-	USR_LDFLAGS	+= -L$(CDEV)/lib/$(LIBDIR)
-	USR_LDLIBS	+= -lcdev -lModelService -lReactor -lIPC_SAP -lSOCK -lAddr -lMisc -lEpicsCa -lca -lDb -lCom -lm -lC
-	USR_CFLAGS	+= -DUSE_CDEV
-endif
-
-
-
+MODULES		+= StripCA
 
 SRCS.c		= $(patsubst %, ../%.c, $(MODULES))
 OBJS 		= $(patsubst %, %.o, $(MODULES))

@@ -29,7 +29,7 @@ typedef struct _StripCAInfo
 
 /* ====== Prototypes ====== */
 static void	addfd_callback		(void *, int, int);
-static void	work_callback		(void *);
+static void	work_callback		(XtPointer, int *, XtInputId *);
 static void	connect_callback	(struct connection_handler_args);
 static void	info_callback		(struct event_handler_args);
 static void	data_callback		(struct event_handler_args);
@@ -51,22 +51,22 @@ StripCA		StripCA_initialize	(Strip strip)
 
   
   if ((sca = (StripCAInfo *)calloc (sizeof (StripCAInfo), 1)) != NULL)
+  {
+    sca->strip = strip;
+    status = ca_task_initialize ();
+    if (status != ECA_NORMAL)
     {
-      sca->strip = strip;
-      status = ca_task_initialize ();
-      if (status != ECA_NORMAL)
-	{
-	  SEVCHK (status, "StripCA: Channel Access initialization error");
-	  free (sca);
-	  sca = NULL;
-	}
-      else for (i = 0; i < STRIP_MAX_CURVES; i++)
-	{
-	  ca_add_fd_registration (addfd_callback, sca);
-	  sca->chan_data[i].this 	= sca;
-	  sca->chan_data[i].chan_id 	= NULL;
-	}
+      SEVCHK (status, "StripCA: Channel Access initialization error");
+      free (sca);
+      sca = NULL;
     }
+    else for (i = 0; i < STRIP_MAX_CURVES; i++)
+    {
+      ca_add_fd_registration (addfd_callback, sca);
+      sca->chan_data[i].this 	= sca;
+      sca->chan_data[i].chan_id 	= NULL;
+    }
+  }
 
   return (StripCA)sca;
 }
@@ -98,23 +98,23 @@ int	StripCA_request_connect	(StripCurve curve, void *the_sca)
       break;
 
   if (ret_val = (i < STRIP_MAX_CURVES))
+  {
+    StripCurve_setattr (curve, STRIPCURVE_FUNCDATA, &sca->chan_data[i], 0);
+    ret_val = ca_search_and_connect
+      ((char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME),
+       &sca->chan_data[i].chan_id,
+       connect_callback,
+       curve);
+    if (ret_val != ECA_NORMAL)
     {
-      StripCurve_setattr (curve, STRIPCURVE_FUNCDATA, &sca->chan_data[i], 0);
-      ret_val = ca_search_and_connect
-	((char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME),
-	 &sca->chan_data[i].chan_id,
-	 connect_callback,
-	 curve);
-      if (ret_val != ECA_NORMAL)
-	{
-	  SEVCHK (ret_val, "StripCA: Channel Access unable to connect\n");
-	  fprintf
-	    (stderr, "channel name: %s\n",
-	     (char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME));
-	  ret_val = 0;
-	}
-      else ret_val = 1;
+      SEVCHK (ret_val, "StripCA: Channel Access unable to connect\n");
+      fprintf
+        (stderr, "channel name: %s\n",
+         (char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME));
+      ret_val = 0;
     }
+    else ret_val = 1;
+  }
 
   ca_flush_io();
 
@@ -138,36 +138,36 @@ int	StripCA_request_disconnect	(StripCurve 	curve,
     (curve, STRIPCURVE_FUNCDATA);
 
   if (cd->event_id != NULL)
+  {
+    if ((ret_val = ca_clear_event (cd->event_id)) != ECA_NORMAL)
     {
-      if ((ret_val = ca_clear_event (cd->event_id)) != ECA_NORMAL)
-	{
-	  SEVCHK
-	    (ret_val, "StripCA_request_disconnect: error in ca_clear_event");
-	  ret_val = 0;
-	}
-      else
-	{
-	  cd->event_id = NULL;
-	  ret_val = 1;
-	}
+      SEVCHK
+        (ret_val, "StripCA_request_disconnect: error in ca_clear_event");
+      ret_val = 0;
     }
+    else
+    {
+      cd->event_id = NULL;
+      ret_val = 1;
+    }
+  }
   ca_flush_io();
   
   if (cd->chan_id != NULL)
+  {
+    /* **** ca_clear_channel() causes info to be printed to stdout **** */
+    if ((ret_val = ca_clear_channel (cd->chan_id)) != ECA_NORMAL)
     {
-      /* **** ca_clear_channel() causes info to be printed to stdout **** */
-      if ((ret_val = ca_clear_channel (cd->chan_id)) != ECA_NORMAL)
-	{
-	  SEVCHK
-	    (ret_val, "StripCA_request_disconnect: error in ca_clear_channel");
-	  ret_val = 0;
-	}
-      else
-	{
-	  cd->chan_id = NULL;
-	  ret_val = 1;
-	}
+      SEVCHK
+        (ret_val, "StripCA_request_disconnect: error in ca_clear_channel");
+      ret_val = 0;
     }
+    else
+    {
+      cd->chan_id = NULL;
+      ret_val = 1;
+    }
+  }
   else ret_val = 1;
 
   ca_flush_io();
@@ -185,7 +185,7 @@ static void	addfd_callback	(void *data, int fd, int active)
 {
   StripCAInfo	*strip_ca = (StripCAInfo *)data;
   if (active)
-    Strip_addfd (strip_ca->strip, fd, work_callback, strip_ca);
+    Strip_addfd (strip_ca->strip, fd, work_callback, (XtPointer)strip_ca);
   else
     Strip_clearfd (strip_ca->strip, fd);
 }
@@ -196,7 +196,9 @@ static void	addfd_callback	(void *data, int fd, int active)
  *
  *	Gives control to Channel Access for a while.
  */
-static void	work_callback		(void *data)
+static void	work_callback		(XtPointer	BOGUS(1),
+                                         int 		*BOGUS(2),
+                                         XtInputId 	*BOGUS(3))
 {
   ca_pend_event (STRIP_CA_PEND_TIMEOUT);
 }
@@ -216,41 +218,41 @@ static void	connect_callback	(struct connection_handler_args args)
     (curve, STRIPCURVE_FUNCDATA);
 
   switch (ca_state (args.chid))
-    {
-    case cs_never_conn:
-      fprintf (stderr, "StripCA connect_callback: ioc not found\n");
-      cd->chan_id = NULL;
-      cd->event_id = NULL;
-      Strip_freecurve (cd->this->strip, curve);
-      break;
+  {
+      case cs_never_conn:
+        fprintf (stderr, "StripCA connect_callback: ioc not found\n");
+        cd->chan_id = NULL;
+        cd->event_id = NULL;
+        Strip_freecurve (cd->this->strip, curve);
+        break;
       
-    case cs_prev_conn:
-      fprintf
-	(stderr,
-	 "StripCA connect_callback: IOC unavailable for %s\n",
-	 ca_name (args.chid));
-      Strip_setwaiting (cd->this->strip, curve);
-      break;
+      case cs_prev_conn:
+        fprintf
+          (stderr,
+           "StripCA connect_callback: IOC unavailable for %s\n",
+           ca_name (args.chid));
+        Strip_setwaiting (cd->this->strip, curve);
+        break;
       
-    case cs_conn:
-      /* now connected, so get the control info if this is first time */
-      if (cd->event_id == 0)
+      case cs_conn:
+        /* now connected, so get the control info if this is first time */
+        if (cd->event_id == 0)
 	{
 	  status = ca_get_callback
 	    (DBR_CTRL_DOUBLE, cd->chan_id, info_callback, curve);
 	  if (status != ECA_NORMAL)
-	    {
-	      SEVCHK
-		(status, "StripCA connect_callback: error in ca_get_callback");
-	      Strip_freecurve (cd->this->strip, curve);
-	    }
+          {
+            SEVCHK
+              (status, "StripCA connect_callback: error in ca_get_callback");
+            Strip_freecurve (cd->this->strip, curve);
+          }
 	}
-      break;
+        break;
       
-    case cs_closed:
-      fprintf (stderr, "StripCA connect_callback: invalid chid\n");
-      break;
-    }
+      case cs_closed:
+        fprintf (stderr, "StripCA connect_callback: invalid chid\n");
+        break;
+  }
 
   fflush (stderr);
 
@@ -274,58 +276,58 @@ static void	info_callback		(struct event_handler_args args)
     (curve, STRIPCURVE_FUNCDATA);
 
   if (args.status != ECA_NORMAL)
-    {
-      fprintf
-	(stderr,
-	 "StripCA info_callback:\n"
-	 "  [%s] get: %s\n",
-	 ca_name(cd->chan_id),
-	 ca_message_text[CA_EXTRACT_MSG_NO(args.status)]);
-    }
+  {
+    fprintf
+      (stderr,
+       "StripCA info_callback:\n"
+       "  [%s] get: %s\n",
+       ca_name(cd->chan_id),
+       ca_message_text[CA_EXTRACT_MSG_NO(args.status)]);
+  }
   else
+  {
+    ctrl = (struct dbr_ctrl_double *)args.dbr;
+
+    low = ctrl->lower_disp_limit;
+    hi = ctrl->upper_disp_limit;
+
+    if (hi <= low)
     {
-      ctrl = (struct dbr_ctrl_double *)args.dbr;
-
-      low = ctrl->lower_disp_limit;
-      hi = ctrl->upper_disp_limit;
-
+      low = ctrl->lower_ctrl_limit;
+      hi = ctrl->upper_ctrl_limit;
       if (hi <= low)
-	{
-	  low = ctrl->lower_ctrl_limit;
-	  hi = ctrl->upper_ctrl_limit;
-	  if (hi <= low)
-	    {
-	      if (ctrl->value == 0)
-		{
-		  hi = 100;
-		  low = -hi;
-		}
-	      else
-		{
-		  low = ctrl->value - (ctrl->value / 10.0);
-		  hi = ctrl->value + (ctrl->value / 10.0);
-		}
-	    }
-	}
-
-      if (!StripCurve_getstat (curve, STRIPCURVE_EGU_SET))
-	StripCurve_setattr (curve, STRIPCURVE_EGU, ctrl->units, 0);
-      if (!StripCurve_getstat (curve, STRIPCURVE_PRECISION_SET))
-	StripCurve_setattr (curve, STRIPCURVE_PRECISION, ctrl->precision, 0);
-      if (!StripCurve_getstat (curve, STRIPCURVE_MIN_SET))
-	StripCurve_setattr (curve, STRIPCURVE_MIN, low, 0);
-      if (!StripCurve_getstat (curve, STRIPCURVE_MAX_SET))
-	StripCurve_setattr (curve, STRIPCURVE_MAX, hi, 0);
-
-      status = ca_add_event
-	(DBR_STS_DOUBLE, cd->chan_id, data_callback, curve, &cd->event_id);
-      if (status != ECA_NORMAL)
-	{
-	  SEVCHK
-	    (status, "StripCA info_callback: error in ca_get_callback");
-	  Strip_freecurve (cd->this->strip, curve);
-	}
+      {
+        if (ctrl->value == 0)
+        {
+          hi = 100;
+          low = -hi;
+        }
+        else
+        {
+          low = ctrl->value - (ctrl->value / 10.0);
+          hi = ctrl->value + (ctrl->value / 10.0);
+        }
+      }
     }
+
+    if (!StripCurve_getstat (curve, STRIPCURVE_EGU_SET))
+      StripCurve_setattr (curve, STRIPCURVE_EGU, ctrl->units, 0);
+    if (!StripCurve_getstat (curve, STRIPCURVE_PRECISION_SET))
+      StripCurve_setattr (curve, STRIPCURVE_PRECISION, ctrl->precision, 0);
+    if (!StripCurve_getstat (curve, STRIPCURVE_MIN_SET))
+      StripCurve_setattr (curve, STRIPCURVE_MIN, low, 0);
+    if (!StripCurve_getstat (curve, STRIPCURVE_MAX_SET))
+      StripCurve_setattr (curve, STRIPCURVE_MAX, hi, 0);
+
+    status = ca_add_event
+      (DBR_STS_DOUBLE, cd->chan_id, data_callback, curve, &cd->event_id);
+    if (status != ECA_NORMAL)
+    {
+      SEVCHK
+        (status, "StripCA info_callback: error in ca_get_callback");
+      Strip_freecurve (cd->this->strip, curve);
+    }
+  }
   
   ca_flush_io();
 }
@@ -346,28 +348,28 @@ static void	data_callback		(struct event_handler_args args)
     (curve, STRIPCURVE_FUNCDATA);
 
   if (args.status != ECA_NORMAL)
-    {
-      fprintf
-	(stderr,
-	 "StripCA data_callback:\n"
-	 "  [%s] get: %s\n",
-	 ca_name(cd->chan_id),
-	 ca_message_text[CA_EXTRACT_MSG_NO(args.status)]);
-      Strip_setwaiting (cd->this->strip, curve);
-    }
+  {
+    fprintf
+      (stderr,
+       "StripCA data_callback:\n"
+       "  [%s] get: %s\n",
+       ca_name(cd->chan_id),
+       ca_message_text[CA_EXTRACT_MSG_NO(args.status)]);
+    Strip_setwaiting (cd->this->strip, curve);
+  }
   else
+  {
+    if (StripCurve_getstat (curve, STRIPCURVE_WAITING))
     {
-      if (StripCurve_getstat (curve, STRIPCURVE_WAITING))
-	{
-	  StripCurve_setattr
-	    (curve, STRIPCURVE_SAMPLEFUNC, get_value, 0);
-	  StripCurve_setattr
-	    (curve, STRIPCURVE_HISTORYFUNC, get_history, 0);
-	  Strip_setconnected (cd->this->strip, curve);
-	}
-      sts = (struct dbr_sts_double *)args.dbr;
-      cd->value = sts->value;
+      StripCurve_setattr
+        (curve, STRIPCURVE_SAMPLEFUNC, get_value, 0);
+      StripCurve_setattr
+        (curve, STRIPCURVE_HISTORYFUNC, get_history, 0);
+      Strip_setconnected (cd->this->strip, curve);
     }
+    sts = (struct dbr_sts_double *)args.dbr;
+    cd->value = sts->value;
+  }
 }
 
 

@@ -11,9 +11,6 @@
 #include "StripMisc.h"
 
 
-#undef TEST_BAD_CONNECTION
-
-
 #ifdef USE_CDEV
 #  include "StripCDEV.h"
 #  define StripDS_initialize(S)	           StripCDEV_initialize(S)
@@ -46,18 +43,13 @@ static int	request_disconnect	(StripCurve, void *);
 
 static double	get_cpu_usage		(void *);
 
-#ifdef TEST_BAD_CONNECTION
-static void	disconnect_curve	(StripCurve);
-static void	reconnect_curve		(StripCurve);
-#endif
-
 int main (int argc, char *argv[])
 {
   int		status;
   FILE		*f;
 
     /* create and initialize the Strip structure */
-  if (!(strip = Strip_init ("StripTool", &argc, argv, tmpfile())))
+  if (!(strip = Strip_init (&argc, argv, tmpfile())))
     {
       fprintf (stderr, "%s: unable to initialize Strip\n", argv[0]);
       exit (1);
@@ -85,7 +77,7 @@ int main (int argc, char *argv[])
       fprintf
 	(stdout, "StripTool: using default file, %s.\n",
 	 STRIP_DEFAULT_FILENAME);
-      Strip_readconfig (strip, f, STRIPCFGMASK_ALL, STRIP_DEFAULT_FILENAME);/*VTR*/
+      Strip_readconfig (strip, f, SCFGMASK_ALL, STRIP_DEFAULT_FILENAME);
       fclose (f);
     }
 
@@ -95,7 +87,7 @@ int main (int argc, char *argv[])
       {
 	fprintf
 	  (stdout, "StripTool: using config file, %s.\n", argv[1]);
-	Strip_readconfig (strip, f, STRIPCFGMASK_ALL, argv[1]);/*VTR*/
+	Strip_readconfig (strip, f, SCFGMASK_ALL, argv[1]);/*VTR*/
 	fclose (f);
       }
     else fprintf
@@ -131,9 +123,6 @@ static int	request_connect		(StripCurve curve, void *BOGUS(1))
 	 STRIPCURVE_SAMPLEFUNC,	get_cpu_usage,
 	 0);
       Strip_setconnected (strip, curve);
-#ifdef TEST_BAD_CONNECTION
-      Strip_addtimeout (strip, 5, disconnect_curve, curve);
-#endif
       ret_val = 1;
     }
   else ret_val = StripDS_request_connect (curve, strip_ds);
@@ -189,29 +178,4 @@ static double	get_cpu_usage		(void *BOGUS(1))
   
   return cpu_usage;
 }
-
-#ifdef TEST_BAD_CONNECTION
-static void	disconnect_curve	(StripCurve curve)
-{
-  double	x = drand48();
-
-  x *= 60;
-  
-  Strip_setwaiting (strip, curve);
-  Strip_addtimeout (strip, x, reconnect_curve, curve);
-  fprintf (stdout, "disconn: %f\n", x);
-}
-
-
-static void	reconnect_curve		(StripCurve curve)
-{
-  double	x = drand48();
-
-  x *= 30;
-  
-  Strip_setconnected (strip, curve);
-  Strip_addtimeout (strip, 10, disconnect_curve, curve);
-  fprintf (stdout, "reconn: %f\n", x);
-}
-#endif
 
