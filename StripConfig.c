@@ -149,6 +149,7 @@ typedef struct
 {
   Display	*display;
   Colormap	cmap;
+  int		private_cmap;
   Pixel		pixels[STRIPCFG_LASTIDX];
 }
 StripCfgColorInfo;
@@ -173,32 +174,57 @@ static void	get_xcolor	(StripConfig *,
  *
  */
 StripConfig	*StripConfig_init	(Display 		*dpy,
-					 Colormap 		cmap,
+					 Screen			*screen,
+					 Window			w,
 					 FILE 			*f,
 					 StripConfigMask	mask)
 {
+  XVisualInfo		xv_tmpl, *pxv;
+  XColor		*color_defs;
   StripConfig		*scfg;
   StripCfgColorInfo	*clr;
   int			i;
+  int			stat;
 
-  if ((scfg = (StripConfig *)malloc (sizeof (StripConfig))) != NULL)
-    if ((scfg->private_data = (void *)malloc (sizeof (StripCfgColorInfo)))
-	!= NULL)
-      {
-	clr = scfg->private_data;
-	clr->display = dpy;
-	clr->cmap = cmap;
-	if (!XAllocColorCells
-	    (clr->display, clr->cmap, 0, 0, 0,
-	     clr->pixels, STRIPCONFIG_NUMCOLORS))
-	  {
-	    fprintf
-	      (stderr,
-	       "StripConfig_init(): can't allocate %d private colorcells\n",
-	       STRIPCONFIG_NUMCOLORS);
-	    free (scfg);
-	    return NULL;
-	  }
+  if ((scfg = (StripConfig *)malloc (sizeof (StripConfig))) == NULL)
+    return NULL;
+  if ((scfg->private_data = (void *)malloc (sizeof (StripCfgColorInfo)))
+      != NULL)
+    {
+      clr = scfg->private_data;
+      clr->display = dpy;
+      clr->cmap = DefaultColormapOfScreen (screen);
+      
+      /* Colormap stuff.  Try to use the default colormap.  If there
+       * aren't enough writable cells, create a private colormap. */
+      stat = XAllocColorCells
+	(clr->display, clr->cmap, 0, 0, 0, clr->pixels,
+	 STRIPCONFIG_NUMCOLORS);
+      clr->private_cmap = !stat;
+      
+      if (clr->private_cmap)
+	{
+	  fprintf
+	    (stderr,
+	     "StripConfig_init():"
+	     "  can't allocate %d colorcells from default colormap\n"
+	     "  ...using virtual colormap\n",
+	     STRIPCONFIG_NUMCOLORS);
+	  
+	  xv_tmpl.visual = DefaultVisualOfScreen (screen);
+	  pxv = XGetVisualInfo (dpy, VisualNoMask, &xv_tmpl, &i);
+	  color_defs = (XColor *)malloc (pxv->colormap_size * sizeof (XColor));
+	  for (i = 0; i < pxv->colormap_size; i++)
+	    color_defs[i].pixel = (Pixel)i;
+	  XQueryColors (dpy, clr->cmap, color_defs, pxv->colormap_size);
+	  clr->cmap = XCreateColormap (dpy, w, pxv->visual, AllocAll);
+	  XStoreColors (dpy, clr->cmap, color_defs, pxv->colormap_size);
+	  
+	  /* set aside the topmost color cells for application colors */
+	  for (i = 0; i < STRIPCONFIG_NUMCOLORS; i++)
+	    clr->pixels[i] = pxv->colormap_size - (i+1);
+	  XFree (pxv);
+	}
 
 	scfg->title			= STRIPDEF_TITLE;
 	
@@ -299,8 +325,11 @@ void	StripConfig_delete	(StripConfig *scfg)
 {
   StripCfgColorInfo	*clr = (StripCfgColorInfo *)scfg->private_data;
   int			i;
-  
-  XFreeColors (clr->display, clr->cmap, clr->pixels, STRIPCONFIG_NUMCOLORS, 0);
+
+  if (clr->private_cmap)
+    XFreeColormap (clr->display, clr->cmap);
+  else XFreeColors
+	 (clr->display, clr->cmap, clr->pixels, STRIPCONFIG_NUMCOLORS, 0);
   free (clr);
 
   for (i = 0; i < STRIP_MAX_CURVES; i++)
@@ -567,7 +596,7 @@ int	StripConfig_write	(StripConfig 		*scfg,
 {
   StripConfigMask	n;
   int			i, j;
-  char			cbuf[256], fbuf[256];
+  char			cbuf[256], fbuf[256], num_buf[32];
   char			*p;
   XColor		color_def;
 
@@ -750,14 +779,24 @@ int	StripConfig_write	(StripConfig 		*scfg,
 			 scfg->Curves.Detail[j]->precision);
 		      break;
 		    case STRIPCFGMASK_CURVE_MIN:
+		      dbl2str
+			(scfg->Curves.Detail[j]->min,
+			 scfg->Curves.Detail[j]->precision,
+			 num_buf,
+			 31);
 		      fprintf
-			(f, "%-*s%lf\n",
-			 LEFT_COLUMNWIDTH, fbuf, scfg->Curves.Detail[j]->min);
+			(f, "%-*s%s\n",
+			 LEFT_COLUMNWIDTH, fbuf, num_buf);
 		      break;
 		    case STRIPCFGMASK_CURVE_MAX:
+		      dbl2str
+			(scfg->Curves.Detail[j]->max,
+			 scfg->Curves.Detail[j]->precision,
+			 num_buf,
+			 31);
 		      fprintf
-			(f, "%-*s%lf\n",
-			 LEFT_COLUMNWIDTH, fbuf, scfg->Curves.Detail[j]->max);
+			(f, "%-*s%s\n",
+			 LEFT_COLUMNWIDTH, fbuf, num_buf);
 		      break;
 		    case STRIPCFGMASK_CURVE_PENSTAT:
 		      fprintf

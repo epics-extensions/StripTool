@@ -114,6 +114,11 @@ int	StripDialog_removesomecurves	(StripDialog, StripCurve[]);
 
 
 /*
+ * StripDialog_update_curvestat
+ */
+int	StripDialog_update_curvestat	(StripDialog, StripCurve);
+
+/*
  * StripDialog_isviewable
  *
  *	Returns true if the dialog is viewable, false otherwise.

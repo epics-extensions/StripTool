@@ -51,6 +51,9 @@ StripDialogCallback;
 typedef enum
 {
   SDCURVE_NAME,
+#ifdef STRIPDIALOG_SHOW_STATUS
+  SDCURVE_STATUS,
+#endif
   SDCURVE_COLOR,
   SDCURVE_PENSTAT,
   SDCURVE_PLOTSTAT,
@@ -138,6 +141,9 @@ FsDlgState;
 char 	*SDCurveAttributeStr[SDCURVE_LAST_ATTRIBUTE] =
 {
   "Name",
+#ifdef STRIPDIALOG_SHOW_STATUS
+  "Status",
+#endif
   "Color",
   "Pen Status",
   "Plot Status",
@@ -240,6 +246,9 @@ StripDialogInfo;
 
 
 /* ====== static data ====== */
+#ifdef STRIPDIALOG_SHOW_STATUS
+static XmString		status_lbl_str[2];
+#endif
 static XmString		modify_btn_str[2];
 static XmString		showhide_btn_str[2];
 static XmString		penstat_tgl_str[2];
@@ -258,6 +267,8 @@ static void	hide_sdcurve	(StripDialogInfo *, int);
 
 /* these functions operate on curve rows in the curve control area */
 static void	setwidgetval_name	(StripDialogInfo *, int, char *);
+static void	setwidgetval_status	(StripDialogInfo *, int,
+					 StripCurveStatus);
 static void	setwidgetval_color	(StripDialogInfo *, int, Pixel);
 static void	setwidgetval_penstat	(StripDialogInfo *, int, int);
 static void	setwidgetval_plotstat	(StripDialogInfo *, int, int);
@@ -267,6 +278,7 @@ static void	setwidgetval_max	(StripDialogInfo *, int, double);
 static void	setwidgetval_modify	(StripDialogInfo *, int, int);
 
 static char	*getwidgetval_name	(StripDialogInfo *, int);
+static char	*getwidgetval_status	(StripDialogInfo *, int);
 static Pixel	getwidgetval_color	(StripDialogInfo *, int);
 static int	getwidgetval_penstat	(StripDialogInfo *, int);
 static int	getwidgetval_plotstat	(StripDialogInfo *, int);
@@ -364,6 +376,10 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 
   if ((sd = (StripDialogInfo *)malloc (sizeof (StripDialogInfo))) != NULL)
     {
+#ifdef STRIPDIALOG_SHOW_STATUS
+      status_lbl_str[0]		= XmStringCreateLocalized ("Unconn");
+      status_lbl_str[1]		= XmStringCreateLocalized ("Conn");
+#endif
       modify_btn_str[0] 	= XmStringCreateLocalized ("Modify");
       modify_btn_str[1] 	= XmStringCreateLocalized ("Update");
       showhide_btn_str[0] 	= XmStringCreateLocalized ("Show StripChart");
@@ -567,7 +583,7 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNchildType,			XmFRAME_WORKAREA_CHILD,
 	 XmNfractionBase,		(STRIP_MAX_CURVES + 1) * 10,
 	 NULL);
-      curve_column_lbl[SDCURVE_NAME] = XtVaCreateManagedWidget
+      curve_column_lbl[i = SDCURVE_NAME] = XtVaCreateManagedWidget
 	("A Long Curve Name",
 	 xmLabelWidgetClass,		form,
 	 XmNrecomputeSize,		False,
@@ -576,7 +592,21 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNleftAttachment,		XmATTACH_FORM,
 	 XmNleftOffset,			DEF_WOFFSET,
 	 NULL);
-      for (i = SDCURVE_NAME+1, row_height = 0; i < SDCURVE_LAST_ATTRIBUTE; i++)
+#ifdef STRIPDIALOG_SHOW_STATUS
+      curve_column_lbl[++i] = XtVaCreateManagedWidget
+	("Unconn",
+	 xmLabelWidgetClass,		form,
+	 XmNalignment,			XmALIGNMENT_CENTER,
+	 XmNtopAttachment,		XmATTACH_POSITION,
+	 XmNtopPosition,		1,
+	 XmNleftAttachment,		XmATTACH_WIDGET,
+	 XmNleftWidget,			curve_column_lbl[SDCURVE_NAME],
+	 XmNleftOffset,			DEF_WOFFSET,
+	 NULL);
+#endif
+      for (i = i+1, row_height = 0; 
+	   i < SDCURVE_LAST_ATTRIBUTE; 
+	   i++)
 	{
 	  curve_column_lbl[i] = XtVaCreateManagedWidget
 	    (SDCurveAttributeStr[i],
@@ -590,6 +620,13 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	  XtVaGetValues (curve_column_lbl[i], XmNheight, &dim1, NULL);
 	  row_height = max (row_height, dim1);
 	}
+#ifdef STRIPDIALOG_SHOW_STATUS
+	XtVaSetValues
+	  (curve_column_lbl[SDCURVE_STATUS],
+	   XmNalignment,		XmALIGNMENT_END,
+	   XmNrecomputeSize,		False,
+	   NULL);
+#endif
       for (i = SDCURVE_PRECISION; i <= SDCURVE_MAX; i++)
 	XtVaSetValues
 	  (curve_column_lbl[i],
@@ -628,6 +665,20 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	     XmNleftWidget,		curve_column_lbl[SDCURVE_NAME],
 	     XmNleftOffset,		DEF_WOFFSET,
 	     NULL);
+#ifdef STRIPDIALOG_SHOW_STATUS
+	  sd->curve_info[j].widgets[SDCURVE_STATUS] = XtVaCreateManagedWidget
+	    ("label",
+	     xmLabelWidgetClass,	form,
+	     XmNalignment,		XmALIGNMENT_CENTER,
+	     XmNmappedWhenManaged,	False,
+	     XmNrecomputeSize,		False,
+	     XmNtopAttachment,		XmATTACH_WIDGET,
+	     XmNtopWidget,		sep,
+	     XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
+	     XmNleftWidget,		curve_column_lbl[SDCURVE_STATUS],
+	     XmNleftOffset,		DEF_WOFFSET,
+	     NULL);
+#endif
 	  sd->curve_info[j].widgets[SDCURVE_COLOR] = XtVaCreateManagedWidget
 	    (COLOR_BTN_STR,
 	     xmPushButtonWidgetClass,	form,
@@ -802,6 +853,14 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNlabelString,		xstr,
 	 NULL);
       XmStringFree (xstr);
+#ifdef STRIPDIALOG_SHOW_STATUS
+      xstr = XmStringCreateLocalized (SDCurveAttributeStr[SDCURVE_STATUS]);
+      XtVaSetValues
+	(curve_column_lbl[SDCURVE_STATUS],
+	 XmNlabelString,		xstr,
+	 NULL);
+      XmStringFree (xstr);
+#endif
       for (i = 0; i < STRIP_MAX_CURVES; i++)
 	for (j = 0; j < SDCURVE_LAST_ATTRIBUTE; j++)
 	  XtVaSetValues
@@ -1851,7 +1910,7 @@ int	StripDialog_removecurve	(StripDialog the_sd, StripCurve curve)
 
 
 /*
- * StripDialog_addcurve
+ * StripDialog_addsomecurves
  */
 int	StripDialog_addsomecurves	(StripDialog	the_sd,
 					 StripCurve 	curves[])
@@ -1878,7 +1937,7 @@ int	StripDialog_addsomecurves	(StripDialog	the_sd,
 
 
 /*
- * StripDialog_removecurve
+ * StripDialog_removesomecurves
  */
 int	StripDialog_removesomecurves	(StripDialog	the_sd,
 					 StripCurve	curves[])
@@ -1924,6 +1983,25 @@ int	StripDialog_removesomecurves	(StripDialog	the_sd,
 
 
 /*
+ * StripDialog_update_curvestat
+ */
+int	StripDialog_update_curvestat	(StripDialog the_sd, StripCurve curve)
+{
+  StripDialogInfo	*sd = (StripDialogInfo *)the_sd;
+  int 			ret_val;
+  int			i;
+
+  for (i = 0; i < sd->sdcurve_count; i++)
+    if (sd->curve_info[i].curve == curve)
+      break;
+
+  if ((ret_val = (i < sd->sdcurve_count)))
+    setwidgetval_status	(sd, i, ((StripCurveInfo *)curve)->status);
+  return ret_val;
+}
+
+
+/*
  * StripDialog_isviewable
  */
 int	StripDialog_isviewable	(StripDialog the_sd)
@@ -1959,9 +2037,10 @@ static void	insert_sdcurve	(StripDialogInfo	*sd,
   sc = (StripCurveInfo *)(sd->curve_info[idx].curve = curve);
 
   setwidgetval_name 		(sd, idx, sc->details->name);
+  setwidgetval_status 		(sd, idx, sc->status);
   setwidgetval_color 		(sd, idx, sc->details->pixel);
   setwidgetval_penstat		(sd, idx, sc->details->penstat);
-  setwidgetval_penstat		(sd, idx, sc->details->plotstat);
+  setwidgetval_plotstat		(sd, idx, sc->details->plotstat);
   setwidgetval_precision	(sd, idx, sc->details->precision);
   setwidgetval_min		(sd, idx, sc->details->min);
   setwidgetval_max		(sd, idx, sc->details->max);
@@ -2033,6 +2112,30 @@ static void	setwidgetval_name	(StripDialogInfo 	*sd,
      XmNlabelString,			xstr,
      NULL);
   XmStringFree (xstr);
+}
+
+
+/*
+ * setwidgetval_status
+ */
+static void	setwidgetval_status	(StripDialogInfo 	*sd,
+					 int 			which,
+					 StripCurveStatus	stat)
+{
+  int	s = (!(stat & STRIPCURVE_CONNECTED)? 0 : 1);
+  
+#ifdef STRIPDIALOG_SHOW_STATUS
+  XtVaSetValues
+    (sd->curve_info[which].widgets[SDCURVE_STATUS],
+     XmNlabelString,			status_lbl_str[s],
+     NULL);
+#endif
+
+  /* if the curve is not connected, grey out its name */
+  XtVaSetValues
+    (sd->curve_info[which].widgets[SDCURVE_NAME],
+     XmNsensitive,			s,
+     NULL);
 }
 
 
@@ -2178,6 +2281,19 @@ static void	setwidgetval_modify	(StripDialogInfo 	*sd,
 static char	*getwidgetval_name	(StripDialogInfo *sd, int which)
 {
   return XmTextGetString (sd->curve_info[which].widgets[SDCURVE_NAME]);
+}
+
+
+/*
+ * getwidgetval_status
+ */
+static char	*getwidgetval_status	(StripDialogInfo *sd, int which)
+{
+#ifdef STRIPDIALOG_SHOW_STATUS
+  return XmTextGetString (sd->curve_info[which].widgets[SDCURVE_STATUS]);
+#else
+  return "unknown";
+#endif
 }
 
 

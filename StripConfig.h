@@ -266,7 +266,8 @@ StripConfig;
  * 	specifics on how the file is read.
  */
 StripConfig	*StripConfig_init	(Display *,
-					 Colormap,
+					 Screen *,
+					 Window,
 					 FILE *,
 					 StripConfigMask);
 

@@ -36,8 +36,8 @@ LIBTYPE		= DEFAULT
 
 USR_CFLAGS 	= -I$(MOTIF_INC)
 USR_CFLAGS	+= -I$(X11_INC)
-#USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
-USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\".\"
+USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
+#USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\".\"
 #CFLAGS          += -g
 #CFLAGS         += -pg
 #CFLAGS         += -p

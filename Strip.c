@@ -20,7 +20,6 @@
 #  include <unistd.h>
 #else
 #ifdef SOLARIS
-#  include <unistd.h>
 #else
 #  include <vfork.h>
 #endif
@@ -111,7 +110,6 @@ typedef struct _StripInfo
   Widget		toplevel, shell, canvas;
   Widget		popup_menu, message_box;
   Widget		fs_dlg;
-  StripStatus		status;
   char			app_name[128];
 
   /* == fdmgr stuff == */
@@ -123,6 +121,7 @@ typedef struct _StripInfo
   StripCurveInfo	curves[STRIP_MAX_CURVES];
   StripDataBuffer	data;
   StripGraph		graph;
+  StripStatus		status;
   PrintInfo		print_info;
   ListDialog		*list_dlg;
 
@@ -213,15 +212,14 @@ static void		ListDialog_cb		(Widget, XtPointer, XtPointer);
 Strip	Strip_init	(char *app_name, int *argc, char *argv[])
 {
   StripInfo		*si;
-  Colormap		cmap;
-  int			fd;
-  int			i;
-  double		tmp_dbl;
   Dimension		width, height;
   XSetWindowAttributes	xswa;
   XWindowAttributes	xwa;
-  SDWindowMenuItem	wm_items[STRIPWINDOW_COUNT];
   String		*fallback = NULL;
+  SDWindowMenuItem	wm_items[STRIPWINDOW_COUNT];
+  int			fd;
+  int			i;
+  double		tmp_dbl;
 
 
   if ((si = (StripInfo *)malloc (sizeof (StripInfo))) != NULL)
@@ -238,34 +236,25 @@ Strip	Strip_init	(char *app_name, int *argc, char *argv[])
       XtRealizeWidget (si->toplevel);
       si->display = XtDisplay (si->toplevel);
 
-      cmap = DefaultColormapOfScreen (XtScreen (si->toplevel));
-      if (!(si->config = StripConfig_init (si->display, cmap, NULL, 0)))
+      si->config = StripConfig_init
+	(si->display, XtScreen (si->toplevel), XtWindow (si->toplevel),
+	 NULL, 0);
+      if (!si->config)
 	{
-	  fprintf (stderr, "Strip_init(): trying virtual colormap...");
-	  XGetWindowAttributes (si->display, XtWindow (si->toplevel), &xwa);
-	  cmap = XCreateColormap
-	    (si->display, XtWindow (si->toplevel), xwa.visual, AllocNone);
-	  if (!(si->config = StripConfig_init (si->display, cmap, NULL, 0)))
-	    {
-	      fprintf (stderr, " no such luck!\n");
-	      free (si);
-	      XtDestroyWidget (si->toplevel);
-	      XFreeColormap (si->display, cmap);
-	      return NULL;
-	    }
-	  else
-	    {
-	      fprintf (stderr, " Ok!  Screen may technicolor.\n");
-	      XtVaSetValues (si->toplevel, XmNcolormap, cmap, NULL);
-	    }
+	  free (si);
+	  XtDestroyWidget (si->toplevel);
+	  return NULL;
 	}
+      XtVaSetValues
+	(si->toplevel, XmNcolormap, StripConfig_getcmap(si->config), NULL);
 
+      
       si->shell = XtVaAppCreateShell
 	(NULL,				"StripGraph",
 	 topLevelShellWidgetClass,	si->display,
 	 XmNdeleteResponse,		XmDO_NOTHING,
 	 XmNmappedWhenManaged,		False,
-	 XmNcolormap,			cmap,
+	 XmNcolormap,			StripConfig_getcmap (si->config),
 	 NULL);
       width = (Dimension)
 	((double)DisplayWidth (si->display, DefaultScreen (si->display)) /
@@ -407,7 +396,6 @@ Strip	Strip_init	(char *app_name, int *argc, char *argv[])
 void	Strip_delete	(Strip the_strip)
 {
   StripInfo	*si = (StripInfo *)the_strip;
-  Colormap	cmap = StripConfig_getcmap (si->config);
   Display	*disp = si->display;
 
   StripGraph_delete 		(si->graph);
@@ -417,7 +405,6 @@ void	Strip_delete	(Strip the_strip)
   ListDialog_delete		(si->list_dlg);
 
   XtDestroyWidget (si->toplevel);
-  XFreeColormap (disp, cmap);
   free (si);
 }
 
@@ -670,13 +657,18 @@ int	Strip_connectcurve	(Strip the_strip, StripCurve the_curve)
 
   if (si->connect_func != NULL)
     {
+#if 0
       StripCurve_setstat
 	(the_curve, STRIPCURVE_WAITING | STRIPCURVE_CHECK_CONNECT);
+#else
+      StripCurve_setstat (the_curve, STRIPCURVE_WAITING);
+#endif
       gettimeofday (&sci->connect_request, &tz);
       
       if (ret_val = si->connect_func (the_curve, si->connect_data))
 	if (!StripCurve_getstat (the_curve,  STRIPCURVE_CONNECTED))
 	  Strip_setwaiting (the_strip, the_curve);
+      StripDialog_addcurve (si->dialog, the_curve);
     }
   else
     {
@@ -705,11 +697,9 @@ void	Strip_setconnected	(Strip the_strip, StripCurve the_curve)
    */
   if (!StripCurve_getstat (the_curve, STRIPCURVE_CONNECTED))
     {
-      StripDialog_addcurve (si->dialog, the_curve);
       StripDataBuffer_addcurve (si->data, the_curve);
       StripGraph_addcurve (si->graph, the_curve);
     }
-
   StripCurve_clearstat
     (the_curve, STRIPCURVE_WAITING | STRIPCURVE_CHECK_CONNECT);
   StripCurve_setstat (the_curve, STRIPCURVE_CONNECTED);
@@ -727,6 +717,8 @@ void	Strip_setconnected	(Strip the_strip, StripCurve the_curve)
   ListDialog_removecurves (si->list_dlg, curve);
   if (ListDialog_count (si->list_dlg) == 0)
     ListDialog_popdown (si->list_dlg);
+  
+  StripDialog_update_curvestat (si->dialog, the_curve);
 }
 
 
@@ -739,12 +731,19 @@ void	Strip_setwaiting	(Strip the_strip, StripCurve the_curve)
   StripCurveInfo	*sci = (StripCurveInfo *)the_curve;
   StripCurve		curve[2];
 
+#if 0
   StripCurve_setstat
     (the_curve, STRIPCURVE_WAITING | STRIPCURVE_CHECK_CONNECT);
+#else
+  StripCurve_setstat (the_curve, STRIPCURVE_WAITING);
   Strip_watchevent (si, STRIPEVENTMASK_CHECK_CONNECT);
+#endif
+  
   curve[0] = the_curve;
   curve[1] = (StripCurve)0;
   ListDialog_addcurves (si->list_dlg, curve);
+
+  StripDialog_update_curvestat (si->dialog, the_curve);
 }
 
 
