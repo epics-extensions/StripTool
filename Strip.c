@@ -197,6 +197,7 @@ typedef struct _StripInfo
   Widget                toplevel, shell, canvas;
   Widget                graph_form, graph_panel;
   Widget                btn[STRIPBTN_COUNT];
+  Widget                browse_lbl;
   Widget                popup_menu, message_box;
   Widget                fs_dlg;
   Widget                fs_tgl[DFSDLG_TGL_COUNT];
@@ -249,6 +250,7 @@ typedef void    (*fsdlg_functype)       (Strip, char *);
 
 /* ====== Static Data ====== */
 static struct timeval   tv;
+static XmString xstr_panning, xstr_notpanning;
 
 
 /* ====== Static Function Prototypes ====== */
@@ -400,6 +402,7 @@ Strip   Strip_init      (int    *argc,
   char                  **pstr;
   struct passwd         user;
   char                  *a, *b;
+  XmString              xstr;
 
   StripConfig_preinit();
   StripConfigMask_clear (&scfg_mask);
@@ -840,6 +843,17 @@ Strip   Strip_init      (int    *argc,
     XcgLiteClueAddWidget
       (hintshell, si->btn[STRIPBTN_REFRESH], "Refresh", 0, 0);
 #endif
+
+    /* the browse mode indicator widget */
+    si->browse_lbl = XtVaCreateManagedWidget
+      ("",
+       xmLabelWidgetClass,              rowcol,
+       XmNlabelString,                  "",
+       0);
+
+    xstr_panning=XmStringCreateLocalized ("PANNING");
+    xstr_notpanning=XmStringCreateLocalized ("");
+    XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_notpanning, 0);
 
     /* the graph base widget */
     si->graph_form = XtVaCreateManagedWidget
@@ -2306,6 +2320,7 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
 
           /* go into browse mode, and redraw the graph with the new range */
           si->status |= STRIPSTAT_BROWSE_MODE;
+          XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_panning, 0);
           
           dbl2time (&t, si->config->Time.timespan);
           subtract_times (&t0, &t, &t1);
@@ -2371,6 +2386,7 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
 
           StripGraph_setattr (si->graph, STRIPGRAPH_END_TIME, &t1, 0);
           si->status |= STRIPSTAT_BROWSE_MODE;
+          XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_panning, 0);
           StripConfig_setattr
             (si->config, STRIPCONFIG_TIME_TIMESPAN, t_new, 0);
 
@@ -2448,6 +2464,7 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
         {
 	  auto_scaleNoBrowse =1;
           si->status &= ~STRIPSTAT_BROWSE_MODE;
+          XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_notpanning, 0);
         }
 
         /*
@@ -2643,6 +2660,7 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
             
             /* pause the graph by putting it in browse mode */
             si->status |= STRIPSTAT_BROWSE_MODE;
+            XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_panning, 0);
 
             /* create the text entry widget */
             txt = XtVaCreateManagedWidget
