@@ -46,16 +46,19 @@
 #	ARCHIVE		force archive libraries
 #	SHARED		force shared libraries
 #	NULL		(if not defined) default
-EPICS 	= /home/larrieu/epics
-TOP 	= $(EPICS)/base
-include $(TOP)/config/CONFIG_BASE
+#EPICS 	= /home/larrieu/epics
+#TOP 	= $(EPICS)/base
+TOP 	= ../../..
+include $(TOP)/config/CONFIG_EXTENSIONS
 CMPLR 	= STRICT
+
+USE_PSPRINTER   = YES
 
 LIBTYPE		= DEFAULT
 USE_CLUES	= YES
-HAVE_XPM	= YES
-HAVE_XMU	= YES
-HAVE_X11R6	= YES
+HAVE_XPM	= NO
+HAVE_XMU	= NO
+HAVE_X11R6	= NO
 STRIP_DAQ	= StripCA
 STRIP_HISTORY	= StripHistoryNULL
 
