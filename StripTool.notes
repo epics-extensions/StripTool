@@ -218,4 +218,10 @@ Connections" to popup menu.  Added StripDAQ to StripInfo.  Moved
 to Quit unintentionally..
 
 Thu Jul 22, 2004 - StripTool-2-5-7-0 - evans
+Fixed the logic in StripDataSource_dump_sdds.  In addition to handling
+the circular buffer, it now dumps the whole buffer, not just the
+visible part.  Fixed the Ring Buffer Size in the Controls dialog to
+display the actual buffer size used.  Previously if the buffer size
+was reduced, it displayed the smaller value even though the buffer
+size is never reduced.
 
