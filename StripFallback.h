@@ -18,6 +18,7 @@ String	fallback_resources[] =
   STRIP_APP_CLASS "*hintShell.cancelWaitPeriod:	200",
   STRIP_APP_CLASS "*hintShell.fontSet:		*-helvetica-medium-r-normal--12-*",
   STRIP_APP_CLASS "*MenuBar*Help.sensitive:	False",
+         (String)NULL
 };
 
 #endif
