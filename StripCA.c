@@ -8,6 +8,8 @@
  *-----------------------------------------------------------------------------
  */
 
+#define DEBUG_DISCONNECT 0
+
 #include "StripDAQ.h"
 
 #include <cadef.h>
@@ -168,6 +170,11 @@ int     StripDAQ_request_disconnect     (StripCurve     curve,
   /* this will happen if a non-CA curve is submitted for disconnect */
   if (!cd) return 1;
 
+#if DEBUG_DISCONNECT
+  fprintf(stderr,"StripDAQ_request_disconnect: %s\n",
+    ca_name(cd->chan_id));
+#endif
+
   if (cd->event_id != NULL)
   {
     if ((ret_val = ca_clear_event (cd->event_id)) != ECA_NORMAL)
@@ -216,6 +223,9 @@ int     StripDAQ_request_disconnect     (StripCurve     curve,
 #endif
   
   ca_flush_io();
+#if DEBUG_DISCONNECT
+  fprintf(stderr,"StripDAQ_request_disconnect: end\n");
+#endif
   return ret_val;
 }
 
@@ -301,6 +311,12 @@ static void     connect_callback        (struct connection_handler_args args)
           (stderr,
            "StripDAQ connect_callback: IOC unavailable for %s\n",
            ca_name (args.chid));
+#if DEBUG_DISCONNECT
+	  fprintf
+	    (stderr,
+		"  cd->chan_id=%x cd->event_id=%x\n",
+		cd->chan_id, cd->event_id);
+#endif
         Strip_setwaiting (cd->this->strip, curve);
         break;
       
@@ -328,7 +344,6 @@ static void     connect_callback        (struct connection_handler_args args)
 
   ca_flush_io();
 }
-
 
 /*
  * info_callback
@@ -592,7 +607,6 @@ static void desc_connect_callback (struct connection_handler_args args)
     fprintf
 	(stderr,
 	  "StripDAQ desc_connect_callback: IOC unavailable for %s\n",
-	  ca_name (args.chid));
 #endif
     break;
     

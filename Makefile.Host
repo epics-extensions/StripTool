@@ -233,7 +233,7 @@ ifeq ($(HISTORY_API), CAR)
 #  USR_LDFLAGS += -L$(EPICS)/extensions/lib/$(T_A)
 endif
 
-# Note order is important
+# Note: order is important
 
 # Default Motif library location
 USR_LIBS_DEFAULT += Xm
@@ -278,6 +278,9 @@ ifeq ($(USE_SDDS), YES)
   rpnlib_DIR = $(EPICS_EXTENSIONS_LIB)
   mdblib_DIR = $(EPICS_EXTENSIONS_LIB)
 endif
+
+#USR_LIBS += ca Com
+#USR_LIBS += $(THREAD_LIB)
 
 USR_LIBS += ca Com
 USR_LIBS += $(THREAD_LIB)

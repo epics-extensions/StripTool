@@ -51,7 +51,6 @@
 #include <math.h>
 #include "rotated.h"
 
-
 /* ---------------------------------------------------------------------- */
 
 
@@ -1262,14 +1261,19 @@ XRotCreateTextItem      (Display        *dpy,
 	  ifirst=0;
     }
 #endif	  
+    /* Free the memory we allocated to insure it is done
+     * with the same routines that allocated it.  Can be
+     * a problem on WIN32 if X frees it. */
+    if(I_in->data) free(I_in->data);
+    I_in->data=NULL;
+    /* Then destroy the image */
     XDestroyImage(I_in);
     
     if(style.magnify!=1.) {
         item->cols_in=old_cols_in;
         item->rows_in=old_rows_in;
     }
-
-
+    
 #ifdef CACHE_BITMAPS
 
     /* create a bitmap to hold rotated text */
@@ -1279,7 +1283,12 @@ XRotCreateTextItem      (Display        *dpy,
     /* make the text bitmap from XImage */
     XPutImage(dpy, item->bitmap, font_gc, item->ximage, 0, 0, 0, 0,
               item->cols_out, item->rows_out);
-
+    /* Free the memory we allocated to insure it is done
+     * with the same routines that allocated it.  Can be
+     * a problem on WIN32 if X frees it. */
+    if(item->ximage->data) free(item->ximage->data);
+    item->ximage->data=NULL;
+    /* Then destroy the image */
     XDestroyImage(item->ximage);
 
 #endif /*CACHE_BITMAPS*/
@@ -1422,6 +1431,12 @@ XRotFreeTextItem        (Display *dpy, RotatedTextItem *item)
 #ifdef CACHE_BITMAPS
     XFreePixmap(dpy, item->bitmap);
 #else
+    /* Free the memory we allocated to insure it is done
+     * with the same routines that allocated it.  Can be
+     * a problem on WIN32 if X frees it. */
+    if(item->ximage->data) free(item->ximage->data);
+    item->ximage->data=NULL;
+    /* Then destroy the image */
     XDestroyImage(item->ximage);
 #endif /* CACHE_BITMAPS */
 
@@ -1537,6 +1552,12 @@ XRotMagnifyImage        (Display *dpy, XImage *ximage)
     }
     
     /* destroy original */
+    /* Free the memory we allocated to insure it is done
+     * with the same routines that allocated it.  Can be
+     * a problem on WIN32 if X frees it. */
+    if(ximage->data) free(ximage->data);
+    ximage->data=NULL;
+    /* Then destroy the image */
     XDestroyImage(ximage);
 
     /* return big image */

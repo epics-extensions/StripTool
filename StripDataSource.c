@@ -455,7 +455,7 @@ StripDataSource_min_max (StripDataSourceInfo *sds, struct timeval h0,
 	    }
 #else
 	    /* First part is first to end */
-	    for(i=first; i < sds->buf_size; i++)
+	    for(i=first; i < (int)sds->buf_size; i++)
 	    {
 		if(cd->val[i] < min) min=cd->val[i]; 
 		if(cd->val[i] > max) max=cd->val[i]; 

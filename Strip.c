@@ -9,6 +9,20 @@
  */
 
 #define DEBUG_CONNECTING 0
+#define DEBUG_ZEROHEIGHT 0
+
+#define TRAP_XT_ERRORS
+#if 0
+/* KE: Destroying the top-level shell is not usually done, is not
+ * necessary for StripTool, and seems to cause some hard-to-identify
+ * problems, though it should be legal */
+#define DESTROY_TOPLEVEL_SHELL
+#endif
+
+#if 0
+/* KE: It should not be necessary to realize the top-level shell for StripTool */q
+#define REALIZE_TOPLEVEL_SHELL
+#endif
 
 #undef FIX_FMM
 
@@ -100,7 +114,7 @@
 
 #ifdef WIN32
 #elif 0
-/* KE: Don't know what this is used with and want to make unistd.h be
+/* KE: Don't know what this is used for and want to make unistd.h be
 the default.  So leave it out for now. */
 # include <vfork.h>
 #else
@@ -306,8 +320,11 @@ static void     Strip_setbrowsemode     (StripInfo *, int);
 
 static void     callback                (Widget, XtPointer, XtPointer);
 static int      X_error_handler         (Display *, XErrorEvent *);
-static int      X_ignore_error         (Display *, XErrorEvent *);
-
+static int      X_ignore_error          (Display *, XErrorEvent *);
+#ifdef TRAP_XT_ERRORS
+void            Xt_warning_handler      (String msg);
+void            Xt_error_handler        (String msg);
+#endif
 
 static void     dlgrequest_connect      (void *, void *);
 static void     dlgrequest_show         (void *, void *);
@@ -470,6 +487,12 @@ Strip   Strip_init      (int    *argc,
       return 0;
     }
 
+#ifdef TRAP_XT_ERRORS
+    /* replace default Xt handlers */
+    XtAppSetErrorHandler (si->app, Xt_error_handler);
+    XtAppSetWarningHandler (si->app, Xt_warning_handler);
+#endif
+
     /* create a resource database from the fallbacks, then merge in
      * the site defaults, followed by the user defaults
      */
@@ -527,6 +550,32 @@ Strip   Strip_init      (int    *argc,
       (0, STRIP_APP_CLASS, applicationShellWidgetClass, si->display,
 	  XmNmappedWhenManaged, False,
 	  0);
+    if(!si->toplevel)
+    {
+      fprintf (stdout, "Strip_init: cannot initialize toplevel shell.\n");
+      free (si);
+      return NULL;
+    
+    }
+#if DEBUG_ZEROHEIGHT
+    {
+	Dimension width,height;
+
+	printf("Test XtRealizeWidget [Before]\n");
+#if 0
+      XtRealizeWidget (si->toplevel);
+	printf("Test XtRealizeWidget [After]\n");
+#endif
+	
+	XtVaGetValues(si->toplevel,
+	  XmNheight,&height,
+	  XmNwidth,&width,
+	  NULL);
+	printf("Strip_init: si->toplevel: height=%u width=%u\n",
+	  height,width);
+    }
+#endif
+    
     
 #ifdef USE_XMU
     /* editres support */
@@ -539,7 +588,6 @@ Strip   Strip_init      (int    *argc,
      * non-fatal exceptions */
     XSetErrorHandler (X_error_handler);
     
-    
     /* initialize the color manager */
     scm = cColorManager_init (si->display, /*STRIPCONFIG_NUMCOLORS*/ 0);
     if (scm)
@@ -550,12 +598,21 @@ Strip   Strip_init      (int    *argc,
 	    XmNvisual,     xvi.visual,
 	    XmNcolormap,   cColorManager_getcmap (scm),
 	    0);
+#ifdef REALIZE_TOPLEVEL_SHELL
+
+	/* KE: It is not necessary to realize this shell */
       XtRealizeWidget (si->toplevel);
+#endif	
     }
     else
     {
       fprintf (stdout, "Strip_init: cannot initialize color manager.\n");
+#ifdef DESTROY_TOPLEVEL_SHELL
+	/* KE: This is not usually done, is not necessary here, and
+	 * seems to cause some hard-to-identify problems, though it
+	 * should be legal */
       XtDestroyWidget (si->toplevel);
+#endif	  
       free (si);
       return NULL;
     }
@@ -570,8 +627,13 @@ Strip   Strip_init      (int    *argc,
         (stdout,
 	    "Strip_init: cannot initialize configuration manager.\n");
       cColorManager_delete (scm);
+#ifdef DESTROY_TOPLEVEL_SHELL
+	/* KE: This is not usually done, is not necessary here, and
+	 * seems to cause some hard-to-identify problems, though it
+	 * should be legal */
       XtDestroyWidget (si->toplevel);
-      free (si);
+#endif
+	free (si);
       return NULL;
     }
     si->config->logfile = logfile;
@@ -605,7 +667,7 @@ Strip   Strip_init      (int    *argc,
      */
 #ifdef USE_CLUES
     hintshell = XtVaCreatePopupShell
-      ("hintShell", xcgLiteClueWidgetClass, si->toplevel, 0);
+      ("HintShell", xcgLiteClueWidgetClass, si->toplevel, 0);
 #endif
     
     si->shell = XtVaCreatePopupShell
@@ -1166,8 +1228,13 @@ void    Strip_delete    (Strip the_strip)
   if (si->dialog) StripDialog_delete (si->dialog);
   if (si->config) StripConfig_delete (si->config);
   if (si->pd) free (si->pd);
+#ifdef DESTROY_TOPLEVEL_SHELL
+  /* KE: This is not usually done, is not necessary here, and
+   * seems to cause some hard-to-identify problems, though it
+   * should be legal */
 #ifndef FIX_FMM
   if (si->toplevel) XtDestroyWidget (si->toplevel);
+#endif
 #endif
   free (si);
 }
@@ -3058,7 +3125,32 @@ static int      X_error_handler         (Display *display, XErrorEvent *error)
   return 0;     /* not used? */
 }
 
+#ifdef TRAP_XT_ERRORS
+/* Xt_error_handler
+ */
+void            Xt_error_handler        (String msg)
+{
+  fprintf
+    (stderr,
+	"==== StripTool Xt Error Handler ====\n"
+	"error:         %s\n",
+	msg);
+#if 1
+  exit(1);
+#endif  
+}
 
+/* Xt_warning_handler
+ */
+void            Xt_warning_handler      (String msg)
+{
+  fprintf
+    (stderr,
+	"==== StripTool Xt Warning Handler ====\n"
+	"warning:         %s\n",
+	msg);
+}
+#endif
 
 /*
  * dlgrequest_connect
@@ -3145,6 +3237,7 @@ static void     dlgrequest_quit (void *client, void *BOGUS(1))
 {
   StripInfo     *si = (StripInfo *)client;
   
+  dlgrequest_clear (client, NULL);
   window_unmap (si->display, XtWindow(si->shell));
   StripDialog_popdown (si->dialog);
   si->status |= STRIPSTAT_TERMINATED;

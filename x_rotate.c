@@ -56,7 +56,6 @@
 
 #include "x_rotate.h"
 
-
 /* +++MANHDR+++
  *
  * 
@@ -246,7 +245,6 @@ static GC       font_gc = None;
          * becuase we need the bitmap zeroed out (cleared)
          */
         image_data = (char *)calloc((width * height) / 8, 1);
-
         text_image = XCreateImage(dpy, DefaultVisual(dpy, 0), 1, 
                 XYBitmap, 0, image_data, width, height, 8, 0);
 
@@ -342,8 +340,14 @@ static GC       font_gc = None;
         /*
          * Don't need the XImage anymore, destroy it
          */
-        XDestroyImage(text_image);
-
+      /* Free the memory we allocated to insure it is done
+       * with the same routines that allocated it.  Can be
+       * a problem on WIN32 if X frees it. */
+	if(text_image->data) free(text_image->data);
+	text_image->data=NULL;
+      /* Then destroy the image */
+	XDestroyImage(text_image);
+	
         return 0;
 }
 
