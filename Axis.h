@@ -43,6 +43,7 @@ typedef enum
   AXIS_GRANULARITY,	/* (?)						   */
   AXIS_MIN,		/* (double/struct timeval *)			rw */
   AXIS_MAX,		/* (double/struct timeval *)			rw */
+  AXIS_SCALE,		/* (StripScaleType)				rw */
   AXIS_PRECISION,	/* (int)					rw */
   AXIS_VALCOLOR,	/* (Pixel)					rw */
   AXIS_NEWTICS,		/* (int)					r  */

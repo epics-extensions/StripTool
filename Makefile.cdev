@@ -4,11 +4,58 @@
 #
 #	CDEV
 #	LIBDIR
+#
+# options
+#
+# HAVE_XPM
+#	YES	use xpm to create cute color icon
+#
+# USE_CLUES
+#	YES	use pop-up clues for buttons
+#
+# USE_ARCHIVE_DATASRC
+#	YES	uses archive data	(not yet implemented)
+#
+# PURIFY
+#	YES	Instruments code with purify
+#
 PROGNAME	= StripTool.cdev
-#HAVE_XPM	= YES
+
+USE_CLUES	= YES
 
 TARGET_DIR	= $(LIBDIR)
 ARCH		= hp700
+
+# commands
+CC		= cc -Aa -D_HPUX_SOURCE
+CXX		= CC
+CXX_LINK	= CC
+
+
+# includes
+CDEV_INC	= -I$(CDEV)/include
+X11_INC		= -I/usr/include/X11R5
+MOTIF_INC	= -I/usr/include/Motif1.2
+
+# libraries
+CDEV_LIB	= -L$(CDEV)/lib/$(LIBDIR) -lcdev -ly -ll
+X11_LIB		= -L/usr/lib/X11R5 -lXt -lX11
+MOTIF_LIB	= -L/usr/lib/Motif1.2 -lXm
+
+LIBS		= $(MOTIF_LIB) $(X11_LIB) $(CDEV_LIB) $(EPICS_LIB) -lm
+CXX_FLAGS	= $(MOTIF_INC) $(X11_INC) $(CDEV_INC) $(EPICS_INC)
+CXX_FLAGS	+= -O
+CXX_FLAGS	+= -I.
+CXX_FLAGS	+= -DUSE_CDEV -DHP_UX -DUNIX -D__STDC__ -D_HPUX_SOURCE
+CXX_FLAGS	+= -D_OS_MAJOR_=9 -D_OS_MINOR_=7 -D_HAS_CA
+CXX_FLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
+
+ifeq ($(HAVE_XPM), YES)
+  XPM_INC	= -I/usr/user1/larrieu/include/X11
+  XPM_LIB	= -L/usr/user1/larrieu/lib -lXpm
+  CXX_FLAGS	+= -DUSE_XPM $(XPM_INC) 
+  LIBS		:= $(XPM_LIB) $(LIBS)
+endif
 
 modules		= StripConfig
 modules		+= cColorManager
@@ -22,41 +69,19 @@ modules		+= ColorDialog
 modules		+= Axis
 modules		+= Legend
 modules		+= StripCDEV
-modules		+= LiteClue
 modules		+= StripTool
+
+ifeq ($(USE_CLUES), YES)
+  CXX_FLAGS	+= -DUSE_CLUES
+  modules	+= LiteClue
+endif
+
+ifeq ($(PURIFY), YES)
+  CXX_LINK	:= purify $(CXX_LINK)
+endif
 
 objects		= $(addprefix $(TARGET_DIR)/,$(addsuffix .o,$(modules)))
 
-
-# commands
-CC		= cc -Aa -D_HPUX_SOURCE
-CXX		= CC
-
-
-# includes
-CDEV_INC	= -I$(CDEV)/include
-X11_INC		= -I/usr/include/X11R5
-MOTIF_INC	= -I/usr/include/Motif1.2
-XPM_INC		= -I/usr/user1/larrieu/include/X11
-
-# libraries
-CDEV_LIB	= -L$(CDEV)/lib/$(LIBDIR) -lcdev -ly -ll
-X11_LIB		= -L/usr/lib/X11R5 -lXt -lX11
-MOTIF_LIB	= -L/usr/lib/Motif1.2 -lXm
-XPM_LIB		= -L/usr/user1/larrieu/lib -lXpm
-
-LIBS		= $(MOTIF_LIB) $(X11_LIB) $(CDEV_LIB) $(EPICS_LIB) -lm
-CXX_FLAGS	= $(MOTIF_INC) $(X11_INC) $(CDEV_INC) $(EPICS_INC)
-CXX_FLAGS	+= -O
-CXX_FLAGS	+= -I.
-CXX_FLAGS	+= -DUSE_CDEV -DHP_UX -DUNIX -D__STDC__ -D_HPUX_SOURCE
-CXX_FLAGS	+= -D_OS_MAJOR_=9 -D_OS_MINOR_=7 -D_HAS_CA
-CXX_FLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
-
-ifeq ($(HAVE_XPM), YES)
-  CXX_FLAGS	+= -DUSE_XPM $(XPM_INC) 
-  LIBS		:= $(XPM_LIB) $(LIBS)
-endif
 
 
 
@@ -69,7 +94,7 @@ $(TARGET_DIR):
 
 
 $(TARGET_DIR)/$(PROGNAME): $(objects)
-	$(CXX) $(CXX_FLAGS) \
+	$(CXX_LINK) $(CXX_FLAGS) \
 	$^ \
 	$(LIBS) \
 	-o $@

@@ -9,24 +9,30 @@
 # HAVE_XPM
 #	YES	use xpm to create cute color icon
 #
+# USE_CLUES
+#	YES	use pop-up clues for buttons
+#
 # USE_ARCHIVE_DATASRC
 #	YES	uses archive data	(not yet implemented)
+#
+# PURIFY
+#	YES	Instruments code with purify
 #
 # LIBTYPE
 #	ARCHIVE		force archive libraries
 #	SHARED		force shared libraries
 #	NULL		(if not defined) default
-
-EPICS = ../../../..
-
 #TOP	= $(EPICS)
+EPICS = ../../../..
 include Target.include
 include $(EPICS)/config/CONFIG_EXTENSIONS
 
 LIBTYPE		= DEFAULT
+USE_CLUES	= YES
 
 
 USR_CFLAGS	= -DUSE_CA
+USR_CFLAGS	+= -DUSE_PSPRINTER
 USR_CFLAGS 	+= -I$(MOTIF_INC)
 USR_CFLAGS	+= -I$(X11_INC)
 USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
@@ -34,11 +40,9 @@ USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
 #USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\".\"
 #USR_CFLAGS 	+= -DDEBUG_COLORALLOC
 
-CFLAGS          += -g
+#CFLAGS          += -g
 #CFLAGS         += -pg
 #CFLAGS         += -p
-#CFLAGS         += +O4
-#CFLAGS         += -O2
 #CFLAGS         += -O
 
 UNIX_OPT_FLAGS  =
@@ -69,6 +73,8 @@ USR_LDLIBS	+= -lca -lDb -lCom
 USR_LDLIBS	+= -lm
 
 ifeq ($(HAVE_XPM), YES)
+  XPM_INC	= $(HOME)/include
+  XPM_LIB	= $(HOME)/lib
   USR_CFLAGS	+= -DUSE_XPM
   USR_CFLAGS	+= -I$(XPM_INC)
   USR_LDFLAGS	:= -L$(XPM_LIB) $(USR_LDFLAGS)
@@ -82,25 +88,39 @@ MODULES		+= StripCurve
 MODULES		+= Strip
 MODULES		+= StripDialog
 MODULES		+= StripDataSource
+MODULES		+= StripHistory
 MODULES		+= StripGraph
 MODULES		+= StripMisc
 MODULES		+= ColorDialog
 MODULES		+= Axis
 MODULES		+= Legend
-MODULES		+= LiteClue
 MODULES		+= StripTool
 MODULES		+= StripCA
 
+# freeware components
+ifeq ($(USE_CLUES), YES)
+  USR_CFLAGS	+= -DUSE_CLUES
+  MODULES	+= LiteClue
+endif
+
 SRCS.c		= $(patsubst %, ../%.c, $(MODULES))
 OBJS 		= $(patsubst %, %.o, $(MODULES))
+
 PROD		= StripTool
+
+ifeq ($(PURIFY), YES)
+  PROD		= StripTool.purify
+  LINK.c	:= purify $(LINK.c)
+endif
+
+ifeq ($(QUANTIFY), YES)
+  PROD		= StripTool.quantify
+  LINK.c	:= quantify $(LINK.c)
+endif
 
 
 
 include $(EPICS)/config/RULES.Unix
 
-StripTool:  $(OBJS)
+$(PROD):  $(OBJS)
 	$(LINK.c) -o $@ $(OBJS) $(LDLIBS)
-
-tc:
-	$(MAKE) build "LINK.c = proof $(LINK.c)"

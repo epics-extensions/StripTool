@@ -252,6 +252,13 @@ struct timeval	*dbl2time	(struct timeval *result, double d)
   return result;
 }
 
+double 		*time2dbl	(double *result, struct timeval *t)
+{
+  *result = t->tv_sec;
+  *result += (double)t->tv_usec / ONE_MILLION;
+  return result;
+}
+
 /*
  * subtract_times:
  *
@@ -349,6 +356,54 @@ void	window_unmap	(Display *d, Window w)
   XUnmapWindow (d, w);
 }
 
+
+double	scale_value	(double x, int scale)
+{
+  switch (scale)
+  {
+      case STRIPSCALE_LINEAR:
+        break;
+
+      case STRIPSCALE_LOG_10:
+        if (ABS(x) > DBL_EPSILON)
+          x = (x > 0? log10(x) : -log10(ABS(x)));
+        break;
+
+      default:
+        fprintf (stderr, "scale_value: unknown scale type: %d\n", scale);
+        break;
+  }
+
+  return x;
+}
+
+
+
+/*
+ * transform_value
+ *
+ */
+void	transform_value	(double	val_in,
+                         short 	*val_out,
+                         short 	min_coord,
+                         short 	max_coord,
+                         double min_val,
+                         double max_val,
+                         int 	sigdig,
+                         int 	scale)
+{
+  if (scale == STRIPSCALE_LINEAR)
+  {
+    *val_out = (short)
+      ((max_coord - min_coord + 1) *
+      ((max_val - val_in) / (max_val - min_val)));
+  }
+  else
+  {
+    fprintf (stderr, "log scale is not yet supported!\n");
+    *val_out = (short)min_coord;
+  }
+}
 
 
 void	sec2hms	(unsigned sec, int *h, int *m, int *s)

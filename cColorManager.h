@@ -178,4 +178,25 @@ Colormap	cColorManager_getcmap	(cColorManager);
 int		cColorManager_readonly	(cColorManager);
 
 
+/*
+ * grab_writables
+ *
+ *	Allocates as many writable cells as possible (up to the given
+ *	buffer size), placing the allocated cells in the supplied
+ *	buffer and returning the number actually allocated.  When no
+ *	longer needed, these cells should be freed via XFreeCcolors.
+ */
+int		cColorManager_grab_writables	(cColorManager,
+                                                 Pixel *, 	/* buffer */
+                                                 int);		/* buf size */
+
+/*
+ * free_writables
+ *
+ *	Free cells previously allocated via grab_writables.
+ */
+void		cColorManager_free_writables	(cColorManager,
+                                                 Pixel *, 	/* buffer */
+                                                 int);		/* buf size */
+
 #endif

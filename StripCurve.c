@@ -17,16 +17,12 @@ StripCurve	StripCurve_init (StripConfig *scfg)
 
   if ((sc = (StripCurveInfo *)malloc (sizeof (StripCurveInfo))) != NULL)
   {
-    sc->scfg		= scfg;
-    sc->id		= 0;
-    sc->details 	= NULL;
-    sc->func_data	= NULL;
-    sc->get_value	= NULL;
-    sc->get_history	= NULL;
-    sc->history.time	= NULL;
-    sc->history.data	= NULL;
-    sc->history.n	= 0;
-    sc->status	= 0;
+    sc->scfg			= scfg;
+    sc->id			= 0;
+    sc->details 		= NULL;
+    sc->func_data		= NULL;
+    sc->get_value		= NULL;
+    sc->status			= 0;
   }
 
   return (StripCurve)sc;
@@ -112,6 +108,14 @@ int		StripCurve_setattr	(StripCurve the_sc, ...)
 	    StripCurve_setstat (sc, STRIPCURVE_MAX_SET);
 	    break;
             
+	  case STRIPCURVE_SCALE:
+	    sc->details->scale = va_arg (ap, int);
+            StripConfigMask_set
+              (&sc->details->update_mask, SCFGMASK_CURVE_SCALE);
+	    StripConfigMask_set
+              (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_SCALE);
+	    break;
+            
 	  case STRIPCURVE_PENSTAT:
 	    sc->details->penstat = va_arg (ap, int);
             StripConfigMask_set
@@ -132,14 +136,14 @@ int		StripCurve_setattr	(StripCurve the_sc, ...)
             sc->details->color = va_arg (ap, cColor *);
             break;
             
+	  case STRIPCURVE_FUNCDATA:
+	    sc->func_data = va_arg (ap, void *);
+	    break;
             
 	  case STRIPCURVE_SAMPLEFUNC:
 	    sc->get_value = va_arg (ap, StripCurveSampleFunc);
 	    break;
             
-	  case STRIPCURVE_FUNCDATA:
-	    sc->func_data = va_arg (ap, void *);
-	    break;
       }
     else break;
   }
@@ -182,6 +186,9 @@ int		StripCurve_getattr	(StripCurve the_sc, ...)
 	  case STRIPCURVE_MAX:
 	    *(va_arg (ap, double *)) = sc->details->max;
 	    break;
+	  case STRIPCURVE_SCALE:
+	    *(va_arg (ap, int *)) = sc->details->scale;
+	    break;
 	  case STRIPCURVE_PENSTAT:
 	    *(va_arg (ap, int *)) = sc->details->penstat;
 	    break;
@@ -196,9 +203,6 @@ int		StripCurve_getattr	(StripCurve the_sc, ...)
 	    break;
 	  case STRIPCURVE_SAMPLEFUNC:
 	    *(va_arg (ap, StripCurveSampleFunc *)) = sc->get_value;
-	    break;
-	  case STRIPCURVE_HISTORYFUNC:
-	    *(va_arg (ap, StripCurveHistoryFunc *)) = sc->get_history;
 	    break;
       }
     else break;
@@ -237,6 +241,8 @@ void	*StripCurve_getattr_val	(StripCurve the_sc, StripCurveAttribute attrib)
         return (void *)&sc->details->min;
       case STRIPCURVE_MAX:
         return (void *)&sc->details->max;
+      case STRIPCURVE_SCALE:
+        return (void *)&sc->details->scale;
       case STRIPCURVE_PENSTAT:
         return (void *)&sc->details->penstat;
       case STRIPCURVE_PLOTSTAT:
@@ -247,8 +253,6 @@ void	*StripCurve_getattr_val	(StripCurve the_sc, StripCurveAttribute attrib)
         return (void *)sc->func_data;
       case STRIPCURVE_SAMPLEFUNC:
         return (void *)sc->get_value;
-      case STRIPCURVE_HISTORYFUNC:
-        return (void *)sc->get_history;
   }
 }
 
@@ -264,7 +268,7 @@ void		StripCurve_setstat	(StripCurve	the_sc,
 
   /* translate status bits into StripConfigMaskElement values and
    * update set_mask appropriately */
-  for (i = 0; (i + SCIDX_EGU_SET) <= SCIDX_MAX_SET; i++)
+  for (i = 0; (i + SCIDX_EGU_SET) < SCIDX_COUNT; i++)
     if (stat & (1 << (i + SCIDX_EGU_SET)))
       StripConfigMask_set (&sc->details->set_mask, SCFGMASK_CURVE_EGU + i);
 
@@ -287,7 +291,7 @@ StripCurveStatus	StripCurve_getstat	(StripCurve	the_sc,
    * set_mask into StripCurveStatus bits to combine with the
    * existing status bits to produce the return value. */
   ret = sc->status;
-  for (i = 0; (i + SCIDX_EGU_SET) <= SCIDX_MAX_SET; i++)
+  for (i = 0; (i + SCIDX_EGU_SET) < SCIDX_COUNT; i++)
     if (StripConfigMask_stat (&sc->details->set_mask, SCFGMASK_CURVE_EGU + i))
       ret |= (1 << (SCIDX_EGU_SET + i));
   
@@ -305,7 +309,7 @@ void		StripCurve_clearstat	(StripCurve	the_sc,
 
   /* translate status bits into StripConfigMaskElement values and
    * update set_mask appropriately */
-  for (i = 0; (i + SCIDX_EGU_SET) <= SCIDX_MAX_SET; i++)
+  for (i = 0; (i + SCIDX_EGU_SET) < SCIDX_COUNT; i++)
     if (stat & (1 << (i + SCIDX_EGU_SET)))
       StripConfigMask_unset (&sc->details->set_mask, SCFGMASK_CURVE_EGU + i);
 

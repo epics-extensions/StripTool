@@ -23,7 +23,6 @@
 #include "StripMisc.h"
 #include "cColorManager.h"
 
-
 /* ======= Default Values ======= */
 #define STRIPDEF_TITLE			NULL
 #define STRIPDEF_TIME_TIMESPAN		STRIP_DEFAULT_TIMESPAN
@@ -56,6 +55,7 @@
 #define STRIPDEF_CURVE_PRECISION	4
 #define STRIPDEF_CURVE_MIN		1e-7
 #define STRIPDEF_CURVE_MAX		1e+7
+#define STRIPDEF_CURVE_SCALE		STRIPSCALE_LINEAR
 #define STRIPDEF_CURVE_PENSTAT		STRIPCURVE_PENDOWN
 #define STRIPDEF_CURVE_PLOTSTAT		STRIPCURVE_PLOTTED
 #define STRIPDEF_CURVE_ID		NULL
@@ -111,12 +111,15 @@ typedef enum	_StripConfigAttributeEnum
   STRIPCONFIG_OPTION_AXIS_YCOLORSTAT,	/* (int)			rw */
   STRIPCONFIG_OPTION_GRAPH_LINEWIDTH,	/* (int)			rw */
   STRIPCONFIG_OPTION_LEGEND_VISIBLE,	/* (int)			rw */
-  STRIPCONFIG_NUM_ATTRIBUTES
+
+  STRIPCONFIG_TERMINATOR
 }
 StripConfigAttributeEnum;
 
 #define STRIPCONFIG_FIRST_ATTRIBUTE	1
-#define STRIPCONFIG_LAST_ATTRIBUTE	(STRIPCONFIG_NUM_ATTRIBUTES-1)
+#define STRIPCONFIG_LAST_ATTRIBUTE	(STRIPCONFIG_TERMINATOR-1)
+#define STRIPCONFIG_NUM_ATTRIBUTE	\
+(STRIPCONFIG_LAST_ATTRIBUTE - STRIPCONFIG_FIRST_ATTRIBUTE + 1)
 
 
 
@@ -168,15 +171,18 @@ typedef enum 	_StripConfigMaskElementEnum
   SCFGMASK_CURVE_PRECISION,
   SCFGMASK_CURVE_MIN,
   SCFGMASK_CURVE_MAX,
+  SCFGMASK_CURVE_SCALE,
   SCFGMASK_CURVE_PENSTAT,
   SCFGMASK_CURVE_PLOTSTAT,
 
-  SCFGMASK_NUM_ELEMENTS
+  SCFGMASK_TERMINATOR
 }
 StripConfigMaskElementEnum;
 
 #define SCFGMASK_FIRST_ELEMENT	1
-#define SCFGMASK_LAST_ELEMENT	(SCFGMASK_NUM_ELEMENTS-1)
+#define SCFGMASK_LAST_ELEMENT	(SCFGMASK_TERMINATOR-1)
+#define SCFGMASK_NUM_ELEMENTS	\
+(SCFGMASK_LAST_ELEMENT - SCFGMASK_FIRST_ELEMENT + 1)
 
 
 
@@ -185,8 +191,11 @@ StripConfigMaskElementEnum;
  *	Structure containing info bits.  Must be accessed through
  *	utility functions.
  */
+/*
 #define STRIPCFGMASK_NBYTES	\
-((SCFGMASK_NUM_ELEMENTS+CHAR_BIT) / CHAR_BIT)
+((SCFGMASK_NUM_ELEMENTS + CHAR_BIT) / CHAR_BIT)
+*/
+#define STRIPCFGMASK_NBYTES	8
 
 typedef struct _StripConfigMask
 {
@@ -209,7 +218,8 @@ void	StripConfigMask_clear	(StripConfigMask *);
 void	StripConfigMask_set	(StripConfigMask *, StripConfigMaskElement);
 #else
 #define StripConfigMask_set(pmask, elem) \
-((pmask)->bytes[((elem)-1)/CHAR_BIT] |= (1 << (((elem)-1)%CHAR_BIT)))
+((pmask)->bytes[((elem)-SCFGMASK_FIRST_ELEMENT)/CHAR_BIT] |= \
+ (1 << (((elem)-SCFGMASK_FIRST_ELEMENT)%CHAR_BIT)))
 #endif
 
 /* StripConfigMask_unset
@@ -220,7 +230,8 @@ void	StripConfigMask_set	(StripConfigMask *, StripConfigMaskElement);
 void	StripConfigMask_unset	(StripConfigMask *, StripConfigMaskElement);
 #else
 #define StripConfigMask_unset(pmask, elem) \
-((pmask)->bytes[((elem)-1)/CHAR_BIT] &= ~(1 << (((elem)-1)%CHAR_BIT)))
+((pmask)->bytes[((elem)-SCFGMASK_FIRST_ELEMENT)/CHAR_BIT] &= \
+ ~(1 << (((elem)-SCFGMASK_FIRST_ELEMENT)%CHAR_BIT)))
 #endif
 
 
@@ -232,7 +243,8 @@ void	StripConfigMask_unset	(StripConfigMask *, StripConfigMaskElement);
 int	StripConfigMask_stat	(StripConfigMask *, StripConfigMaskElement);
 #else
 #define StripConfigMask_stat(pmask, elem) \
-((pmask)->bytes[((elem)-1)/CHAR_BIT] & (1 << (((elem)-1)%CHAR_BIT)))
+((pmask)->bytes[((elem)-SCFGMASK_FIRST_ELEMENT)/CHAR_BIT] & \
+ (1 << (((elem)-SCFGMASK_FIRST_ELEMENT)%CHAR_BIT)))
 #endif
 
 
@@ -294,6 +306,7 @@ typedef struct _StripCurveDetail
   char			comment[STRIP_MAX_COMMENT_CHAR+1];
   int			precision;
   double		min, max;
+  int			scale;
   int			penstat, plotstat;
   short			valid;
   cColor		*color;

@@ -30,6 +30,7 @@
 #define MAX_DATE_LEN		16
 #define DEF_MIN			0
 #define DEF_MAX			10000
+#define DEF_SCALE		STRIPSCALE_LINEAR
 #define MAX_YLABEL_LEN		12
 
 /* private data */
@@ -38,6 +39,7 @@ typedef struct
   char			*label;
   AxisOrientation	orient;
   AxisValueType		type;
+  int			scale;
   StripConfig		*config;
   void			*minval, *maxval;
 
@@ -80,7 +82,6 @@ static time_t		tt;
  */
 static void 	Axis_copyval		(AxisInfo *axis, void *to, void *from);
 static void 	Axis_recalc		(AxisInfo *axis, Display *display);
-static void 	Axis_config_callback	(StripConfigMask, void *);
 
 
 /**********************/
@@ -97,7 +98,8 @@ Axis	Axis_init
   if ((axis = (AxisInfo *)malloc (sizeof(AxisInfo))) != NULL)
   {
     axis->orient 	= orient;
-    axis->type 	= type;
+    axis->type 		= type;
+    axis->scale		= DEF_SCALE;
     axis->config	= config;
     axis->label 	= NULL;
       
@@ -247,6 +249,25 @@ int Axis_setattr (Axis the_axis, ...)
             }
 	    break;
 
+	  case AXIS_SCALE:
+	    switch (axis->type)
+            {
+                case AxisReal:
+                  tmp = va_arg (ap, int);
+                  if (tmp != axis->scale)
+		  {
+		    axis->recalc = 1;
+		    axis->scale = tmp;
+		  }
+                  break;
+                case AxisTime:
+                  fprintf (stderr, "Axis_setattr: can't set scale on time axis\n");
+                  break;
+                default:
+                  fprintf (stderr, "Axis: bad axis type\n");
+            }
+	    break;
+
 	  case AXIS_PRECISION:
 	    tmp = va_arg (ap, int);
 	    if (tmp != axis->precision)
@@ -350,6 +371,10 @@ int Axis_getattr (Axis the_axis, ...)
                 default:
                   printf ("Axis: bad axis type\n");
             }
+	    break;
+	    
+	  case AXIS_SCALE:
+	    *(va_arg (ap, int *)) = axis->scale;
 	    break;
 	    
 	  case AXIS_PRECISION:
@@ -555,14 +580,11 @@ static void Axis_recalc (AxisInfo *axis, Display *display)
         /* Find the magnitude of 1, 2, 5, or 10 for new delta which is
          * closest to the requested delta.
          */
-        a = *(double *)axis->minval;
-        b = *(double *)axis->maxval;
+        a = scale_value (*(double *)axis->minval, axis->scale);
+        b = scale_value (*(double *)axis->maxval, axis->scale);
         delta = fabs ((b-a) / (double)n);
         
         p = log10 (delta);
-        /*
-          q = (p > 0? floor (p) : p < 0? ceil (p) : p);
-        */
         q = floor (p);
         precision = (int)(q < 0? -q : 0);
         q = pow (10, q);

@@ -14,6 +14,8 @@
 
 #include <X11/Intrinsic.h>
 #include <X11/Xlib.h>
+#include <float.h>
+#include <math.h>
 #include <time.h>
 #include <sys/time.h>
 
@@ -46,6 +48,24 @@
 #ifndef min
 #  define min(a,b) ((a)<(b)?(a):(b))
 #endif
+
+#ifndef DBL_EPSILON
+#  define DBL_EPSILON   2.2204460492503131E-16
+#endif
+
+#ifndef ABS
+#  define ABS(x)        ((x) < 0? (-(x)) : (x))
+#endif
+
+/* ====== Enumerations ====== */
+typedef enum _StripScaleType
+{
+  STRIPSCALE_LINEAR = 0,
+  STRIPSCALE_LOG_10,
+  STRIPSCALE_NUM_TYPES
+}
+StripScaleType;
+
 
 typedef enum
 {
@@ -111,6 +131,8 @@ struct timeval 	*add_times	(struct timeval *,      /* result */
 
 struct timeval 	*dbl2time	(struct timeval *, double);
 
+double	 	*time2dbl	(double *, struct timeval *);
+
 double          subtract_times  (struct timeval *,      /* result */
                                  struct timeval *,      /* right operand */
                                  struct timeval *);     /* left operand */
@@ -134,6 +156,34 @@ void	MessageBox_popup	(Widget,	/* parent */
 				 char *);	/* button label
 
 /* ====== Miscellaneous ====== */
+
+/*
+ * scale_value
+ *
+ *	Returns the appropriately scaled value.  When the
+ *	scale type is a logarithmic function and the value
+ *	is zero, zero is returned.  Also, if value is
+ *	negative, the log of the absolute value is generated
+ *	and then negated for the final product.
+ */
+double	scale_value	(double, int);	/* value, scale type */
+
+/*
+ * transform_value
+ *
+ *	Transforms the given value from the real number line to
+ *	the coordinate number line, using the given scale method,
+ *	coordinate range and value range to produce the appropriate
+ *	mapping.  The significant digits are used to determine
+ *	how many of orders of magnitude exist between 1 and 0
+ *	when the scale method is logarithmic.
+ */
+void	transform_value	(double, short *,	/* value in, value out */
+                         short, short,		/* coord min/max */
+                         double, double,	/* value min/max */
+                         int,			/* sig digits */
+                         int);			/* scale method */
+
 
 void	sec2hms	(unsigned sec, int *h, int *m, int *s);
 

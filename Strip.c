@@ -12,6 +12,7 @@
 #include "Strip.h"
 #include "StripDialog.h"
 #include "StripDataSource.h"
+#include "StripHistory.h"
 #include "StripGraph.h"
 #include "StripMisc.h"
 #include "StripFallback.h"
@@ -29,7 +30,9 @@
 #  include "StripIcon.bm"
 #endif
 
+#ifdef USE_CLUES
 #include "LiteClue.h"
+#endif
 
 #if defined(HP_UX) || defined(SOLARIS) || defined(linux)
 #  include <unistd.h>
@@ -149,6 +152,7 @@ typedef struct _StripInfo
   StripDialog		dialog;
   StripCurveInfo	curves[STRIP_MAX_CURVES];
   StripDataSource	data;
+  StripHistory		history;
   StripGraph		graph;
   unsigned		status;
   PrintInfo		print_info;
@@ -254,7 +258,7 @@ Strip	Strip_init	(int 	*argc,
   Pixmap		pixmap;
   Pixel			fg, bg;
   SDWindowMenuItem	wm_items[STRIPWINDOW_COUNT];
-  cColorManager	scm;
+  cColorManager		scm;
   int			i, n;
   Arg			args[10];
   Atom			import_list[10];
@@ -318,8 +322,10 @@ Strip	Strip_init	(int 	*argc,
     /* build the other shells now that the toplevel
      * has been taken care of.
      */
+#ifdef USE_CLUES
     hintshell = XtVaCreatePopupShell
       ("hintShell", xcgLiteClueWidgetClass, si->toplevel, 0);
+#endif
 
     si->shell = XtVaCreatePopupShell
       ("StripGraph",
@@ -444,13 +450,15 @@ Strip	Strip_init	(int 	*argc,
 
     for (i = 0; i < STRIPBTN_COUNT; i++)
       XtAddCallback (si->btn[i], XmNactivateCallback, callback, si);
-      
+
+#ifdef USE_CLUES
     XcgLiteClueAddWidget (hintshell, si->btn[STRIPBTN_LEFT], "Pan left", 0, 0);
     XcgLiteClueAddWidget (hintshell, si->btn[STRIPBTN_RIGHT], "Pan right", 0, 0);
     XcgLiteClueAddWidget (hintshell, si->btn[STRIPBTN_ZOOMIN], "Zoom in", 0, 0);
     XcgLiteClueAddWidget (hintshell, si->btn[STRIPBTN_ZOOMOUT], "Zoom out", 0, 0);
     XcgLiteClueAddWidget
       (hintshell, si->btn[STRIPBTN_AUTOSCROLL], "Auto scroll", 0, 0);
+#endif
 
     /* the graph drawing area */
     si->canvas = XtVaCreateManagedWidget
@@ -514,12 +522,13 @@ Strip	Strip_init	(int 	*argc,
        STRIPDIALOG_WINDOW_MENU,	wm_items, STRIPWINDOW_COUNT,
        0);
 
-    si->data = StripDataSource_init();
+    si->history = StripHistory_init ((Strip)si);
+    si->data = StripDataSource_init (si->history);
     tmp_dbl = ceil
       ((double)si->config->Time.timespan /
        si->config->Time.sample_interval);
     StripDataSource_setattr (si->data, SDS_NUMSAMPLES, (size_t)tmp_dbl, 0);
-      
+
     si->graph = StripGraph_init
       (si->display, XtWindow (si->canvas), si->config, si->shell);
 
@@ -628,6 +637,7 @@ void	Strip_delete	(Strip the_strip)
 
   StripGraph_delete 		(si->graph);
   StripDataSource_delete 	(si->data);
+  StripHistory_delete 		(si->history);
   StripDialog_delete		(si->dialog);
   StripConfig_delete		(si->config);
   ListDialog_delete		(si->list_dlg);
@@ -866,11 +876,7 @@ void	Strip_freecurve	(Strip the_strip, StripCurve the_curve)
   {
     curve[0] = the_curve;
     curve[1] = (StripCurve)0;
-    ListDialog_removecurves (si->list_dlg, curve);
-    if (ListDialog_count (si->list_dlg) == 0)
-      ListDialog_popdown (si->list_dlg);
-    Strip_disconnectcurve (the_strip, the_curve);
-    Strip_forgetcurve (si, the_curve);
+    Strip_freesomecurves (the_strip, curve);
   }
 }
 
@@ -903,7 +909,11 @@ void	Strip_freesomecurves	(Strip the_strip, StripCurve curves[])
        (Region *)0);
 
     for (i = 0; curves[i]; i++)
+    {
+      StripCurve_clearstat
+        ((StripCurve)curves[i], STRIPCURVE_CONNECTED | STRIPCURVE_WAITING);
       Strip_forgetcurve (si, curves[i]);
+    }
   }
 }
 
@@ -1006,33 +1016,6 @@ void	Strip_setwaiting	(Strip the_strip, StripCurve the_curve)
   ListDialog_addcurves (si->list_dlg, curve);
 
   StripDialog_update_curvestat (si->dialog, the_curve);
-}
-
-
-/*
- * Strip_disconnectcurve
- */
-int	Strip_disconnectcurve	(Strip the_strip, StripCurve the_curve)
-{
-  StripInfo		*si = (StripInfo *)the_strip;
-  StripCurveInfo	*sci = (StripCurveInfo *)the_curve;
-  int			ret_val = 1;
-
-  StripGraph_removecurve (si->graph, the_curve);
-  StripDataSource_removecurve (si->data, the_curve);
-  StripDialog_removecurve (si->dialog, the_curve);
-
-  StripGraph_draw
-    (si->graph,
-     SGCOMPMASK_LEGEND | SGCOMPMASK_DATA | SGCOMPMASK_YAXIS,
-     (Region *)0);
-
-  if (si->disconnect_func != NULL)
-    ret_val = si->disconnect_func (the_curve, si->disconnect_data);
-  else ret_val = 0;
-
-  StripCurve_clearstat (the_curve, STRIPCURVE_CONNECTED | STRIPCURVE_WAITING);
-  return ret_val;
 }
 
 

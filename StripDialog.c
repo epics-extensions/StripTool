@@ -431,7 +431,7 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
     /* initialize the color editor */
     sd->clrdlg = ColorDialog_init (parent, "Strip ColorEditor", cfg);
 
-      
+    /* top level shell */  
     sd->shell = XtVaCreatePopupShell
       ("StripDialog",	
        topLevelShellWidgetClass,	parent,
@@ -441,7 +441,7 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNcolormap,			cColorManager_getcmap (cfg->scm),
        NULL);
     base_form = XtVaCreateManagedWidget
-      ("form",
+      ("baseForm",
        xmFormWidgetClass,		sd->shell,
        NULL);
 
@@ -568,7 +568,6 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        NULL);
       
     XtManageChild (menu);
-	 
 
     /* create the curve area form and controls */
     frame = XtVaCreateManagedWidget
@@ -582,18 +581,18 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNrightOffset,		DEF_WOFFSET,
        XmNresizePolicy,		XmRESIZE_NONE,
        NULL);
+
     XtVaCreateManagedWidget
       ("Curves",
        xmLabelWidgetClass,		frame,
        XmNchildType,			XmFRAME_TITLE_CHILD,
-       XmNresizePolicy,		XmRESIZE_NONE,
+       XmNresizePolicy,			XmRESIZE_NONE,
        NULL);
-
     sd->curve_form = form = XtVaCreateManagedWidget
-      ("form",
+      ("curveForm",
        xmFormWidgetClass,		frame,
        XmNchildType,			XmFRAME_WORKAREA_CHILD,
-       XmNfractionBase,		(STRIP_MAX_CURVES + 1) * 10,
+       XmNfractionBase,			(STRIP_MAX_CURVES + 1) * 10,
        NULL);
     curve_column_lbl[i = SDCURVE_NAME] = XtVaCreateManagedWidget
       ("A Long Curve Name",
@@ -622,12 +621,12 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
     {
       curve_column_lbl[i] = XtVaCreateManagedWidget
         (SDCurveAttributeStr[i],
-         xmLabelWidgetClass,	form,
+         xmLabelWidgetClass,		form,
          XmNtopAttachment,		XmATTACH_POSITION,
          XmNtopPosition,		1,
          XmNleftAttachment,		XmATTACH_WIDGET,
-         XmNleftWidget,		curve_column_lbl[i-1],
-         XmNleftOffset,		DEF_WOFFSET,
+         XmNleftWidget,			curve_column_lbl[i-1],
+         XmNleftOffset,			DEF_WOFFSET,
          NULL);
       XtVaGetValues (curve_column_lbl[i], XmNheight, &dim1, NULL);
       row_height = max (row_height, dim1);
@@ -635,14 +634,14 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
 #ifdef STRIPDIALOG_SHOW_STATUS
     XtVaSetValues
       (curve_column_lbl[SDCURVE_STATUS],
-       XmNalignment,		XmALIGNMENT_END,
+       XmNalignment,			XmALIGNMENT_END,
        XmNrecomputeSize,		False,
        NULL);
 #endif
     for (i = SDCURVE_PRECISION; i <= SDCURVE_MAX; i++)
       XtVaSetValues
         (curve_column_lbl[i],
-         XmNalignment,		XmALIGNMENT_END,
+         XmNalignment,			XmALIGNMENT_END,
          XmNrecomputeSize,		False,
          NULL);
 
@@ -654,53 +653,53 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
       sep = sd->curve_info[j].top_sep = XtVaCreateManagedWidget
         ("separator",
          xmSeparatorWidgetClass,	form,
-         XmNshadowType,		XmSHADOW_ETCHED_IN,
-         XmNmappedWhenManaged,	False,
+         XmNshadowType,			XmSHADOW_ETCHED_IN,
+         XmNmappedWhenManaged,		False,
          XmNtopAttachment,		XmATTACH_POSITION,
          XmNtopPosition,		((j+1)*10) + 1,
          XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-         XmNleftWidget,		leftmost_col,
-         XmNleftOffset,		DEF_WOFFSET,
-         XmNrightAttachment,	XmATTACH_OPPOSITE_WIDGET,
+         XmNleftWidget,			leftmost_col,
+         XmNleftOffset,			DEF_WOFFSET,
+         XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
          XmNrightWidget,		rightmost_col,
          NULL);
 	     
       sd->curve_info[j].widgets[SDCURVE_NAME] = XtVaCreateManagedWidget
         ("label",
-         xmLabelWidgetClass,	form,
-         XmNalignment,		XmALIGNMENT_BEGINNING,
-         XmNmappedWhenManaged,	False,
+         xmLabelWidgetClass,		form,
+         XmNalignment,			XmALIGNMENT_BEGINNING,
+         XmNmappedWhenManaged,		False,
          XmNrecomputeSize,		False,
          XmNtopAttachment,		XmATTACH_WIDGET,
-         XmNtopWidget,		sep,
+         XmNtopWidget,			sep,
          XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-         XmNleftWidget,		curve_column_lbl[SDCURVE_NAME],
-         XmNleftOffset,		DEF_WOFFSET,
+         XmNleftWidget,			curve_column_lbl[SDCURVE_NAME],
+         XmNleftOffset,			DEF_WOFFSET,
          NULL);
 #ifdef STRIPDIALOG_SHOW_STATUS
       sd->curve_info[j].widgets[SDCURVE_STATUS] = XtVaCreateManagedWidget
         ("label",
-         xmLabelWidgetClass,	form,
-         XmNalignment,		XmALIGNMENT_CENTER,
-         XmNmappedWhenManaged,	False,
+         xmLabelWidgetClass,		form,
+         XmNalignment,			XmALIGNMENT_CENTER,
+         XmNmappedWhenManaged,		False,
          XmNrecomputeSize,		False,
          XmNtopAttachment,		XmATTACH_WIDGET,
-         XmNtopWidget,		sep,
+         XmNtopWidget,			sep,
          XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-         XmNleftWidget,		curve_column_lbl[SDCURVE_STATUS],
-         XmNleftOffset,		DEF_WOFFSET,
+         XmNleftWidget,			curve_column_lbl[SDCURVE_STATUS],
+         XmNleftOffset,			DEF_WOFFSET,
          NULL);
 #endif
       sd->curve_info[j].widgets[SDCURVE_COLOR] = XtVaCreateManagedWidget
         (COLOR_BTN_STR,
          xmPushButtonWidgetClass,	form,
-         XmNmappedWhenManaged,	False,
+         XmNmappedWhenManaged,		False,
          XmNtopAttachment,		XmATTACH_WIDGET,
-         XmNtopWidget,		sep,
+         XmNtopWidget,			sep,
          XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-         XmNleftWidget,		curve_column_lbl[SDCURVE_COLOR],
-         XmNleftOffset,		DEF_WOFFSET,
-         XmNuserData,		sd,
+         XmNleftWidget,			curve_column_lbl[SDCURVE_COLOR],
+         XmNleftOffset,			DEF_WOFFSET,
+         XmNuserData,			sd,
          NULL);
       XtAddCallback
         (sd->curve_info[j].widgets[SDCURVE_COLOR],
@@ -710,13 +709,13 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
          xmToggleButtonWidgetClass,	form,
          XmNlabelString,		penstat_tgl_str[0],
          XmNset,			True,
-         XmNmappedWhenManaged,	False,
+         XmNmappedWhenManaged,		False,
          XmNtopAttachment,		XmATTACH_WIDGET,
-         XmNtopWidget,		sep,
+         XmNtopWidget,			sep,
          XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-         XmNleftWidget,		curve_column_lbl[SDCURVE_PENSTAT],
-         XmNleftOffset,		DEF_WOFFSET,
-         XmNuserData,		sd,
+         XmNleftWidget,			curve_column_lbl[SDCURVE_PENSTAT],
+         XmNleftOffset,			DEF_WOFFSET,
+         XmNuserData,			sd,
          NULL);
       XtAddCallback
         (sd->curve_info[j].widgets[SDCURVE_PENSTAT],
@@ -726,66 +725,66 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
          xmToggleButtonWidgetClass,	form,
          XmNlabelString,		plotstat_tgl_str[0],
          XmNset,			True,
-         XmNmappedWhenManaged,	False,
+         XmNmappedWhenManaged,		False,
          XmNtopAttachment,		XmATTACH_WIDGET,
-         XmNtopWidget,		sep,
+         XmNtopWidget,			sep,
          XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-         XmNleftWidget,		curve_column_lbl[SDCURVE_PLOTSTAT],
-         XmNleftOffset,		DEF_WOFFSET,
-         XmNuserData,		sd,
+         XmNleftWidget,			curve_column_lbl[SDCURVE_PLOTSTAT],
+         XmNleftOffset,			DEF_WOFFSET,
+         XmNuserData,			sd,
          NULL);
       XtAddCallback
         (sd->curve_info[j].widgets[SDCURVE_PLOTSTAT],
          XmNvalueChangedCallback, plotstat_tgl_cb, (XtPointer)j);
       sd->curve_info[j].precision_lbl = XtVaCreateManagedWidget
         ("label",
-         xmLabelWidgetClass,	form,
-         XmNalignment,		XmALIGNMENT_END,
+         xmLabelWidgetClass,		form,
+         XmNalignment,			XmALIGNMENT_END,
          XmNrecomputeSize,		False,
-         XmNmappedWhenManaged,	False,
+         XmNmappedWhenManaged,		False,
          XmNtopAttachment,		XmATTACH_WIDGET,
-         XmNtopWidget,		sep,
+         XmNtopWidget,			sep,
          XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-         XmNleftWidget,		curve_column_lbl[SDCURVE_PRECISION],
-         XmNleftOffset,		DEF_WOFFSET,
+         XmNleftWidget,			curve_column_lbl[SDCURVE_PRECISION],
+         XmNleftOffset,			DEF_WOFFSET,
          NULL);
       sd->curve_info[j].widgets[SDCURVE_PRECISION] =
         sd->curve_info[j].precision_txt = XtVaCreateManagedWidget
         ("text",
          xmTextWidgetClass,		form,
-         XmNcolumns,		2,
-         XmNmappedWhenManaged,	False,
+         XmNcolumns,			2,
+         XmNmappedWhenManaged,		False,
          XmNtopAttachment,		XmATTACH_WIDGET,
-         XmNtopWidget,		sep,
+         XmNtopWidget,			sep,
          XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-         XmNleftWidget,		curve_column_lbl[SDCURVE_PRECISION],
-         XmNleftOffset,		DEF_WOFFSET,
+         XmNleftWidget,			curve_column_lbl[SDCURVE_PRECISION],
+         XmNleftOffset,			DEF_WOFFSET,
          NULL);
       XtAddCallback
         (sd->curve_info[j].precision_txt, XmNfocusCallback,
          text_focus_cb, (XtPointer)0);
       sd->curve_info[j].min_lbl = XtVaCreateManagedWidget
         ("label",
-         xmLabelWidgetClass,	form,
-         XmNalignment,		XmALIGNMENT_END,
+         xmLabelWidgetClass,		form,
+         XmNalignment,			XmALIGNMENT_END,
          XmNrecomputeSize,		False,
-         XmNmappedWhenManaged,	False,
+         XmNmappedWhenManaged,		False,
          XmNtopAttachment,		XmATTACH_WIDGET,
-         XmNtopWidget,		sep,
+         XmNtopWidget,			sep,
          XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-         XmNleftWidget,		curve_column_lbl[SDCURVE_MIN],
-         XmNleftOffset,		DEF_WOFFSET,
+         XmNleftWidget,			curve_column_lbl[SDCURVE_MIN],
+         XmNleftOffset,			DEF_WOFFSET,
          NULL);
       sd->curve_info[j].widgets[SDCURVE_MIN] =
         sd->curve_info[j].min_txt = XtVaCreateManagedWidget
         ("text",
-         xmTextWidgetClass,	form,
-         XmNcolumns,		MAX_REALNUM_COLUMN_LEN,
-         XmNmappedWhenManaged,	False,
+         xmTextWidgetClass,		form,
+         XmNcolumns,			MAX_REALNUM_COLUMN_LEN,
+         XmNmappedWhenManaged,		False,
          XmNtopAttachment,		XmATTACH_WIDGET,
-         XmNtopWidget,		sep,
+         XmNtopWidget,			sep,
          XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-         XmNleftWidget,		curve_column_lbl[SDCURVE_MIN],
+         XmNleftWidget,			curve_column_lbl[SDCURVE_MIN],
          XmNleftOffset,			DEF_WOFFSET,
          NULL);
       XtAddCallback
@@ -793,27 +792,27 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
          text_focus_cb, (XtPointer)0);
       sd->curve_info[j].max_lbl = XtVaCreateManagedWidget
         ("label",
-         xmLabelWidgetClass,	form,
-         XmNalignment,		XmALIGNMENT_END,
+         xmLabelWidgetClass,		form,
+         XmNalignment,			XmALIGNMENT_END,
          XmNrecomputeSize,		False,
-         XmNmappedWhenManaged,	False,
+         XmNmappedWhenManaged,		False,
          XmNtopAttachment,		XmATTACH_WIDGET,
-         XmNtopWidget,		sep,
+         XmNtopWidget,			sep,
          XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-         XmNleftWidget,		curve_column_lbl[SDCURVE_MAX],
-         XmNleftOffset,		DEF_WOFFSET,
+         XmNleftWidget,			curve_column_lbl[SDCURVE_MAX],
+         XmNleftOffset,			DEF_WOFFSET,
          NULL);
       sd->curve_info[j].widgets[SDCURVE_MAX] = 
         sd->curve_info[j].max_txt = XtVaCreateManagedWidget
         ("text",
          xmTextWidgetClass,		form,
-         XmNcolumns,		MAX_REALNUM_COLUMN_LEN,
-         XmNmappedWhenManaged,	False,
+         XmNcolumns,			MAX_REALNUM_COLUMN_LEN,
+         XmNmappedWhenManaged,		False,
          XmNtopAttachment,		XmATTACH_WIDGET,
-         XmNtopWidget,		sep,
+         XmNtopWidget,			sep,
          XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-         XmNleftWidget,		curve_column_lbl[SDCURVE_MAX],
-         XmNleftOffset,		DEF_WOFFSET,
+         XmNleftWidget,			curve_column_lbl[SDCURVE_MAX],
+         XmNleftOffset,			DEF_WOFFSET,
          NULL);
       XtAddCallback
         (sd->curve_info[j].max_txt, XmNfocusCallback,
@@ -822,13 +821,13 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
         ("pushbutton",
          xmPushButtonWidgetClass,	form,
          XmNlabelString,		modify_btn_str[0],
-         XmNmappedWhenManaged,	False,
+         XmNmappedWhenManaged,		False,
          XmNtopAttachment,		XmATTACH_WIDGET,
-         XmNtopWidget,		sep,
+         XmNtopWidget,			sep,
          XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-         XmNleftWidget,		curve_column_lbl[SDCURVE_MODIFY],
-         XmNleftOffset,		DEF_WOFFSET,
-         XmNuserData,		sd,
+         XmNleftWidget,			curve_column_lbl[SDCURVE_MODIFY],
+         XmNleftOffset,			DEF_WOFFSET,
+         XmNuserData,			sd,
          NULL);
       XtAddCallback
         (sd->curve_info[j].widgets[SDCURVE_MODIFY],
@@ -838,13 +837,13 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
       sd->curve_info[j].widgets[SDCURVE_REMOVE] = XtVaCreateManagedWidget
         ("Remove",
          xmPushButtonWidgetClass,	form,
-         XmNmappedWhenManaged,	False,
+         XmNmappedWhenManaged,		False,
          XmNtopAttachment,		XmATTACH_WIDGET,
-         XmNtopWidget,		sep,
+         XmNtopWidget,			sep,
          XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
-         XmNleftWidget,		curve_column_lbl[SDCURVE_REMOVE],
-         XmNleftOffset,		DEF_WOFFSET,
-         XmNuserData,		sd,
+         XmNleftWidget,			curve_column_lbl[SDCURVE_REMOVE],
+         XmNleftOffset,			DEF_WOFFSET,
+         XmNuserData,			sd,
          NULL);
       XtAddCallback
         (sd->curve_info[j].widgets[SDCURVE_REMOVE],
@@ -989,13 +988,13 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
       ("Time Controls",
        xmLabelWidgetClass,		frame,
        XmNchildType,			XmFRAME_TITLE_CHILD,
-       XmNresizePolicy,		XmRESIZE_NONE,
+       XmNresizePolicy,			XmRESIZE_NONE,
        NULL);
     form = XtVaCreateManagedWidget
-      ("form",
+      ("timeForm",
        xmFormWidgetClass,		frame,
        XmNchildType,			XmFRAME_WORKAREA_CHILD,
-       XmNfractionBase,		2,
+       XmNfractionBase,			2,
        NULL);
       
     sd->time_info.ts_hour_txt = w = txt = XtVaCreateManagedWidget
@@ -1005,7 +1004,7 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNmappedWhenManaged,		False,
        XmNtopAttachment,		XmATTACH_FORM,
        XmNleftAttachment,		XmATTACH_POSITION,
-       XmNleftPosition,		1,
+       XmNleftPosition,			1,
        NULL);
     XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
     sd->time_info.ts_hour_lbl = XtVaCreateManagedWidget
@@ -1016,9 +1015,9 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
        XmNleftWidget,			sd->time_info.ts_hour_txt,
        XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNrightWidget,		sd->time_info.ts_hour_txt,
+       XmNrightWidget,			sd->time_info.ts_hour_txt,
        XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNbottomWidget,		sd->time_info.ts_hour_txt,
+       XmNbottomWidget,			sd->time_info.ts_hour_txt,
        NULL);
     sd->time_info.widgets[SDTMOPT_TSHOUR] = sd->time_info.ts_hour_lbl;
     lbl = XtVaCreateManagedWidget
@@ -1029,7 +1028,7 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNleftAttachment,		XmATTACH_WIDGET,
        XmNleftWidget,			txt,
        XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNbottomWidget,		w,
+       XmNbottomWidget,			w,
        NULL);
     sd->time_info.ts_minute_txt = txt = XtVaCreateManagedWidget
       ("text",
@@ -1041,7 +1040,7 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNleftAttachment,		XmATTACH_WIDGET,
        XmNleftWidget,			lbl,
        XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNbottomWidget,		w,
+       XmNbottomWidget,			w,
        NULL);
     XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
     sd->time_info.ts_minute_lbl = XtVaCreateManagedWidget
@@ -1052,9 +1051,9 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
        XmNleftWidget,			sd->time_info.ts_minute_txt,
        XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNrightWidget,		sd->time_info.ts_minute_txt,
+       XmNrightWidget,			sd->time_info.ts_minute_txt,
        XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNbottomWidget,		sd->time_info.ts_minute_txt,
+       XmNbottomWidget,			sd->time_info.ts_minute_txt,
        NULL);
     sd->time_info.widgets[SDTMOPT_TSMINUTE] = sd->time_info.ts_minute_lbl;
     lbl = XtVaCreateManagedWidget
@@ -1065,7 +1064,7 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNleftAttachment,		XmATTACH_WIDGET,
        XmNleftWidget,			txt,
        XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNbottomWidget,		w,
+       XmNbottomWidget,			w,
        NULL);
     sd->time_info.ts_second_txt = txt = XtVaCreateManagedWidget
       ("text",
@@ -1077,7 +1076,7 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNleftAttachment,		XmATTACH_WIDGET,
        XmNleftWidget,			lbl,
        XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNbottomWidget,		w,
+       XmNbottomWidget,			w,
        NULL);
     XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
     sd->time_info.ts_second_lbl = XtVaCreateManagedWidget
@@ -1088,9 +1087,9 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
        XmNleftWidget,			sd->time_info.ts_second_txt,
        XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNrightWidget,		sd->time_info.ts_second_txt,
+       XmNrightWidget,			sd->time_info.ts_second_txt,
        XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNbottomWidget,		sd->time_info.ts_second_txt,
+       XmNbottomWidget,			sd->time_info.ts_second_txt,
        NULL);
     sd->time_info.widgets[SDTMOPT_TSSECOND] = sd->time_info.ts_second_lbl;
     lbl = XtVaCreateManagedWidget
@@ -1101,11 +1100,11 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
        XmNtopWidget,			w,
        XmNleftAttachment,		XmATTACH_POSITION,
-       XmNleftPosition,		0,
+       XmNleftPosition,			0,
        XmNrightAttachment,		XmATTACH_POSITION,
        XmNrightPosition,		1,
        XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNbottomWidget,		w,
+       XmNbottomWidget,			w,
        NULL);
       
     sd->time_info.ds_txt = txt = XtVaCreateManagedWidget
@@ -1116,7 +1115,7 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNtopAttachment,		XmATTACH_WIDGET,
        XmNtopWidget,			w,
        XmNleftAttachment,		XmATTACH_POSITION,
-       XmNleftPosition,		1,
+       XmNleftPosition,			1,
        NULL);
     XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
     sd->time_info.ds_lbl = XtVaCreateManagedWidget
@@ -1127,9 +1126,9 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
        XmNleftWidget,			sd->time_info.ds_txt,
        XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNrightWidget,		sd->time_info.ds_txt,
+       XmNrightWidget,			sd->time_info.ds_txt,
        XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNbottomWidget,		sd->time_info.ds_txt,
+       XmNbottomWidget,			sd->time_info.ds_txt,
        NULL);
     sd->time_info.widgets[SDTMOPT_DS] = sd->time_info.ds_lbl;
     w = txt;
@@ -1141,7 +1140,7 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNleftAttachment,		XmATTACH_WIDGET,
        XmNleftWidget,			txt,
        XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNbottomWidget,		w,
+       XmNbottomWidget,			w,
        NULL);
     lbl = XtVaCreateManagedWidget
       ("Data Sample Interval: ",
@@ -1151,11 +1150,11 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
        XmNtopWidget,			w,
        XmNleftAttachment,		XmATTACH_POSITION,
-       XmNleftPosition,		0,
+       XmNleftPosition,			0,
        XmNrightAttachment,		XmATTACH_POSITION,
        XmNrightPosition,		1,
        XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNbottomWidget,		w,
+       XmNbottomWidget,			w,
        NULL);
       
     sd->time_info.gr_txt = txt = XtVaCreateManagedWidget
@@ -1166,7 +1165,7 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNtopAttachment,		XmATTACH_WIDGET,
        XmNtopWidget,			w,
        XmNleftAttachment,		XmATTACH_POSITION,
-       XmNleftPosition,		1,
+       XmNleftPosition,			1,
        NULL);
     XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
     sd->time_info.gr_lbl = XtVaCreateManagedWidget
@@ -1177,9 +1176,9 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNleftAttachment,		XmATTACH_OPPOSITE_WIDGET,
        XmNleftWidget,			sd->time_info.gr_txt,
        XmNrightAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNrightWidget,		sd->time_info.gr_txt,
+       XmNrightWidget,			sd->time_info.gr_txt,
        XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNbottomWidget,		sd->time_info.gr_txt,
+       XmNbottomWidget,			sd->time_info.gr_txt,
        NULL);
     sd->time_info.widgets[SDTMOPT_GR] = sd->time_info.gr_lbl;
     w = txt;
@@ -1191,7 +1190,7 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNleftAttachment,		XmATTACH_WIDGET,
        XmNleftWidget,			txt,
        XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNbottomWidget,		w,
+       XmNbottomWidget,			w,
        NULL);
     lbl = XtVaCreateManagedWidget
       ("Graph Redraw Interval: ",
@@ -1200,16 +1199,16 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNtopAttachment,		XmATTACH_OPPOSITE_WIDGET,
        XmNtopWidget,			w,
        XmNleftAttachment,		XmATTACH_POSITION,
-       XmNleftPosition,		0,
+       XmNleftPosition,			0,
        XmNrightAttachment,		XmATTACH_POSITION,
        XmNrightPosition,		1,
        XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNbottomWidget,		w,
+       XmNbottomWidget,			w,
        NULL);
       
     sep = XtVaCreateManagedWidget
       ("separator",
-       xmSeparatorWidgetClass,	form,
+       xmSeparatorWidgetClass,		form,
        XmNtopAttachment,		XmATTACH_WIDGET,
        XmNtopWidget,			w,
        XmNleftAttachment,		XmATTACH_FORM,
@@ -1219,8 +1218,8 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
     xstr = modify_btn_str[sd->time_info.modifying? 1 : 0];
     sd->time_info.widgets[SDTMOPT_MODIFY] = w = XtVaCreateManagedWidget
       ("push button",
-       xmPushButtonWidgetClass,	form,
-       XmNlabelString,		xstr,
+       xmPushButtonWidgetClass,		form,
+       XmNlabelString,			xstr,
        XmNtopAttachment,		XmATTACH_WIDGET,
        XmNtopWidget,			sep,
        XmNrightAttachment,		XmATTACH_FORM,
@@ -1234,7 +1233,7 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNtopAttachment,		XmATTACH_WIDGET,
        XmNtopWidget,			sep,
        XmNrightAttachment,		XmATTACH_WIDGET,
-       XmNrightWidget,		w,
+       XmNrightWidget,			w,
        XmNbottomAttachment,		XmATTACH_FORM,
        NULL);
     XtAddCallback
@@ -1257,13 +1256,13 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
       ("Graph Options",
        xmLabelWidgetClass,		frame,
        XmNchildType,			XmFRAME_TITLE_CHILD,
-       XmNresizePolicy,		XmRESIZE_NONE,
+       XmNresizePolicy,			XmRESIZE_NONE,
        NULL);
     form = XtVaCreateManagedWidget
-      ("form",
+      ("appearanceForm",
        xmFormWidgetClass,		frame,
        XmNchildType,			XmFRAME_WORKAREA_CHILD,
-       XmNfractionBase,		2,
+       XmNfractionBase,			2,
        NULL);
 
     sd->graph_info.widgets[SDGROPT_FG] = btn = XtVaCreateManagedWidget
@@ -1286,7 +1285,7 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNtopWidget,			btn,
        XmNleftAttachment,		XmATTACH_FORM,
        XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNbottomWidget,		btn,
+       XmNbottomWidget,			btn,
        NULL);
     w = btn;
       
@@ -1312,7 +1311,7 @@ StripDialog	StripDialog_init	(Widget parent, StripConfig *cfg)
        XmNtopWidget,			btn,
        XmNleftAttachment,		XmATTACH_FORM,
        XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
-       XmNbottomWidget,		btn,
+       XmNbottomWidget,			btn,
        NULL);
     w = btn;
       

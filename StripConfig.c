@@ -1,10 +1,12 @@
 /*-----------------------------------------------------------------------------
-* Copyright (c) 1996 Southeastern Universities Research Association, *
-Continuous Electron Beam Accelerator Facility * * This software was
-developed under a United States Government license * described in the
-NOTICE file included as part of this distribution.  *
-*-----------------------------------------------------------------------------
-*/
+ * Copyright (c) 1996 Southeastern Universities Research Association,
+ * Continuous Electron Beam Accelerator Facility
+ *
+ * This software was developed under a United States Government license
+ * described in the NOTICE file included as part of this distribution.
+ *
+ *-----------------------------------------------------------------------------
+ */
 
 #include "StripConfig.h"
 
@@ -54,6 +56,7 @@ typedef enum
   PRECISION,
   MIN,
   MAX,
+  SCALE,
   PENSTAT,
   PLOTSTAT,
   STRIP,
@@ -99,6 +102,7 @@ char	*SCFTokenStr[LAST_TOKEN] =
   "Precision",
   "Min",
   "Max",
+  "Scale",
   "PenStatus",
   "PlotStatus",
   "Strip",
@@ -206,7 +210,11 @@ void	StripConfigMask_clear	(StripConfigMask *pmask)
   int	i;
 
   for (i = 0; i < STRIPCFGMASK_NBYTES; i++)
+#if 0
     pmask->bytes[i] ^= pmask->bytes[i];
+#else
+    pmask->bytes[i] = 0;
+#endif
 }
 
 
@@ -219,8 +227,8 @@ void	StripConfigMask_set	(StripConfigMask 	*pmask,
 {
   int	which_bit, which_byte;
 
-  which_byte = (elem-1) / CHAR_BIT;
-  which_bit = (elem-1) % CHAR_BIT;
+  which_byte = (elem-SCFGMASK_FIRST_ELEMENT) / CHAR_BIT;
+  which_bit = (elem-SCFGMASK_FIRST_ELEMENT) % CHAR_BIT;
 
   pmask->bytes[which_byte] |= (1 << which_bit);
 }
@@ -236,8 +244,8 @@ void	StripConfigMask_unset	(StripConfigMask 	*pmask,
 {
   int	which_bit, which_byte;
 
-  which_byte = (elem-1) / CHAR_BIT;
-  which_bit = (elem-1) % CHAR_BIT;
+  which_byte = (elem-SCFGMASK_FIRST_ELEMENT) / CHAR_BIT;
+  which_bit = (elem-SCFGMASK_FIRST_ELEMENT) % CHAR_BIT;
 
   pmask->bytes[which_byte] &= ~(1 << which_bit);
 }
@@ -253,8 +261,8 @@ int	StripConfigMask_stat	(StripConfigMask 	*pmask,
 {
   int	which_bit, which_byte;
 
-  which_byte = (elem-1) / CHAR_BIT;
-  which_bit = (elem-1) % CHAR_BIT;
+  which_byte = (elem-SCFGMASK_FIRST_ELEMENT) / CHAR_BIT;
+  which_bit = (elem-SCFGMASK_FIRST_ELEMENT) % CHAR_BIT;
 
   return pmask->bytes[which_byte] & (1 << which_bit);
 }
@@ -1542,6 +1550,7 @@ void	StripConfig_reset_details	(StripConfig *scfg,
   detail->precision 	= STRIPDEF_CURVE_PRECISION;
   detail->min		= STRIPDEF_CURVE_MIN;
   detail->max		= STRIPDEF_CURVE_MAX;
+  detail->scale		= STRIPDEF_CURVE_SCALE;
   detail->penstat	= STRIPDEF_CURVE_PENSTAT;
   detail->plotstat	= STRIPDEF_CURVE_PLOTSTAT;
   detail->id		= STRIPDEF_CURVE_ID;

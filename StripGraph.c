@@ -781,6 +781,14 @@ void StripGraph_draw	(StripGraph 	the_graph,
  */
 static void StripGraph_plotdata	(StripGraphInfo *sgi)
 {
+#ifndef STRIPGRAPH_NEW_PLOTDATA
+  /* =====================================================================
+   *
+   *     >>>>>>>>>>  O L D   P L O T   A L G O R I T H M  <<<<<<<<<<
+   *
+   * =====================================================================
+   */
+
   static size_t	max_points = 0;
   static struct	_data {
     XPoint	   	*points;
@@ -802,7 +810,6 @@ static void StripGraph_plotdata	(StripGraphInfo *sgi)
 
   if (max_points == 0)
     max_points = (size_t)((XMaxRequestSize (sgi->display) - 3) / 2);
-  
   
   delta = subtract_times (&delta_tv, &sgi->t0, &sgi->t1);
   subtract_times (&tv, &sgi->plotted_t0, &sgi->plotted_t1);
@@ -871,7 +878,7 @@ static void StripGraph_plotdata	(StripGraphInfo *sgi)
      sgi->config->Option.graph_linewidth,
      LineSolid, CapButt, JoinMiter);
 
-  
+
   /* several notes:
    *
    * (1) data.points[] will store the (x, y) values for all points to
@@ -906,110 +913,325 @@ static void StripGraph_plotdata	(StripGraphInfo *sgi)
              (data.points, data.size * sizeof (XPoint));
     }
 
-    if (data.points != NULL)
-    {
-      /* get the x-coordinates */
-      i = 0;
-      while ((j = StripDataSource_get_times (sgi->data, &times)) > 0)
-        for (k = 0; k < j; k++)
-        {
-          /* if this is the first stamp, compare it to the stamp of
-           * the most recently plotted sample.  If it's the same, and
-           * the plot method is pixmap scrolling, then set its x-coord
-           * from the saved value from last plot */
-          if (i == 0 &&
-              !StripGraph_getstat (sgi, SGSTAT_GRAPH_REFRESH) &&
-              (compare_times(&times[k], &sgi->latest_plotted_t) == 0))
-            data.points[i].x = sgi->latest_plotted_x;
-          else
-          {
-            s = subtract_times (&tv, &sgi->t0, &times[k]);
-            data.points[i].x = (short)
-              ((s * sgi->rect[SGCOMP_DATA].width - 1) / delta);
-          }
-          sgi->latest_plotted_t = times[k];
-          sgi->latest_plotted_x = data.points[i].x;
-          if (i == 0) StripGraph_clearstat (sgi, SGSTAT_GRAPH_REFRESH);
-          i++;
-        }
-	  
-      /* for each plotted curve ... */
-      for (m = 0; m < STRIP_MAX_CURVES; m++)
-      {
-        curve = sgi->curves[sgi->config->Curves.plot_order[m]];
-        if (curve == NULL)
-          continue;
-        if (curve->details->plotstat != STRIPCURVE_PLOTTED)
-          continue;
-
-        delta = curve->details->max - curve->details->min;
-        if (delta == 0) continue;
-	      
-        XSetForeground
-          (sgi->display, sgi->gc, curve->details->color->xcolor.pixel);
-	      
-        /* get the y-coordinates */
-        i = 0;	      
-        n = -1;	/* (n < 0) 	=> looking for first good point
-                 * (n >= 0)	=> have good point (n is its index) */
-        force_draw = 0;
-        buffer_full = 0;
-
-        while ((j = StripDataSource_get_data
-                (sgi->data, (StripCurve)curve, &val, &stat))
-               > 0)
-          for (k = 0; k < j; k++)
-          {
-            if (stat[k] & DATASTAT_PLOTABLE)
-            {
-              if (n < 0) n = i;
-              data.points[i].y = (short)
-                (sgi->rect[SGCOMP_DATA].height *
-                 ((delta - val[k] + curve->details->min) /
-                  delta));
-              buffer_full = ((i-n) == max_points);
-            }
-            else force_draw = (n >= 0);
-
-            /* if an unplotable point has been found, we must plot
-             * the points we have, and then reset n to indicate that
-             * we are searching for a first good point.
-             * Likewise, if we've reached the buffer-size limit,
-             * we must send what we have.  However, in this case n
-             * will be set to the index of the last plotted point
-             * so that there will not be a gap between it and the
-             * next point.
-             */
-            if (force_draw || buffer_full)
-            {
-              XDrawLines
-                (sgi->display, sgi->plotpix, sgi->gc,
-                 &data.points[n], i-n, CoordModeOrigin);
-              n = (force_draw? -1 : i);
-              force_draw = buffer_full = 0;
-            }
-            i++;
-          }
-
-        /* plot any as yet un-plotted points */
-        if (n >= 0)
-          XDrawLines
-            (sgi->display, sgi->plotpix, sgi->gc,
-             &data.points[n], i-n, CoordModeOrigin);
-      }
-    }
-    else
+    if (!data.points)
     {
       fprintf
         (stderr,
          "StripGraph_plotdata: out of memory --unable to plot\n");
       data.size = data.s;
       data.points = data.p;
+      return;
+    }
+
+    /* get the x-coordinates */
+    i = 0;
+    while ((j = StripDataSource_get_times (sgi->data, &times)) > 0)
+      for (k = 0; k < j; k++)
+      {
+        /* if this is the first stamp, compare it to the stamp of
+         * the most recently plotted sample.  If it's the same, and
+         * the plot method is pixmap scrolling, then set its x-coord
+         * from the saved value from last plot */
+        if (i == 0 &&
+            !StripGraph_getstat (sgi, SGSTAT_GRAPH_REFRESH) &&
+            (compare_times(&times[k], &sgi->latest_plotted_t) == 0))
+          data.points[i].x = sgi->latest_plotted_x;
+        else
+        {
+          s = subtract_times (&tv, &sgi->t0, &times[k]);
+          data.points[i].x = (short)
+            ((s * sgi->rect[SGCOMP_DATA].width - 1) / delta);
+        }
+        sgi->latest_plotted_t = times[k];
+        sgi->latest_plotted_x = data.points[i].x;
+        if (i == 0) StripGraph_clearstat (sgi, SGSTAT_GRAPH_REFRESH);
+        i++;
+      }
+    
+    /* for each plotted curve ... */
+    for (m = 0; m < STRIP_MAX_CURVES; m++)
+    {
+      curve = sgi->curves[sgi->config->Curves.plot_order[m]];
+      if (curve == NULL)
+        continue;
+      if (curve->details->plotstat != STRIPCURVE_PLOTTED)
+        continue;
+      
+      delta = curve->details->max - curve->details->min;
+      if (delta == 0) continue;
+      
+      XSetForeground
+        (sgi->display, sgi->gc, curve->details->color->xcolor.pixel);
+      
+      /* get the y-coordinates */
+      i = 0;	      
+      n = -1;	/* (n < 0) 	=> looking for first good point
+                 * (n >= 0)	=> have good point (n is its index) */
+      force_draw = 0;
+      buffer_full = 0;
+      
+      while ((j = StripDataSource_get_data
+              (sgi->data, (StripCurve)curve, &val, &stat))
+             > 0)
+        for (k = 0; k < j; k++)
+        {
+          if (stat[k] & DATASTAT_PLOTABLE)
+          {
+            if (n < 0) n = i;
+            data.points[i].y = (short)
+              (sgi->rect[SGCOMP_DATA].height *
+               ((delta - val[k] + curve->details->min) /
+                delta));
+            buffer_full = ((i-n) == max_points);
+          }
+          else force_draw = (n >= 0);
+          
+          /* if an unplotable point has been found, we must plot
+           * the points we have, and then reset n to indicate that
+           * we are searching for a first good point.
+           * Likewise, if we've reached the buffer-size limit,
+           * we must send what we have.  However, in this case n
+           * will be set to the index of the last plotted point
+           * so that there will not be a gap between it and the
+           * next point.
+           */
+          if (force_draw || buffer_full)
+          {
+            XDrawLines
+              (sgi->display, sgi->plotpix, sgi->gc,
+               &data.points[n], i-n, CoordModeOrigin);
+            n = (force_draw? -1 : i);
+            force_draw = buffer_full = 0;
+          }
+          i++;
+        }
+      
+      /* plot any as yet un-plotted points */
+      if (n >= 0)
+        XDrawLines
+          (sgi->display, sgi->plotpix, sgi->gc,
+           &data.points[n], i-n, CoordModeOrigin);
     }
   }
-
+  
   sgi->plotted_t0 = sgi->t0;
   sgi->plotted_t1 = sgi->t1;
+
+#else
+  /* =====================================================================
+   *
+   *     >>>>>>>>>>  N E W   P L O T   A L G O R I T H M  <<<<<<<<<<
+   *
+   * =====================================================================
+   */
+
+  XSegment		*segs;
+  struct timeval	dt_new, dt_cur;	/* interval width (time) */
+  double		dl_new, dl_cur;	/* interval width (real) */
+  double		db;		/* bin width (real) */
+  struct timeval	t_min, t_max;	/* min, max (real) */
+  double		l_min, l_max;	/* min, max (real) */
+  int			b_min, b_max;	/* min, max (quantized) */
+  int			n_shift;
+  struct timeval	t0, t1;		/* true range to plot*/
+  double		r;
+
+  /* new and current interval widths, in real and time values */
+  l_new = subtract_times (&dt_new, &sgi->t0, &sgi->t1);
+  l_cur = subtract_times (&dt_cur, &sgi->plotted_t0, &sgi->plotted_t1);
+
+  /* current bin width */
+  db = l_cur / (sgi->rect[SGCOMP_DATA].width - 1);
+
+  /* translate new min value, using current interval */
+  l_min = subtract_times (&t_min, &sgi->plotted_t0, &sgi->t0);
+  b_min = (int)(l_min / db);
+  l_max = subtract_times (&t_max, &sgi->plotted_t0, &sgi->t1);
+  b_max = (int)(l_max / db);
+
+  /* n_shift <-- number of bins which need to be shifted */
+  n_shift = b_min;
+
+  /* need to redraw if any of the following is true:
+   *
+   *	o  interval width has changed
+   *	o  new range doesn't intersect previous
+   *	o  range intersects, but shift is in negative direction
+   */
+  if ((ABS(l_new - l_cur) > DBL_EPSILON) ||
+      (b_min >= sgi->rect[SGCOMP_DATA].width - 1) ||
+      (b_max <= 0) ||
+      (n_shift < 0))
+    StripGraph_setstat (sgi, SGSTAT_GRAPH_REFRESH);
+  
+  /* if everything needs to be re-plotted, erase the whole pixmap */
+  if (StripGraph_getstat (sgi, SGSTAT_GRAPH_REFRESH))
+  {
+    /* clear the pixmap */
+    XSetForeground
+      (sgi->display, sgi->gc, sgi->config->Color.background.xcolor.pixel);
+    XFillRectangle
+      (sgi->display, sgi->plotpix, sgi->gc,
+       0, 0, sgi->rect[SGCOMP_DATA].width+1, sgi->rect[SGCOMP_DATA].height+1);
+
+    sgi->plotted_t0 = t0 = sgi->t0;
+    sgi->plotted_t1 = t1 = sgi->t1;
+  }
+
+  /* if only a portion needs to be plotted, re-arrange the displayed data
+   * to reflect the new time range and clear the vacated portion of the
+   * pixmap */
+  else
+  {
+    XCopyArea
+      (sgi->display,
+       sgi->plotpix, sgi->plotpix,
+       sgi->gc,
+       n_shift, 0,
+       sgi->rect[SGCOMP_DATA].width - n_shift,
+       sgi->rect[SGCOMP_DATA].height,
+       0, 0);
+
+    /* clear the vacated area */
+    XSetForeground
+      (sgi->display, sgi->gc, sgi->config->Color.background.xcolor.pixel);
+    XFillRectangle
+      (sgi->display, sgi->plotpix, sgi->gc,
+       sgi->rect[SGCOMP_DATA].width - n_shift, 0,
+       n, sgi->rect[SGCOMP_DATA].height + 1);
+
+    /* update the endpoints by shifting in bin-sized increments */
+    time2dbl (&r, &sgi->plotted_t0);
+    dbl2time (&sgi->plotted_t0, r + (n_shift * db));
+    time2dbl (&r, &sgi->plotted_t1);
+    dbl2time (&sgi->plotted_t1, r + (n_shift * db));
+
+    t0 = sgi->plotted_t1;
+    t1 = sgi->t1;
+  }
+
+  XSetLineAttributes
+    (sgi->display, sgi->gc,
+     sgi->config->Option.graph_linewidth,
+     LineSolid, CapButt, JoinMiter);
+
+  /* initialize data range? */
+  if (StripDataSource_init_range (sgi->data, &t, &sgi->t1) > 0)
+  {
+    /* for each plotted curve ... */
+    for (m = 0; m < STRIP_MAX_CURVES; m++)
+    {
+      curve = sgi->curves[sgi->config->Curves.plot_order[m]];
+      if (!curve)
+        continue;
+      if (curve->details->plotstat != STRIPCURVE_PLOTTED)
+        continue;
+
+      StripDataSource_segmentify
+        (sgi->data,
+         curve,
+         sgi->rect[SGCOMP_DATA].x,
+         sgi->rect[SGCOMP_DATA].y + sgi->rect[SGCOMP_DATA].height - 1,
+         &sgi->plotted_t0,
+         curve->details->min,
+         
+    
+
+    /* get the x-coordinates */
+    i = 0;
+    while ((j = StripDataSource_get_times (sgi->data, &times)) > 0)
+      for (k = 0; k < j; k++)
+      {
+        /* if this is the first stamp, compare it to the stamp of
+         * the most recently plotted sample.  If it's the same, and
+         * the plot method is pixmap scrolling, then set its x-coord
+         * from the saved value from last plot */
+        if (i == 0 &&
+            !StripGraph_getstat (sgi, SGSTAT_GRAPH_REFRESH) &&
+            (compare_times(&times[k], &sgi->latest_plotted_t) == 0))
+          data.points[i].x = sgi->latest_plotted_x;
+        else
+        {
+          s = subtract_times (&tv, &sgi->t0, &times[k]);
+          data.points[i].x = (short)
+            ((s * sgi->rect[SGCOMP_DATA].width - 1) / delta);
+        }
+        sgi->latest_plotted_t = times[k];
+        sgi->latest_plotted_x = data.points[i].x;
+        if (i == 0) StripGraph_clearstat (sgi, SGSTAT_GRAPH_REFRESH);
+        i++;
+      }
+    
+    /* for each plotted curve ... */
+    for (m = 0; m < STRIP_MAX_CURVES; m++)
+    {
+      curve = sgi->curves[sgi->config->Curves.plot_order[m]];
+      if (curve == NULL)
+        continue;
+      if (curve->details->plotstat != STRIPCURVE_PLOTTED)
+        continue;
+      
+      delta = curve->details->max - curve->details->min;
+      if (delta == 0) continue;
+      
+      XSetForeground
+        (sgi->display, sgi->gc, curve->details->color->xcolor.pixel);
+      
+      /* get the y-coordinates */
+      i = 0;	      
+      n = -1;	/* (n < 0) 	=> looking for first good point
+                 * (n >= 0)	=> have good point (n is its index) */
+      force_draw = 0;
+      buffer_full = 0;
+      
+      while ((j = StripDataSource_get_data
+              (sgi->data, (StripCurve)curve, &val, &stat))
+             > 0)
+        for (k = 0; k < j; k++)
+        {
+          if (stat[k] & DATASTAT_PLOTABLE)
+          {
+            if (n < 0) n = i;
+            data.points[i].y = (short)
+              (sgi->rect[SGCOMP_DATA].height *
+               ((delta - val[k] + curve->details->min) /
+                delta));
+            buffer_full = ((i-n) == max_points);
+          }
+          else force_draw = (n >= 0);
+          
+          /* if an unplotable point has been found, we must plot
+           * the points we have, and then reset n to indicate that
+           * we are searching for a first good point.
+           * Likewise, if we've reached the buffer-size limit,
+           * we must send what we have.  However, in this case n
+           * will be set to the index of the last plotted point
+           * so that there will not be a gap between it and the
+           * next point.
+           */
+          if (force_draw || buffer_full)
+          {
+            XDrawLines
+              (sgi->display, sgi->plotpix, sgi->gc,
+               &data.points[n], i-n, CoordModeOrigin);
+            n = (force_draw? -1 : i);
+            force_draw = buffer_full = 0;
+          }
+          i++;
+        }
+      
+      /* plot any as yet un-plotted points */
+      if (n >= 0)
+        XDrawLines
+          (sgi->display, sgi->plotpix, sgi->gc,
+           &data.points[n], i-n, CoordModeOrigin);
+    }
+  }
+  
+  sgi->plotted_t0 = sgi->t0;
+  sgi->plotted_t1 = sgi->t1;
+
+#endif
 }
 
 

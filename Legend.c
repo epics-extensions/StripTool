@@ -592,7 +592,7 @@ static XFontStruct	*Legend_getfont	(LegendInfo 	*legend,
   XFontStruct	*font_tmp = 0, *font;
   int		i;
   int		bound_h = legend->height;	/* just some "large" number */
-  int		bound_w = legend->width - 2*(LEGEND_PADDING+1);
+  int		bound_w = width - 2*(LEGEND_PADDING+1);
   char		buf[LEGEND_BUFSIZE+1];
   char		*str;
 

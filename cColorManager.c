@@ -715,11 +715,8 @@ int	cColorManager_build_palette	(cColorManager the_scm,
       fprintf (stderr, "cColorManager_build_palette: out of memory!\n");
       return 0;
     }
-    /* Linear search now --replace with binary search later */
-    for (i = n_cells; i > 0; i--)
-      if (XwAllocColorCells (scmi->display, scmi->cmap, False, 0, 0, cells, i))
-        break;
-    n_writable = i;
+    n_writable = cColorManager_grab_writables
+      ((cColorManager)scmi, cells, n_cells);
 
     /* now build an assortment of non-writable pixels referenced by
      * xcolors --particulars depend upon visual type */
@@ -756,9 +753,13 @@ int	cColorManager_build_palette	(cColorManager the_scm,
           if (cells[i] < pix)
             i++;
           else break;
-            
-        if (pix != cells[i])
-          xcolors[j++].pixel = pix;
+
+        if (i < n_writable)
+        {
+          if (pix != cells[i])
+            xcolors[j++].pixel = pix;
+        }
+        else xcolors[j++].pixel = pix;
 
         pix++;
       }
@@ -834,7 +835,7 @@ int	cColorManager_build_palette	(cColorManager the_scm,
     /* clean up --free any allocated writable cells, any unused
      * shared colors and temporarily allocated memory */
     if (n_writable > 0)
-      XwFreeColors (scmi->display, scmi->cmap, cells, n_writable, 0);
+      cColorManager_free_writables ((cColorManager)scmi, cells, n_writable);
     if (n_got < i)
     {
       i -= n_got;
@@ -1022,8 +1023,9 @@ void	cColorManager_free_palette	(cColorManager the_scm)
 
       /* if current pixel is in the keep list, don't add it to the list
        * to be freed */
-      if (scmi->palette[i].pixel != scmi->keep[j].pixel)
-        pixels[k++] = scmi->palette[i].pixel;
+      if (j < scmi->n_keep)
+        if (scmi->palette[i].pixel != scmi->keep[j].pixel)
+          pixels[k++] = scmi->palette[i].pixel;
     }
     
     if (k > 0) XwFreeColors (scmi->display, scmi->cmap, pixels, k, 0);
@@ -1337,3 +1339,73 @@ int		cColorManager_readonly	(cColorManager the_scm)
   return (!ccmVisualIsWritable (visual_class) || scmi->private_cmap);
 }
 
+
+/*
+ * cColorManager_grab_writables
+ */
+int		cColorManager_grab_writables	(cColorManager	the_scm,
+                                                 Pixel 		*cells,
+                                                 int 		n_cells)
+{
+  CCMinfo	*scmi = (CCMinfo *)the_scm;
+  int		i;
+  int		stat;
+  int		n_grabbed;
+  int		n_calls;
+
+  i = min (n_cells, scmi->xvi.colormap_size) - 1;
+  n_grabbed = 0;
+  n_calls = 0;
+
+  /* a different sort of binary search */
+  while ((i > 0) && (n_grabbed < n_cells))
+  {
+    stat = XwAllocColorCells
+      (scmi->display, scmi->cmap, False, 0, 0, &cells[n_grabbed], i);
+    n_calls++;
+
+    if (stat)
+    {
+      n_grabbed += i;
+      if (i > 1) i--;	/* one is a special case */
+    }
+    else i /= 2;
+  }
+
+#if 0
+  XGrabServer (scmi->display);
+  fprintf
+    (stderr,
+     "binary result ...... : %d\n"
+     "       n calls ..... : %d\n",
+     n_grabbed, n_calls);
+  XwFreeColors (scmi->display, scmi->cmap, cells, n_grabbed, 0);
+  n_calls = 0;
+  for (i = min (n_cells, scmi->xvi.colormap_size) - 1; i > 0; i--)
+  {
+    n_calls++;
+    if (XwAllocColorCells (scmi->display, scmi->cmap, False, 0, 0, cells, i))
+        break;
+  }
+  fprintf
+    (stderr,
+     "linear result ...... : %d\n"
+     "       n calls ..... : %d\n", n_grabbed = i, n_calls);
+  XUngrabServer (scmi->display);
+#endif
+  
+  return n_grabbed;
+}
+
+
+/*
+ * cColorManager_free_writables
+ */
+void		cColorManager_free_writables	(cColorManager	the_scm,
+                                                 Pixel 		*cells,
+                                                 int 		n_cells)
+{
+  CCMinfo	*scmi = (CCMinfo *)the_scm;
+
+  XwFreeColors (scmi->display, scmi->cmap, cells, n_cells, 0);
+}

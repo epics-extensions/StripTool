@@ -22,8 +22,6 @@
 typedef void *	Strip;
 typedef int	(*StripCallback) 	(StripCurve, void *);
 
-
-
 /* ======= Attributes ======= */
 typedef enum
 {

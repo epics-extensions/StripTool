@@ -73,10 +73,6 @@ static void	data_callback	(int,
                                  cdevRequestObject &,
                                  cdevData &);
 static double	get_value	(void *);
-static int	get_history	(void *,
-                                 struct timeval *,
-                                 struct timeval *,
-                                 StripCurveHistory *);
 
 /*
  * StripCDEV_initialize
@@ -260,10 +256,10 @@ static void	fd_callback	(int fd, int opened, void *data)
  *	Gives control to cdev for a while.
  */
 static void	work_callback		(XtPointer	BOGUS(data),
-                                         int 		*BOGUS(fd),
+                                         int 		*fd,
                                          XtInputId 	*BOGUS(id))
 {
-  cdevSystem::defaultSystem().poll();
+  cdevSystem::defaultSystem().pend(*fd);
 }
 
 
@@ -410,8 +406,6 @@ static void	data_callback	(int			status,
     {
       StripCurve_setattr
         (curve, STRIPCURVE_SAMPLEFUNC, get_value, 0);
-      StripCurve_setattr
-        (curve, STRIPCURVE_HISTORYFUNC, get_history, 0);
       Strip_setconnected (dd->this_->strip, curve);
     }
   }
@@ -428,19 +422,4 @@ static double	get_value	(void *data)
   DeviceData	*dd = (DeviceData *)data;
 
   return dd->value;
-}
-
-
-
-/*
- * get_history
- *
- */
-static int	get_history	(void 			*BOGUS(data),
-                                 struct timeval		*BOGUS(t0),
-                                 struct timeval		*BOGUS(t1),
-                                 StripCurveHistory	*BOGUS(history))
-{
-  fprintf (stdout, "StripCDEV: no history available!");
-  return 0;
 }

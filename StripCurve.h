@@ -27,23 +27,9 @@
 #define STRIPCURVE_PLOTTED	1
 
 /* ======= Data Types ======= */
-typedef struct
-{
-  struct timeval	req_t0, req_t1;	/* the requested (begin, end) times */
-  struct timeval	*time;		/* the corresponding time stamps */
-  double		*data;		/* the corresponding data */
-  int			n;		/* (n=0) --> no data; (n<0) --> status */
-}
-StripCurveHistory;
-
-
 typedef void *		StripCurve;
 
 typedef double 		(*StripCurveSampleFunc)		(void *);
-typedef int		(*StripCurveHistoryFunc)	(void *,
-                                                         struct timeval *,
-                                                         struct timeval *,
-                                                         StripCurveHistory *);
 
 /* ======= Attributes ======= */
 typedef enum
@@ -54,14 +40,16 @@ typedef enum
   STRIPCURVE_PRECISION,		/* (int)				rw */
   STRIPCURVE_MIN,		/* (double)				rw */
   STRIPCURVE_MAX,		/* (double)				rw */
+  STRIPCURVE_SCALE,		/* (StripScaleType)			rw */
   STRIPCURVE_PENSTAT,		/* (int)   plot new data?		rw */
   STRIPCURVE_PLOTSTAT,		/* (int)   curve data plotted?		rw */
   STRIPCURVE_WAITSTAT,		/* (int)   waiting for connection?	rw */
   STRIPCURVE_CONNECTSTAT,	/* (int)   curve connected?		rw */
-  STRIPCURVE_COLOR,		/* (cColor *)			r  */
+  STRIPCURVE_COLOR,		/* (cColor *)				r  */
   STRIPCURVE_FUNCDATA,		/* (void *)				rw */
   STRIPCURVE_SAMPLEFUNC,	/* (StripCurveSampleFunc)		rw */
   STRIPCURVE_HISTORYFUNC,	/* (StripCurveSampleFunc)		rw */
+  STRIPCURVE_HISTORYFUNCDATA,	/* (void *)		rw */
   STRIPCURVE_LAST_ATTRIBUTE
 }
 StripCurveAttribute;
@@ -75,7 +63,9 @@ enum	_scidx
   SCIDX_COMMENT_SET,
   SCIDX_PRECISION_SET,
   SCIDX_MIN_SET,
-  SCIDX_MAX_SET
+  SCIDX_MAX_SET,
+  SCIDX_SCALE_SET,
+  SCIDX_COUNT
 };
 
 
@@ -88,7 +78,8 @@ typedef enum
   STRIPCURVE_COMMENT_SET	= (1 << SCIDX_COMMENT_SET),
   STRIPCURVE_PRECISION_SET	= (1 << SCIDX_PRECISION_SET),
   STRIPCURVE_MIN_SET		= (1 << SCIDX_MIN_SET),
-  STRIPCURVE_MAX_SET		= (1 << SCIDX_MAX_SET)
+  STRIPCURVE_MAX_SET		= (1 << SCIDX_MAX_SET),
+  STRIPCURVE_SCALE_SET		= (1 << SCIDX_SCALE_SET)
 }
 StripCurveStatus;
 
@@ -144,8 +135,6 @@ typedef struct
   struct timeval	connect_request;
   void			*func_data;
   StripCurveSampleFunc	get_value;	/* must pass func_data when calling */
-  StripCurveHistoryFunc	get_history;	/* must pass func_data when calling */
-  StripCurveHistory	history;
   unsigned		status;
 }
 StripCurveInfo;

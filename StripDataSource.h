@@ -13,6 +13,8 @@
 #define _StripDataSource
 
 #include "StripCurve.h"
+#include "StripHistory.h"
+
 
 /* ======= Data Types ======= */
 
@@ -39,18 +41,7 @@ typedef enum
  *
  *	Creates a new strip data structure, setting all values to defaults.
  */
-StripDataSource 	StripDataSource_init	(void);
-
-
-/*
- * StripDataSource_copy
- *
- *	Creates a new data buffer structure, copying the attributes of the
- *	parameter into it
- */
-/*
-StripDataSource 	StripDataSource_copy	(StripDataSource);
-*/
+StripDataSource 	StripDataSource_init	(StripHistory);
 
 
 /*
@@ -108,6 +99,45 @@ size_t	StripDataSource_init_range	(StripDataSource,
 					 struct timeval *,  /* begin */
 					 struct timeval *); /* end */
 
+
+/* StripDataSource_segmentify
+ *
+ *	Generates a vector description of the data on the current
+ *	range for the specified curve, given the following mapping
+ *     	information:
+ *
+ *	origin location:	x0, y0
+ *	origin value:		t0, v0
+ *	bin sizes:		fx, fy
+ *	# horiz. bins		n_bins
+ *
+ *	The resulting data is stored as a series of line segments,
+ *	which can then be retrieved via segments().
+ *
+ *	Returns the number of XSegment structures required to
+ *	represent the data.
+ *
+ *	Assumes init_range() has already been called.
+ */
+size_t	StripDataSource_segmentify	(StripDataSource,
+                                         StripCurve,
+                                         int, int,		/* x0, y0 */
+                                         struct timeval,	/* t0 */
+                                         double,		/* v0 */
+                                         double, double,	/* fx, fy */
+                                         int);			/* n_bins */
+
+
+/* StripDataSource_segments
+ *
+ *	Points the referenced pointer to the array of segments generated
+ *	on the most recent call to segmentify() for the given curve.
+ *	Returns number of segments.
+ */
+size_t	StripDataSource_segments	(StripDataSource,
+                                         StripCurve,
+                                         XSegment **);
+ 
 
 /*
  * StripDataSource_get_times

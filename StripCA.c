@@ -34,10 +34,6 @@ static void	connect_callback	(struct connection_handler_args);
 static void	info_callback		(struct event_handler_args);
 static void	data_callback		(struct event_handler_args);
 static double	get_value		(void *);
-static int	get_history	(void *,
-                                 struct timeval *,
-                                 struct timeval *,
-                                 StripCurveHistory *);
 
 
 /*
@@ -363,8 +359,6 @@ static void	data_callback		(struct event_handler_args args)
     {
       StripCurve_setattr
         (curve, STRIPCURVE_SAMPLEFUNC, get_value, 0);
-      StripCurve_setattr
-        (curve, STRIPCURVE_HISTORYFUNC, get_history, 0);
       Strip_setconnected (cd->this->strip, curve);
     }
     sts = (struct dbr_sts_double *)args.dbr;
@@ -383,19 +377,4 @@ static double	get_value	(void *data)
   struct _ChannelData	*cd = (struct _ChannelData *)data;
 
   return cd->value;
-}
-
-
-
-/*
- * get_history
- *
- */
-static int	get_history	(void 			*data,
-                                 struct timeval		*t0,
-                                 struct timeval		*t1,
-                                 StripCurveHistory	*history)
-{
-  fprintf (stdout, "StripCA: no history available!");
-  return 0;
 }
