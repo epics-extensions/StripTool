@@ -1,12 +1,13 @@
-/*-----------------------------------------------------------------------------
- * Copyright (c) 1996 Southeastern Universities Research Association,
- *               Continuous Electron Beam Accelerator Facility
- *
- * This_ software was developed under a United States Government license
- * described in the NOTICE file included as part of this_ distribution.
- *
- *-----------------------------------------------------------------------------
- */
+/*************************************************************************\
+* Copyright (c) 1994-2004 The University of Chicago, as Operator of Argonne
+* National Laboratory.
+* Copyright (c) 1997-2003 Southeastern Universities Research Association,
+* as Operator of Thomas Jefferson National Accelerator Facility.
+* Copyright (c) 1997-2002 Deutches Elektronen-Synchrotron in der Helmholtz-
+* Gemelnschaft (DESY).
+* This file is distributed subject to a Software License Agreement found
+* in the file LICENSE that is included with this distribution. 
+\*************************************************************************/
 
 extern "C" {
 #include "StripDAQ.h"

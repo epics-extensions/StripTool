@@ -1,3 +1,14 @@
+/*************************************************************************\
+* Copyright (c) 1994-2004 The University of Chicago, as Operator of Argonne
+* National Laboratory.
+* Copyright (c) 1997-2003 Southeastern Universities Research Association,
+* as Operator of Thomas Jefferson National Accelerator Facility.
+* Copyright (c) 1997-2002 Deutches Elektronen-Synchrotron in der Helmholtz-
+* Gemelnschaft (DESY).
+* This file is distributed subject to a Software License Agreement found
+* in the file LICENSE that is included with this distribution. 
+\*************************************************************************/
+
 /* Strip Tool Version information */
 
 /* All version information should be changed here.  CVS commits should
@@ -16,6 +27,6 @@
 
 #define STRIPTOOL_VERSION      2
 #define STRIPTOOL_REVISION     5
-#define STRIPTOOL_MODIFICATION 4
-#define STRIPTOOL_UPDATE_LEVEL 1
-#define STRIPTOOL_VERSION_STRING "Strip Tool Version 2.5.4.1"
+#define STRIPTOOL_MODIFICATION 5
+#define STRIPTOOL_UPDATE_LEVEL 0
+#define STRIPTOOL_VERSION_STRING "Strip Tool Version 2.5.5.0"

@@ -1,3 +1,14 @@
+#/*************************************************************************
+# Copyright (c) 1994-2004 The University of Chicago, as Operator of Argonne
+# National Laboratory.
+# Copyright (c) 1997-2003 Southeastern Universities Research Association,
+# as Operator of Thomas Jefferson National Accelerator Facility.
+# Copyright (c) 1997-2002 Deutches Elektronen-Synchrotron in der Helmholtz-
+# Gemelnschaft (DESY).
+# This file is distributed subject to a Software License Agreement found
+# in the file LICENSE that is included with this distribution. 
+#**************************************************************************
+
 #******* ADD for Archive record support Albert ****************
 # STRIP_HISTORY is StripHistoryAR+ArR.c StripHistoryLANL.cc StripHistoryNULL.c 
 # ARCHIVER_CALL (CAR,AAPI,NONE)
@@ -50,11 +61,18 @@ XMU_LIB		?= $(X11_LIB)
 XPM_INC		?= $(X11_INC)
 XPM_LIB		?= $(X11_LIB)
 
-#PURIFY = YES
-#PURIFY_FLAGS = -first-only -chain-length=26
-#PURIFY_FLAGS = -first-only -chain-length=26 -enable-new-cache-scheme
+# Purify
+ifeq ($(OS_CLASS),solaris)
+#PURIFY=YES
+PURIFY_FLAGS = -first-only -chain-length=26
+#PURIFY_FLAGS = -first-only -chain-length=26 -max_threads=256
 #PURIFY_FLAGS = -first-only -chain-length=26 -always-use-cache-dir -cache-dir=/tmp/purifycache
-PURIFY_FLAGS = -first-only -chain-length=26 -enable-new-cache-scheme -always-use-cache-dir -cache-dir=/tmp/purifycache
+#PURIFY_FLAGS = -first-only -chain-length=26 -enable-new-cache-scheme
+#PURIFY_FLAGS = -first-only -chain-length=26 -enable-new-cache-scheme -always-use-cache-dir -cache-dir=/tmp/purifycache
+
+# Put the cache files in the appropriate bin directory
+PURIFY_FLAGS += -always-use-cache-dir -cache-dir=$(shell $(PERL) $(TOP)/config/fullPathName.pl .)
+endif
 
 # libXm.so.4 Purify debugging for Sun
 # Change directory before enabling

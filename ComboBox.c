@@ -21,6 +21,17 @@
  *
  */
 
+/*************************************************************************\
+* Copyright (c) 1994-2004 The University of Chicago, as Operator of Argonne
+* National Laboratory.
+* Copyright (c) 1997-2003 Southeastern Universities Research Association,
+* as Operator of Thomas Jefferson National Accelerator Facility.
+* Copyright (c) 1997-2002 Deutches Elektronen-Synchrotron in der Helmholtz-
+* Gemelnschaft (DESY).
+* This file is distributed subject to a Software License Agreement found
+* in the file LICENSE that is included with this distribution. 
+\*************************************************************************/
+
 /* +++FHDR+++
  *
  *      Filename: ComboBox.c
@@ -392,7 +403,7 @@ static int              item_count = 0;
                                     sizeof(XmString) * (item_count + 1));
                                 items[item_count] = NULL;
 
-                                if ( *tmp_string == '\0' )
+                                if ( i == len || *tmp_string == '\0' )
                                         break;
                         }
                 }

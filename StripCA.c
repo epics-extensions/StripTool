@@ -1,14 +1,17 @@
-/*-----------------------------------------------------------------------------
- * Copyright (c) 1996 Southeastern Universities Research Association,
- *               Continuous Electron Beam Accelerator Facility
- *
- * This software was developed under a United States Government license
- * described in the NOTICE file included as part of this distribution.
- *
- *-----------------------------------------------------------------------------
- */
+/*************************************************************************\
+* Copyright (c) 1994-2004 The University of Chicago, as Operator of Argonne
+* National Laboratory.
+* Copyright (c) 1997-2003 Southeastern Universities Research Association,
+* as Operator of Thomas Jefferson National Accelerator Facility.
+* Copyright (c) 1997-2002 Deutches Elektronen-Synchrotron in der Helmholtz-
+* Gemelnschaft (DESY).
+* This file is distributed subject to a Software License Agreement found
+* in the file LICENSE that is included with this distribution. 
+\*************************************************************************/
 
 #define DEBUG_DISCONNECT 0
+#define DEBUG_ASSERT 1
+#define PRINT_DESC_ERRORS
 
 #include "StripDAQ.h"
 
@@ -193,11 +196,18 @@ int     StripDAQ_request_disconnect     (StripCurve     curve,
   if (cd->chan_id != NULL)
   {
     /* **** ca_clear_channel() causes info to be printed to stdout **** */
+#if DEBUG_ASSERT
+    printf("StripDAQ_request_disconnect: ca_clear_channel: %s\n",
+	ca_name(cd->chan_id)?ca_name(cd->chan_id):"NULL");
+#endif
     if ((ret_val = ca_clear_channel (cd->chan_id)) != ECA_NORMAL)
     {
       SEVCHK
         (ret_val, "StripDAQ_request_disconnect: error in ca_clear_channel");
       ret_val = 0;
+#if DEBUG_ASSERT
+    printf("  Done\n");
+#endif
     }
     else
     {
@@ -209,11 +219,18 @@ int     StripDAQ_request_disconnect     (StripCurve     curve,
   if (cd->desc_chan_id != NULL)
   {
     /* **** ca_clear_channel() causes info to be printed to stdout **** */
+#if DEBUG_ASSERT
+    printf("StripDAQ_request_disconnect: ca_clear_channel: %s\n",
+	ca_name(cd->desc_chan_id)?ca_name(cd->desc_chan_id):"NULL");
+#endif
     if ((ret_val = ca_clear_channel (cd->desc_chan_id)) != ECA_NORMAL)
     {
       SEVCHK
         (ret_val, "StripDAQ_request_disconnect: error in ca_clear_channel");
       ret_val = 0;
+#if DEBUG_ASSERT
+    printf("  Done\n");
+#endif
     }
     else
     {
@@ -571,6 +588,10 @@ static void requestDescRecord(StripCurve curve)
 
   /* search */
   cd->desc_chan_id = NULL;
+#if DEBUG_ASSERT
+    printf("requestDescRecord: ca_search_and_connect: %s\n",
+	desc_name?desc_name:"NULL");
+#endif
   status = ca_search_and_connect (desc_name, &cd->desc_chan_id,
     desc_connect_callback, curve);
   if (status != ECA_NORMAL) {
@@ -607,11 +628,16 @@ static void desc_connect_callback (struct connection_handler_args args)
     fprintf
 	(stderr,
 	  "StripDAQ desc_connect_callback: IOC unavailable for %s\n",
+	  ca_name(cd->desc_chan_id)?ca_name(cd->desc_chan_id):"NULL");
 #endif
     break;
     
   case cs_conn:
     /* now connected, so get the desc string  */
+#if DEBUG_ASSERT
+    printf("desc_connect_callback: ca_get_callback: %s\n",
+	ca_name(cd->desc_chan_id)?ca_name(cd->desc_chan_id):"NULL");
+#endif
     status = ca_get_callback (DBR_STRING, cd->desc_chan_id,
 	desc_info_callback, curve);
     if (status != ECA_NORMAL)
@@ -670,6 +696,10 @@ static void desc_info_callback (struct event_handler_args args)
     Strip_setdescconnected (cd->this->strip, curve);
 
     /* clear the description channel, we are through */
+#if DEBUG_ASSERT
+    printf("desc_info_callback: ca_clear_channel: %s\n",
+	ca_name(cd->desc_chan_id)?ca_name(cd->desc_chan_id):"NULL");
+#endif
     if ((status = ca_clear_channel (cd->desc_chan_id)) != ECA_NORMAL)
     {
       SEVCHK (status, "desc_info_callback: error in ca_clear_channel");
@@ -678,6 +708,9 @@ static void desc_info_callback (struct event_handler_args args)
     {
       cd->desc_chan_id = NULL;
     }
+#if DEBUG_ASSERT
+    printf("  Done\n");
+#endif
 
   }
 }
