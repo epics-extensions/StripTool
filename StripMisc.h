@@ -199,6 +199,8 @@ void    MessageBox_popup        (Widget,        /* parent */
 
 #endif /* Albert */
 
+int Question_popup(XtAppContext app, Widget wparent, char * question);
+
 /* ====== Miscellaneous ====== */
 
 void    sec2hms (unsigned sec, int *h, int *m, int *s);

@@ -50,9 +50,9 @@ CMPLR 		= STRICT
 
 # When committed, HOST_OPT should be undefined.  Use for debugging.
 ifdef WIN32
- #HOST_OPT = NO
+ HOST_OPT = NO
 else
- #HOST_OPT = NO
+ HOST_OPT = NO
 endif
 ifeq ($(HOST_OPT),NO)
   ifeq ($(ANSI),ACC)

@@ -298,10 +298,14 @@ static void     info_callback           (struct event_handler_args args)
   {
     fprintf
       (stderr,
-       "StripDAQ info_callback:\n"
-       "  [%s] get: %s\n",
-       ca_name(cd->chan_id),
-       ca_message_text[CA_EXTRACT_MSG_NO(args.status)]);
+	  "StripDAQ info_callback:\n"
+	  "  [%s] get: %s\n",
+	  ca_name(cd->chan_id),
+#if 0
+	  ca_message_text[CA_EXTRACT_MSG_NO(args.status)]);
+#else    
+        ca_message(CA_EXTRACT_MSG_NO(args.status)));
+#endif    
   }
   else
   {
@@ -416,7 +420,7 @@ static void getDescriptionRecord(char *name, char *description)
     return;
 #endif    
   }
-  *description='\0';
+  *description ='\0';
   
   status = ca_search(desc_name, &id);
   if (status != ECA_NORMAL) {

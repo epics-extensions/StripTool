@@ -30,6 +30,9 @@ extern char *ecvt(double, int, int *, int *);
 #define EXP_DIGITS      3       /* digits in exp numerical portion */
 #define EXP_LEN         (2+EXP_DIGITS)  /* length of exponent string */
 
+/* Function prototypes */
+static void Question_cb(Widget w, XtPointer client, XtPointer call);
+
 #if 0
 static char             *StripVersion   = "2.4.3";
 #endif
@@ -446,6 +449,85 @@ static void     MessageBox_cb   (Widget w, XtPointer client, XtPointer BOGUS(1))
       case MSGBOX_OK:
 
         break;
+  }
+}
+
+/*
+ * Question_popup
+ */
+int Question_popup(XtAppContext app, Widget wparent, char * question)
+  /* Based on O'Reilly */
+  /* Returns 1 for yes, 0 for no, -1 for cancel */
+{
+  static Widget wdialog = (Widget)0;
+  XmString message,yes,no,cancel;
+  static int answer;
+  
+  /* Create the dialog if not created */
+  if (!wdialog) {
+    yes = XmStringCreateLocalized("Yes");
+    no = XmStringCreateLocalized("No");
+    cancel = XmStringCreateLocalized("Cancel");
+    wdialog = XmCreateQuestionDialog(wparent, "yesNo", NULL, 0);
+    XtVaSetValues(wdialog,
+	XmNokLabelString,     yes,
+	XmNcancelLabelString, no,
+	XmNhelpLabelString,   cancel,
+	XmNdialogStyle,       XmDIALOG_FULL_APPLICATION_MODAL,
+	NULL);
+    XtAddCallback(wdialog, XmNokCallback, Question_cb, &answer);
+    XtAddCallback(wdialog, XmNcancelCallback, Question_cb, &answer);
+    XtAddCallback(wdialog, XmNhelpCallback, Question_cb, &answer);
+    XmStringFree(yes);
+    XmStringFree(no);
+    XmStringFree(cancel);
+
+    /* Set the title of the dialog shell. (This is what the user sees.)
+	 Otherwise it is named yesNo_popup.  */
+    XtVaSetValues(XtParent(wdialog),
+	XmNtitle,             "Question",
+	NULL);
+  }
+
+  /* Add the question */
+  message = XmStringCreateLocalized(question);
+  XtVaSetValues(wdialog,
+    XmNmessageString,     message,
+    NULL);
+  XmStringFree(message);
+  XtManageChild(wdialog);
+  XtPopup(XtParent(wdialog), XtGrabNone);
+
+  /* Loop until the user decides what to do */
+  answer = -2;
+  while (answer == -2 || XtAppPending(app))
+    XtAppProcessEvent(app, XtIMAll);
+  XtPopdown(XtParent(wdialog));
+  XSync(XtDisplay(wparent), 0);
+  XmUpdateDisplay(wparent);
+  return answer;
+}
+
+/*
+ * Question_cb
+ */
+static void Question_cb(Widget w, XtPointer clientdata, XtPointer calldata)
+{
+  int *answer = (int *)clientdata;
+  XmAnyCallbackStruct *cbs = (XmAnyCallbackStruct *)calldata;
+  
+  switch (cbs->reason) {
+  case XmCR_OK:
+    *answer = 1;
+    break;
+  case XmCR_CANCEL:
+    *answer = 0;
+    break;
+  case XmCR_HELP:
+    *answer = -1;
+    break;
+  default:
+    break;
   }
 }
 

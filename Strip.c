@@ -1484,8 +1484,16 @@ void    Strip_setconnected      (Strip the_strip, StripCurve the_curve)
   
   Strip_watchevent (si, STRIPEVENTMASK_SAMPLE | STRIPEVENTMASK_REFRESH);
   
+#ifdef RAISE_GRAPH_ON_CONNECTION
+  /* KE: This causes a problem with CDE.  If you are in another
+     workspace the si->shell window in its workspace is unmapped (why
+     you don't see it).  This call causes it to be mapped in the
+     present workspace when a reconnection occurs.  This is annoying.
+     The popup feature is probably not wanted in most other cases, as
+     well. */
   if (!window_ismapped (si->display, XtWindow (si->shell)))
     window_map (si->display, XtWindow (si->shell));
+#endif
   
   StripGraph_draw
     (si->graph,
@@ -2448,8 +2456,26 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
   switch (cbs->reason)
   {
   case XmCR_PROTOCOLS:
-    
+#if 0
     dlgrequest_quit (si, 0);
+#else
+    /* Make it dismiss, not quit the application, the same as for the
+       Controls dialog */
+    if (StripDialog_ismapped (si->dialog))
+    {
+	window_unmap (si->display, XtWindow (si->shell));
+    }
+    else
+    {
+	int status = Question_popup(si->app, si->shell,
+	  "This is the only remaining window and can't be dismissed.\n"
+	  "Do you want to exit?");
+	if(status == 1)
+	{
+	  dlgrequest_quit ((void *)si, NULL);
+	}
+    }
+#endif    
     break;
     
   case XmCR_ACTIVATE:
@@ -2993,10 +3019,16 @@ static void     dlgrequest_dismiss      (void *client, void *BOGUS(1))
   }  
   else
   {
+    int status;
+    
     StripDialog_getattr (si->dialog, STRIPDIALOG_SHELL_WIDGET, &tmp_w, 0);
-    MessageBox_popup
-      (tmp_w, &si->message_box, XmDIALOG_ERROR, "Oops", "OK",
-	  "You can't dismiss all your windows");
+    status = Question_popup(si->app, tmp_w,
+	"This is the only remaining window and can't be dismissed.\n"
+	"Do you want to exit?");
+    if(status == 1)
+    {
+	dlgrequest_quit ((void *)si, NULL);
+    }
   }
 }
 
@@ -3310,10 +3342,19 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
         
   case POPUPMENU_DISMISS:
     if (StripDialog_ismapped (si->dialog))
+    {
 	window_unmap (si->display, XtWindow (si->shell));
-    else MessageBox_popup
-	     (si->shell, &si->message_box, XmDIALOG_ERROR, "Oops", "OK",
-		 "You can't dismiss all your windows");
+    }
+    else
+    {
+	int status = Question_popup(si->app, si->shell,
+	  "This is the only remaining window and can't be dismissed.\n"
+	  "Do you want to exit?");
+	if(status == 1)
+	{
+	  dlgrequest_quit ((void *)si, NULL);
+	}
+    }
     break;
         
   case POPUPMENU_QUIT:
