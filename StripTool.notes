@@ -144,3 +144,8 @@ Tue, Dec 3, 2002 - StripTool-2-5-2-9 - larrieu
 	reside in the standard X11 or Motif areas.  Changed several assignment
 	operators in Makefile.Host from "=" to "?=" so that variables can be
 	initialized via CONFIG_EXTENSIONS without being overridden.
+
+Tue Dec 17, 2002 - StripTool-2-5-2-10 - evans
+	Fixed it to dismiss a window if the other is mapped or iconic.  Fixed
+	it to build without warnings on Linux (gcc) and on Solaris with
+	gcc. Tested with Base 3.14.  MLKs remain.
