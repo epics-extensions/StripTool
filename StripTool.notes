@@ -167,3 +167,7 @@ Tue Apr 22, 2003 - StripTool-2-5-3-0 - evans
 	function prototypes, compiler warning fixes, and changing localtime_r
 	to localtime, since the former is not POSIX compliant and doesn't
 	exist on WIN32.
+
+Wed Jun 18, 2003 - StripTool-2-5-3-1 - evans
+	Fixed it to not use pvname.VAL.DESC.  Has fix for AutoScale not
+	looking at wrapped buffer.  (Not wholly tested.)
