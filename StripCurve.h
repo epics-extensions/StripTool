@@ -20,8 +20,10 @@
 #include <time.h>
 #include <sys/time.h>
 
+#ifndef NO_X11_HERE /* Albert */
 #include <X11/Xlib.h>
 #include <X11/Intrinsic.h>
+#endif /* Albert */ 
 
 #define STRIPCURVE_PENDOWN      1
 #define STRIPCURVE_PLOTTED      1
@@ -124,6 +126,7 @@ void                    StripCurve_clearstat    (StripCurve, unsigned);
 
 
 /* ======= Private Data (not for client program use) ======= */
+#ifndef NO_X11_HERE /* Albert */
 typedef struct
 {
   StripConfig           *scfg;
@@ -135,5 +138,5 @@ typedef struct
   unsigned              status;
 }
 StripCurveInfo;
-
+#endif /* Albert */
 #endif

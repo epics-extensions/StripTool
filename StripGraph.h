@@ -26,6 +26,7 @@ typedef enum
   SGCOMP_XAXIS = 0,
   SGCOMP_YAXIS,
   SGCOMP_LEGEND,
+  SGCOMP_LEGEND_DATA, /* Albert */
   SGCOMP_DATA,
   SGCOMP_TITLE,
   SGCOMP_GRID,
@@ -38,6 +39,7 @@ typedef enum
   SGCOMPMASK_XAXIS              = (1 << SGCOMP_XAXIS),
   SGCOMPMASK_YAXIS              = (1 << SGCOMP_YAXIS),
   SGCOMPMASK_LEGEND             = (1 << SGCOMP_LEGEND),
+  SGCOMPMASK_LEGEND_DATA        = (1 << SGCOMP_LEGEND_DATA), /* Albert */
   SGCOMPMASK_DATA               = (1 << SGCOMP_DATA),
   SGCOMPMASK_TITLE              = (1 << SGCOMP_TITLE),
   SGCOMPMASK_GRID               = (1 << SGCOMP_GRID)
@@ -152,4 +154,6 @@ unsigned        StripGraph_setstat      (StripGraph, unsigned);
 unsigned        StripGraph_getstat      (StripGraph, unsigned);
 unsigned        StripGraph_clearstat    (StripGraph, unsigned);
  
+int StripAuto_min_max (StripDataSource sds, char *sgi) ; /* Albert */
+void CurveLegendRefresh(StripCurveInfo *c, StripGraph sg, double a);  /* Albert */
 #endif

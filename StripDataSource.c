@@ -60,10 +60,19 @@
  *      to which the generated line segments must be attached.
  */     
 
-  
+#define DEBUG1 0  
 #include "StripDataSource.h"
 #include "StripDefines.h"
 #include "StripMisc.h"
+#include "StripGraph.h" /* Albert */
+
+#include <X11/cursorfont.h>
+extern Widget history_topShell;
+extern int auto_scaleTriger;
+extern long radioChange;
+static Cursor cursor = 0; 
+
+
 #ifndef SIZE_MAX
 #  define SIZE_MAX      ((size_t)-1)
 #endif
@@ -73,9 +82,9 @@
 #define SDS_LTE                 0
 #define SDS_GTE                 1
 
-#define SDS_DUMP_FIELDWIDTH     30
-#define SDS_DUMP_NUMWIDTH       20
-#define SDS_DUMP_BADVALUESTR    "???"
+#define SDS_DUMP_FIELDWIDTH     33 /* Albert -- was 30 */
+#define SDS_DUMP_NUMWIDTH       23 /* Albert -- was 20 */
+#define SDS_DUMP_BADVALUESTR    "BadVal"
 
 #define SDS_BUFFERED_DATA       (1 << 0)
 #define SDS_HISTORY_DATA        (1 << 1)
@@ -205,6 +214,8 @@ static int      pack_array      (void **, size_t,
 
 static int      verify_render_buffer    (RenderBuffer   *, int);
 
+static int printData(struct timeval *t,CurveData *c,char *v); /*Albert */
+static int findNextTime(struct timeval *tv,struct timeval *res,StripDataSourceInfo *s) ; /*Albert */
 
 /*
  * StripDataSource_init
@@ -366,6 +377,207 @@ StripDataSource_addcurve        (StripDataSource        the_sds,
   
   return ret;
 }
+#if 0
+      if(sds->cur_idx > 1) {
+	CurveData *cd = CURVE_DATA(the_curve);
+	struct timeval h0, h_end;
+	int n,m,k; 
+	int status;
+
+	h_end=sds->times[sds->cur_idx];
+	for (m=0;m<sds->cur_idx; m++) {
+	  if ( sds->times[m].tv_sec != 0 ) { 
+	    h0=sds->times[m];
+	    break;
+	  }
+	}
+	printf("m=%d cur_idx=%d\n",m,sds->cur_idx );
+	if (m < sds->cur_idx)
+	  { 
+		    
+	    printf("sds->cur_idx=%ld\n",sds->cur_idx);
+	    k=0;
+	    do 
+	      {
+		k++;
+		status = StripHistory_fetch
+		  (sds->history, cd->curve->details->name, &h0, &h_end,
+		   &cd->history, 0, 0);
+		printf("%d %d %s:cd->history.n_points=%d\n",
+		       k,status,cd->curve->details->name,cd->history.n_points);
+		
+	      } 
+	    while ( (cd->history.n_points == 0 ) && ( k < 2)  ) ;
+ 
+	    if(cd->history.n_points > 0) {
+	      for(n=0;n<cd->history.n_points;n++)
+		printf("%s",ctime(&cd->history.times[n].tv_sec));
+		  }   
+
+	    /* History problem  */
+	    
+	  }
+	else printf(" only zerro time\n");
+      }
+#endif
+
+void  StripDataSource_refresh (StripDataSource        the_sds)
+{
+StripDataSourceInfo   *sds = (StripDataSourceInfo *)the_sds;
+int i;
+
+  /* Albert */
+for(i=0;i<STRIP_MAX_CURVES;i++)
+      sds->buffers[i].history.fetch_stat = FETCH_IDLE;
+}
+
+
+/*
+ * StripDataSource_min_max
+ */
+int
+StripDataSource_min_max (StripDataSourceInfo *sds,struct timeval h0, struct timeval h_end)
+{
+  StripCurveInfo                *c;
+  int                           m,i;
+  int                           some_data;
+  int need_refresh=0;
+  CurveData *cd;
+
+  double min=0.0;
+  double max=0.0;
+
+  int first,last;
+
+  double width;
+  double alpha;
+
+  XSetWindowAttributes attrs;  /* Albert */
+
+  int local_precision;
+
+  for (m = 0; m < STRIP_MAX_CURVES; m++)
+  {
+    if ((c = sds->buffers[m].curve) != NULL)
+    {
+      cd = &sds->buffers[m];
+      some_data = 0;
+
+      first=find_date_idx
+	(&h0, sds->times, sds->count, sds->buf_size, sds->cur_idx, SDS_GTE);
+      last=find_date_idx
+	(&h_end, sds->times, sds->count, sds->buf_size, sds->cur_idx, SDS_LTE);
+
+      if ((first > -1) && (last > -1) )
+	{
+	  some_data=1;
+	  min=cd->val[first]; 
+	  max=cd->val[first];
+	  if (first<=last)
+	    for(i=first;i<= last; i++) 
+	      {
+		if(cd->val[i]<min) min=cd->val[i]; 
+		if(cd->val[i]>max) max=cd->val[i]; 
+	      }
+	  else
+	    for(i=first;i<= last; i--) /* perror Albert problem */
+	      {
+		printf("\n\n!!!!%f;\n",cd->val[i]); 
+		if(cd->val[i]<min) min=cd->val[i]; 
+		if(cd->val[i]>max) max=cd->val[i]; 
+	      }
+	}
+#ifdef STRIP_HISTORY
+	if(!cursor) cursor = XCreateFontCursor(XtDisplay(history_topShell),XC_watch);
+	XDefineCursor(XtDisplay(history_topShell),
+		      XtWindow(history_topShell), cursor);
+	XFlush(XtDisplay(history_topShell));
+
+      StripHistory_fetch
+	(sds->history, cd->curve->details->name, &h0, &h_end,
+	 &cd->history, 0, 0);
+
+	XUndefineCursor(XtDisplay(history_topShell),
+		      XtWindow(history_topShell));
+
+        if((cd->history.n_points>0)&&(cd->history.fetch_stat==FETCH_DONE))
+	{
+	  first = find_date_idx
+	    (&h0, cd->history.times, cd->history.n_points,
+	     cd->history.n_points, cd->history.n_points - 1, SDS_GTE);
+	  last = find_date_idx
+	    (&h_end, cd->history.times, cd->history.n_points,
+	     cd->history.n_points, cd->history.n_points - 1, SDS_LTE);
+	  
+	  if ((first > -1) && (last > -1) && (first<=last ) )
+	    {
+	      if (some_data == 0) 
+		{
+		  min=cd->history.data[first];
+		  max=cd->history.data[first];
+		  some_data =1;
+		}
+	      for(i=first;i<= last; i++)  
+		{
+		  if (cd->history.data[i]< min) min=cd->history.data[i]; 
+		  if (cd->history.data[i]> max) max=cd->history.data[i]; 
+		}
+	    }
+	}
+
+#endif /* STRIP_HISTORY */
+
+      if ((min <  max) && (some_data) )
+	{
+	if((c->details->min != min)||(c->details->max != max)) 
+	  {
+	    need_refresh=1;
+	    width = max-min;
+	    c->details->max= max + (double) (width/100.0);
+	    c->details->min= min - (double) (width/100.0);
+          }
+	}
+
+      else if ((min == max)&& (some_data) )
+	{
+	if( !((c->details->min < min)&& (c->details->max > min)) && 
+	    (c->details->max - c->details->min > 0 ) )
+	  {
+	    /* constant-curve is unvisible - put it in visible area
+	       using psevdo-random  algorithm:*/
+	    need_refresh=1;
+	    width= c->details->max - c->details->min;
+	    alpha = (double) ( (double) (time(NULL)%25) +25.0) /100.0;
+	    c->details->min = min - width*(  alpha);
+	    c->details->max = min + width*(1-alpha);
+	  }
+	}
+      else { printf ("min>max:%g>%g or isData=%d\n",min,max,some_data); continue;}
+
+/****Reasonable shift of lim i.e. min=0.123098712345 -> min=0.123 *******/
+local_precision=c->details->precision;
+if (local_precision < 2) local_precision =1;
+for(i=0;i<local_precision;i++)
+  {
+   c->details->min= c->details->min*10.0;
+   c->details->max= c->details->max*10.0;
+  }
+
+c->details->min=floor(c->details->min);
+c->details->max=ceil (c->details->max);
+
+for(i=0;i<local_precision;i++)
+  {
+   c->details->min= c->details->min/10.0;
+   c->details->max= c->details->max/10.0;
+  }
+/* End of Reasonable shift of limits ********************* */
+
+    }
+  }
+
+  return (need_refresh);
+}
 
 
 
@@ -392,34 +604,78 @@ StripDataSource_removecurve     (StripDataSource the_sds, StripCurve the_curve)
 
   return ret_val;
 }
+/*
+ * StripDataSource_removecurveAll
+ * for final clean all garbage at data-buffer  Albert
+ */
+int
+StripDataSource_removecurveAll(StripDataSource the_sds)
+{
+  StripDataSourceInfo   *sds = (StripDataSourceInfo *)the_sds;
+  int                   ret_val = 1;
+  /*sds->history        = NULL; Albert*/
+    sds->buf_size       = 0;
+    sds->cur_idx        = 0;
+    sds->count          = 0;
+    sds->times          = 0;
+    sds->idx_t0         = 0;
+    sds->idx_t1         = 0;
+    sds->bin_size       = 0;
+    sds->n_bins         = 0;
 
+    /* clear the buffers */
+    memset (sds->buffers, 0, STRIP_MAX_CURVES * sizeof(CurveData));
+ 
+ return ret_val;
+}
 
 /*
  * StripDataSource_sample
  */
 void
-StripDataSource_sample  (StripDataSource the_sds)
+StripDataSource_sample  (StripDataSource the_sds, char *sgP)
 {
+  StripGraph sg = (StripGraph) sgP;
   StripDataSourceInfo           *sds = (StripDataSourceInfo *)the_sds;
   StripCurveInfo                *c;
   int                           i;
   int                           need_time = 1;
+  double a; /*Albert*/
 
   for (i = 0; i < STRIP_MAX_CURVES; i++)
   {
+
     if ((c = sds->buffers[i].curve) != NULL)
     {
+    a=c->get_value (c->func_data);
       if (need_time)
       {
+	if (a != sds->buffers[i].val[sds->cur_idx])
+	  {
+	    /*printf("name=%s;old=%f,new=%f\n",
+		   c->details->name,a,
+		   sds->buffers[i].val[sds->cur_idx]);*/
+	    CurveLegendRefresh(c,sg,a); 
+	  }
+
+      
+
         sds->cur_idx = (sds->cur_idx + 1) % sds->buf_size;
         get_current_time (&sds->times[sds->cur_idx]);
         sds->count = min ((sds->count+1), sds->buf_size);
         need_time = 0;
+      }       
+      else {
+	if (a != sds->buffers[i].val[sds->cur_idx -1 ])
+	  {
+	    CurveLegendRefresh(c,sg,a);
+	  }
       }
+
       if ((c->status & STRIPCURVE_CONNECTED) &&
           !(c->status & STRIPCURVE_WAITING))
       {
-        sds->buffers[i].val[sds->cur_idx] = c->get_value (c->func_data);
+	sds->buffers[i].val[sds->cur_idx] = a; /*c->get_value (c->func_data); */
         sds->buffers[i].stat[sds->cur_idx] = DATASTAT_PLOTABLE;
 
         /* first sample for this curve? */
@@ -436,6 +692,12 @@ StripDataSource_sample  (StripDataSource the_sds)
     }
   }
 }
+/*
+Line 844
+some HACK here if delta time for History request < 2% from range interval
+do not send History request!  Albert Kagarmanov 23.11.2000
+*/
+
 
 
 /*
@@ -455,6 +717,9 @@ StripDataSource_init_range      (StripDataSource        the_sds,
   long                  r0, r1;
   int                   have_data = 0;
   int                   i;
+  XSetWindowAttributes attrs;  /* Albert */
+
+  long deltaHistoryTime;
 
   /* make t1 */
   dbl2time (&t_tmp, n_bins * bin_size);
@@ -569,20 +834,35 @@ StripDataSource_init_range      (StripDataSource        the_sds,
       else h_end = &cd->extents[0];
       
 
+      deltaHistoryTime = h_end->tv_sec - h0.tv_sec;
+
+      /*      printf("deltaHistoryTime=%ld n_bins=%d bin_size=%g \n",deltaHistoryTime,n_bins,bin_size); */
+
       /* get the history data? */
-      if ((compare_times (&h0, h_end) < 0) &&
-          ((cd->history.fetch_stat == FETCH_IDLE) ||
+      if ( (compare_times (&h0, h_end) < 0) &&
+           ((cd->history.fetch_stat == FETCH_IDLE) ||
            (compare_times (&cd->history.t0, &h0) > 0) ||
-           (compare_times (&cd->history.t1, h_end) < 0)))
+           (compare_times (&cd->history.t1, h_end) < 0)) && 
+	   ((auto_scaleTriger!=1)||((auto_scaleTriger==1)&&(radioChange))) 
+	   && (n_bins*bin_size > 0) && (deltaHistoryTime > 1) &&
+           (deltaHistoryTime > ((5.0*n_bins*bin_size)/100.0) )
+	   )
       {
         /* cancel preceding request if necessary */
         if (cd->history.fetch_stat == FETCH_PENDING)
           StripHistory_cancel (sds->history, &cd->history);
 
         /* send off new request */
+	if(!cursor) cursor=XCreateFontCursor(XtDisplay(history_topShell),XC_watch);
+	XDefineCursor(XtDisplay(history_topShell),
+		      XtWindow(history_topShell), cursor);
+	XFlush(XtDisplay(history_topShell));
+
         StripHistory_fetch
           (sds->history, cd->curve->details->name, &h0, h_end,
            &cd->history, 0, 0);
+	XUndefineCursor(XtDisplay(history_topShell),
+		      XtWindow(history_topShell));
       }
 
       /* if we have history data, we now need to find the
@@ -600,7 +880,7 @@ StripDataSource_init_range      (StripDataSource        the_sds,
         have_data |= ((cd->hidx_t0 >= 0) && (cd->hidx_t1 >= cd->hidx_t0));
       }
     }
-  
+    	if (radioChange)  radioChange=0;
   sds->req_t0 = *t0;
   sds->req_t1 = t1;
   sds->bin_size = bin_size;
@@ -1198,22 +1478,50 @@ segmentify      (StripDataSourceInfo    *sds,
  */
 int
 StripDataSource_dump    (StripDataSource        the_sds,
-                         FILE                   *outfile)
+                         FILE                   *outfile,char * cgi) /* Albert */
 {
   StripDataSourceInfo   *sds = (StripDataSourceInfo *)the_sds;
   char                  buf[SDS_DUMP_FIELDWIDTH+1];
   time_t                tt;
   int                   msec;
   int                   i, j;
+   XSetWindowAttributes attrs;  /* Albert */
+  struct timeval Start,End;
+  struct timeval StartCopy,EndCopy;
+  CurveData *cd;
 
-  /* if range is not initialized, return failure */
-  if (sds->idx_t0 == sds->idx_t1) return 0;
+  struct timeval *timeP=0;
+  StripGraph sg = (StripGraph) cgi; /* Albert */
+
+  /* if range is not initialized, return failure  Albert not nessary for hist
+  if (sds->idx_t0 == sds->idx_t1) return 0; */
 
   /* if no curves, return failure */
   for (i = 0; i < STRIP_MAX_CURVES; i++) if (sds->buffers[i].curve) break;
-  if (i >= STRIP_MAX_CURVES) return 0;
+  if (i >= STRIP_MAX_CURVES) { if(DEBUG1)perror("No one curvers");return 0; }
 
-  
+  StripGraph_getattr (sg, STRIPGRAPH_BEGIN_TIME, &Start, 0);
+  StripGraph_getattr (sg, STRIPGRAPH_END_TIME,   &End,   0);
+
+  memcpy(&StartCopy,&Start,sizeof(struct timeval));
+  memcpy(  &EndCopy,&End,  sizeof(struct timeval));
+
+  if(DEBUG1)printf("Start=%s",ctime(&(Start.tv_sec)));
+  if(DEBUG1)printf("End=%s",ctime(&(End.tv_sec)));
+
+  if(!cursor) cursor = XCreateFontCursor(XtDisplay(history_topShell),XC_watch);
+  XDefineCursor(XtDisplay(history_topShell),
+		XtWindow(history_topShell), cursor);
+  XFlush(XtDisplay(history_topShell));
+
+  for (i = 0; i < STRIP_MAX_CURVES; i++) {
+    if (!sds->buffers[i].curve) continue; 
+    cd = &sds->buffers[i];
+    StripHistory_fetch
+      (sds->history, cd->curve->details->name, &StartCopy, &EndCopy,
+       &cd->history, 0, 0);
+  }
+
   /* this is very straightforward:
    * (a) for every curve, print out its name across the top
    * (b) for every time on the range
@@ -1222,45 +1530,81 @@ StripDataSource_dump    (StripDataSource        the_sds,
    */
 
   /* (a) */
-  fprintf (outfile, "%-*s", SDS_DUMP_FIELDWIDTH, "Sample Time");
+  fprintf (outfile, "%s\t", "Time");
   for (i = 0; i < STRIP_MAX_CURVES; i++)
-    if (sds->buffers[i].curve)
-      fprintf
-        (outfile, "%*s", SDS_DUMP_FIELDWIDTH,
-         sds->buffers[i].curve->details->name);
+    if (sds->buffers[i].curve) fprintf(outfile, "%s [%s]\t", 
+       sds->buffers[i].curve->details->name,sds->buffers[i].curve->details->egu);
   fprintf (outfile, "\n");
   
   /* (b) */
-  for (i = sds->idx_t0; i != sds->idx_t1; i = (i+1) % sds->buf_size)
-  {
-    /* (b-1) */
-    tt = (time_t)sds->times[i].tv_sec;
-    msec = (int)(sds->times[i].tv_usec / ONE_THOUSAND);
-    strftime
-      (buf, SDS_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
-       localtime (&tt));
-    j = strlen (buf);
-    buf[j++] = '.';
-    int2str (msec, &buf[j], 3);
-    fprintf (outfile, "%-*s", SDS_DUMP_FIELDWIDTH, buf);
+  timeP=&StartCopy;
 
-    /* (b-2) */
-    for (j = 0; j < STRIP_MAX_CURVES; j++)
-      if (sds->buffers[j].curve)
-      {
-        if (sds->buffers[j].stat[i] & DATASTAT_PLOTABLE)
-          dbl2str
-            (sds->buffers[j].val[i], sds->buffers[j].curve->details->precision,
-             buf, SDS_DUMP_NUMWIDTH);
-        else strcpy (buf, SDS_DUMP_BADVALUESTR);
-        fprintf (outfile, "%*s", SDS_DUMP_FIELDWIDTH, buf);
-      }
-    
-    /* finally, the end-line */
-    fprintf (outfile, "\n");
-  }
-    
+  while(findNextTime(timeP,timeP,sds) ==0) 
+    {
+      if(compare_times(timeP,&Start)<0) continue;
+      if(compare_times(timeP,&End)>0) break;
+
+      /* (b-1) */
+      memset(buf,0,SDS_DUMP_FIELDWIDTH+1);
+      strftime(buf, SDS_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
+	       localtime (&(timeP->tv_sec)));
+      fprintf (outfile, "%s.%d\t",buf,timeP->tv_usec);
+      
+      /* (b-2) */
+      for (j = 0; j < STRIP_MAX_CURVES; j++)
+	if (sds->buffers[j].curve)
+	  {
+	    cd = &sds->buffers[j];
+	    memset(buf,0,SDS_DUMP_FIELDWIDTH+1);
+	    printData(timeP,cd,buf);
+	    fprintf (outfile, "%s\t",buf);
+	  }
+      
+      /* finally, the end-line */
+      fprintf (outfile, "\n");
+    } /* end of history while() handeling */
+
+  
+  if(DEBUG1)printf("Start=%s",ctime(&(Start.tv_sec)));
+  if(DEBUG1)printf("End=%s",ctime(&(End.tv_sec)));
+
+ if (sds->idx_t0 != sds->idx_t1) 
+   {
+     for (i = sds->idx_t0; i != sds->idx_t1; i = (i+1) % sds->buf_size)
+       {
+	 if(compare_times(&(sds->times[i]),&End)>0) 
+	   {if(DEBUG1)printf("T[%d]>End   break\n",i); break;}
+	 if(compare_times(&(sds->times[i]),&Start)<0) 
+	   {if(DEBUG1)
+	     printf("Start > T[%d]=%s",i,ctime(&(sds->times[i].tv_sec))); 
+	   continue;}
+	 if(DEBUG1)printf("Good i=%d\n",i);
+
+	 /* (b-1) */
+	 memset(buf,0,SDS_DUMP_FIELDWIDTH+1);
+	 strftime(buf, SDS_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
+		  localtime (&(sds->times[i].tv_sec)));
+	 fprintf (outfile, "%s.%d\t",buf,sds->times[i].tv_usec); 
+	 /* (b-2) */
+	 for (j = 0; j < STRIP_MAX_CURVES; j++)
+	   if (sds->buffers[j].curve)
+	     {
+	       if (sds->buffers[j].stat[i] & DATASTAT_PLOTABLE)
+		 fprintf (outfile, "%g\t",sds->buffers[j].val[i]);
+	       else fprintf (outfile, "%s\t",SDS_DUMP_BADVALUESTR);
+	     }
+	 
+	 /* finally, the end-line */
+	 fprintf (outfile, "\n");
+       }
+   } else {if(DEBUG1) perror("DUMP:NO CURRENT DATA");}
+
+
+ if(DEBUG1)printf("Last i=%d\n",i);
+
   fflush (outfile);
+  XUndefineCursor(XtDisplay(history_topShell),
+		  XtWindow(history_topShell));
   return 1;
 }
 
@@ -1483,4 +1827,54 @@ verify_render_buffer    (RenderBuffer *rbuf, int n)
   }
 
   return ret;
+}
+
+
+/* static function for HistoryDump: Albert */
+static int findNextTime (struct timeval *tv,struct timeval *result,StripDataSourceInfo *sds)
+{
+  CurveData *cd;
+  int m,i;
+  int first=1;
+
+  for (m = 0; m < STRIP_MAX_CURVES; m++)
+    {
+      if (sds->buffers[m].curve == NULL) continue;
+       cd = &sds->buffers[m];
+       if(cd->history.n_points<1) continue;
+       if(cd->history.fetch_stat!=FETCH_DONE){perror("FETCH_DONE!"); continue;}
+
+       for(i=0;i<cd->history.n_points;i++) 
+	 {
+	   if( compare_times(&(cd->history.times[i]),tv) >0) {
+	     if (first) {
+	       first=0;
+	       result->tv_sec= (cd->history.times[i]).tv_sec;
+	       result->tv_usec=(cd->history.times[i]).tv_usec;
+	       continue;
+	     }
+	     if(compare_times(&(cd->history.times[i]),result)<0) { 
+	       result->tv_sec= (cd->history.times[i]).tv_sec;
+	       result->tv_usec=(cd->history.times[i]).tv_usec;
+	     }
+	   }
+	 }
+    }
+
+  return(first);
+}
+
+static int printData(struct timeval *time, CurveData *cd, char *val)
+{
+  int i;
+  short first=1;
+  for(i=0;i<cd->history.n_points;i++) 
+    {
+      if(!compare_times(&(cd->history.times[i]),time)) {
+	first=0;
+	sprintf(val,"%g",cd->history.data[i]);
+      }
+    }
+  if(first) sprintf(val,"%s","N/A");
+  return(first);    
 }

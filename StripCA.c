@@ -88,6 +88,7 @@ int     StripDAQ_request_connect        (StripCurve curve, void *the_sca)
   StripDAQInfo  *sca = (StripDAQInfo *)the_sca;
   int           i;
   int           ret_val;
+char *description=NULL; /* Albert */
 
   for (i = 0; i < STRIP_MAX_CURVES; i++)
     if (sca->chan_data[i].chan_id == NULL)
@@ -111,8 +112,16 @@ int     StripDAQ_request_connect        (StripCurve curve, void *the_sca)
     }
     else ret_val = 1;
   }
-
+#if 1
+	description=malloc(STRIP_MAX_NAME_CHAR); /* Albert */
+	getDescriptionRecord(
+	 (char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME),
+	 description);
+	StripCurve_setattr (curve, STRIPCURVE_COMMENT,description, 0);
+	free(description);
+#endif
   ca_flush_io();
+
 
   return ret_val;
 }
@@ -380,4 +389,49 @@ static double   get_value       (void *data)
   struct _ChannelData   *cd = (struct _ChannelData *)data;
 
   return cd->value;
+}
+getDescriptionRecord(char *name,char *description)
+{
+  int status;
+  chid id;
+  static char desc_name[64];
+  memset(desc_name,0,64);
+  strcpy(desc_name,name);
+  strcat(desc_name,".DESC");
+
+  status = ca_search(desc_name, &id);
+  if (status != ECA_NORMAL) {
+    SEVCHK(status,"     CAN'T search description field\n");
+    fprintf(stderr,"%s: CAN'T search description field\n",desc_name);
+    *description=0;
+    return;      
+  }
+  
+  status = ca_pend_io(1.0);	
+  if (status != ECA_NORMAL) 
+    {
+      SEVCHK(status,"     CAN'T pend description field\n");
+      fprintf(stderr,"%s: CAN'T pend description field\n",desc_name);
+      *description=0;
+      return;          
+    }	
+  
+  status = ca_array_get (DBR_STRING,1,id,description);
+  if (status != ECA_NORMAL) 
+  {
+    SEVCHK(status,"     CAN'T get description field\n");
+    fprintf(stderr,"%s: CAN'T get description field\n",desc_name);
+    *description=0;
+    return;           
+  }
+  
+  status= ca_pend_io(1.0);
+  if (status != ECA_NORMAL)  
+    {
+      SEVCHK(status,"     CAN'T pend description field again \n");
+      fprintf(stderr,"%s: CAN'T pend description field again \n",name);
+      *description=0;
+      return;     
+    }
+
 }

@@ -12,9 +12,12 @@
 #ifndef _StripMisc
 #define _StripMisc
 
+#ifndef NO_X11_HERE /* Albert */
 #include <X11/Intrinsic.h>
 #include <X11/Xlib.h>
 #include <float.h>
+#endif  /* Albert */
+
 #include <math.h>
 #include <time.h>
 #include <sys/time.h>
@@ -73,8 +76,9 @@ extern unsigned char    Strip_x_error_code;
  *
  *      Initializes global constants.
  */
+#ifndef NO_X11_HERE /* Albert */
 void    StripMisc_init  (Display *, int);       /* display, screen */
-
+#endif /* Albert */
 
 /* strip_name
  *
@@ -162,6 +166,8 @@ char            *time2str       (struct timeval *);
  : (diff_times((s),(a),(b)), -time2dbl((s)))) 
 
 
+#ifndef NO_X11_HERE /* Albert */
+
 /* ====== Various Window Functions ====== */
 
 int     window_isviewable       (Display *, Window);
@@ -176,6 +182,8 @@ void    MessageBox_popup        (Widget,        /* parent */
                                  char *,        /* button label */
                                  char *,        /* message format */
                                  ...);          /* message args */
+
+#endif /* Albert */
 
 /* ====== Miscellaneous ====== */
 
@@ -194,5 +202,6 @@ char    *int2str        (int x, char buf[], int n);
  *      Returns the filename portion of a fully qualified path.
  */
 char    *basename       (char *);
+void History_MessageBox_popup(char *title,char *btn_txt,char *str);
 
 #endif

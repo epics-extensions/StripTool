@@ -55,7 +55,7 @@
 #define STRIP_TIMER_ACCURACY            0.001
 
 /* timeout period for handling Channel Access events */
-#define STRIP_CA_PEND_TIMEOUT           0.001
+#define STRIP_CA_PEND_TIMEOUT           0.1 /* Albert 0.001 */
 
 /* timeout period for handling cdev events */
 #define STRIP_CDEV_PEND_TIMEOUT         0.005
@@ -68,14 +68,14 @@
 #define STRIP_FALLBACK_FONT_STR         "*fixed-medium-r-normal--10*"
 
 /* the default dimensions (in millimeters) for the graph window */
-#define STRIP_GRAPH_WIDTH_MM            200.0
-#define STRIP_GRAPH_HEIGHT_MM           100.0
+#define STRIP_GRAPH_WIDTH_MM            250.0 /* 200 Albert */
+#define STRIP_GRAPH_HEIGHT_MM           180.0 /* 100 Albert */
 
 /* the default number of seconds of data displayed on plot */
 #define STRIP_DEFAULT_TIMESPAN          300
 
 /* the maximum font height (in millimeters) */
-#define STRIP_FONT_MAXHEIGHT_MM         4.0
+#define STRIP_FONT_MAXHEIGHT_MM         8.0 /* 4.0 Albert */
 
 /* the default directory in which to find configuration files */
 #ifndef STRIP_CONFIGFILE_DIR

@@ -454,4 +454,12 @@ char    *basename       (char *path)
   return p;
 }
 
-
+/* Albert */
+extern Widget history_topShell;
+void History_MessageBox_popup(char *title,char *btn_txt,char *str)
+{
+          MessageBox_popup
+            (history_topShell,
+             (Widget *)XmCreateMessageDialog(history_topShell,"Oops",NULL,0), 
+             XmDIALOG_WARNING,title,btn_txt,str);
+}

@@ -503,6 +503,94 @@ FreePixmap      (LegendWidget cw)
   cw->legend.pixmap = 0;
 }
 
+/* Albert */
+
+void LegendRefresh(LegendWidget cw)
+{
+  char buf[256];
+  register int                  mask, m;
+  register LegendItemInfo       *item;
+  register int                  i, x, y;
+  register char                 *s, *p;
+  XPoint                        dims;
+  XRectangle                    rect;
+  Drawable canvas = XtWindow(cw);
+
+  XSetForeground (XtDisplay (cw), cw->legend.gc, cw->core.background_pixel);
+  XFillRectangle
+    (XtDisplay (cw), canvas, cw->legend.gc,
+     0, 0, cw->core.width + 1, cw->core.height + 1);
+
+  /* which elements to draw? */
+  mask = BestMaskForHeight (cw, LGITEM_MASK_ALL, cw->core.height);
+  GetDimsForMask (cw, mask, &dims);
+
+  /* make the width equal to the widget with */
+  dims.x = cw->core.width;
+
+  /* for each legend item */
+  x = y = 0;
+  for (item = cw->legend.items; item; item = item->next)
+  {
+    /* remember legend entry top left coords */
+    item->box.x = x; item->box.y = y;
+
+    /* determine the location and dimensions of the text box */
+    rect.width = 2 + item->extents[LGITEM_NAME].width;
+    rect.height = 2 +
+      item->extents[LGITEM_NAME].ascent + item->extents[LGITEM_NAME].descent;
+    rect.x = x + (dims.x - rect.width) / 2;
+    rect.y = y + COLOR_NPIXELS_TOP;
+
+    /* draw the title area */
+    XSetForeground (XtDisplay (cw), cw->legend.gc, item->color);
+    XFillRectangle
+      (XtDisplay (cw), canvas, cw->legend.gc,
+       x, y,
+       dims.x + 1, rect.height + COLOR_NPIXELS_TOP + COLOR_NPIXELS_BOTTOM + 1);
+
+    /* clear inside the title area */
+    XSetForeground (XtDisplay (cw), cw->legend.gc, cw->core.background_pixel);
+    XFillRectangle
+      (XtDisplay (cw), canvas, cw->legend.gc,
+       x + COLOR_NPIXELS_SIDE, rect.y,
+       dims.x + 1 - (2*COLOR_NPIXELS_SIDE), rect.height+1);
+
+    /* draw the text */
+    XSetForeground (XtDisplay (cw), cw->legend.gc, cw->primitive.foreground);
+    for (p = s = item->info[LGITEM_NAME]; *p; p++);
+    XDrawString
+      (XtDisplay (cw), canvas, cw->legend.gc,
+       rect.x+1 , rect.y+1 + item->extents[LGITEM_NAME].ascent, s, p-s);
+
+    /* advance current vertical location, remeber item area */
+    y += rect.height + COLOR_NPIXELS_TOP + COLOR_NPIXELS_BOTTOM;
+    y += ITEM_INFO_PAD;
+
+    /* draw the other portions of this item */
+    for (m = LGITEM_NAME+1; m < NUM_LGITEMS; m++)
+      if ((1 << m) & mask)
+      {
+        for (p = s = item->info[m]; *p; p++);
+        if (p > s)
+        {
+          /* left hand indent: COLOR_NPIXELS_SIDE */
+          XDrawString
+            (XtDisplay (cw), canvas, cw->legend.gc,
+             x + COLOR_NPIXELS_SIDE, y + item->extents[m].ascent, s, p-s);
+
+          /* advance vertical position */
+          y += item->extents[m].ascent + item->extents[m].descent;
+          y += ITEM_INFO_PAD;
+        }
+      }
+    
+    item->box.width = dims.x;
+    item->box.height = y - item->box.y;
+  }
+return;
+}
+
 
 /* Draw
  *
@@ -839,7 +927,7 @@ XjLegendDeleteItem      (Widget w, LegendItem the_item)
 void
 XjLegendUpdateItem      (Widget         w,
                          LegendItem     the_item,
-                         char           *name,
+                         char           *nameStart,
                          char           *units,
                          char           *range,
                          char           *comment,
@@ -848,6 +936,15 @@ XjLegendUpdateItem      (Widget         w,
   LegendWidget          cw = (LegendWidget)w;
   LegendItemInfo        *item = (LegendItemInfo *)the_item;
   char                  *p, *s;
+
+  static char nameL[128]; /* Albert */
+  char * name= nameStart;
+  memset(nameL,0,128);
+  memset(nameL,' ',40);
+  if(strlen(nameStart)<40) {
+  strncpy(nameL,nameStart,strlen(nameStart));
+  name = (char *) nameL;
+  }
 
   /* copy args */
   p = s = item->info[LGITEM_NAME];
@@ -871,6 +968,57 @@ XjLegendUpdateItem      (Widget         w,
   cw->legend.need_refresh = True;
   XjLegendResize (w);
 }
+
+/* Albert */
+void
+XjLegendValueUpdateItem    (Widget         w,
+                         LegendItem     the_item,
+                         char           *nameStart,
+                         char           *units,
+                         char           *range,
+                         char           *comment,
+                         Pixel          color)
+{
+  LegendWidget          cw = (LegendWidget)w;
+  LegendItemInfo        *item = (LegendItemInfo *)the_item;
+  char                  *p, *s;
+
+  static char nameL[128]; /* Albert */
+  char * name= nameStart;
+  memset(nameL,0,128);
+  memset(nameL,' ',40);
+  if(strlen(nameStart)<40) {
+  strncpy(nameL,nameStart,strlen(nameStart));
+  name = (char *) nameL;
+  }
+
+  /* copy args */
+  p = s = item->info[LGITEM_NAME];
+  if (name) while (*name && ((p-s) < LEGEND_MAX_STRLEN-1)) *p++ = *name++;
+  *p = 0;
+  
+  p = s = item->info[LGITEM_RANGE];
+  if (range) while (*range && ((p-s) < LEGEND_MAX_STRLEN-1)) *p++ = *range++;
+  *p = 0;
+  
+  p = s = item->info[LGITEM_UNITS];
+  if (units) while (*units && ((p-s) < LEGEND_MAX_STRLEN-1)) *p++ = *units++;
+  *p = 0;
+  
+  p = s = item->info[LGITEM_COMMENT];
+  if (comment) while (*comment && ((p-s) < LEGEND_MAX_STRLEN-1))
+    *p++ = *comment++;
+  *p = 0;
+  
+  item->color = color;
+  /*cw->legend.need_refresh = True; perror Albert */
+}
+
+
+/* *************************************************   */
+
+/* *************************************************   */
+
 
 
 void

@@ -7,8 +7,9 @@
  *
  *-----------------------------------------------------------------------------
  */
-
-
+extern long radioBoxAlgorithm; /* Albert */
+extern char **algorithmString;
+extern int algorithmLength;
 #ifdef QUANTIFY_PRECISE
 #  include <quantify.h>
 #endif
@@ -33,12 +34,17 @@
 #include "StripGraph.h"
 #include "StripDefines.h"
 #include "StripMisc.h"
+#include "StripDataSource.h" /* Albert */
 
 #define SG_DUMP_MATRIX_FIELDWIDTH       30
 #define SG_DUMP_MATRIX_NUMWIDTH         20
 #define SG_DUMP_MATRIX_BADVALUESTR      "???"
 #define LEGEND_OFFSET                   5
 
+extern int auto_scaleTriger; /* Albert */
+#ifdef STRIP_HISTORY
+extern int arch_flag ;       /* Albert */
+#endif
 static char     *SGComponentStr[SGCOMP_COUNT] =
 {
   "X-Axis",
@@ -337,7 +343,7 @@ int     StripGraph_setattr      (StripGraph the_sgi, ...)
   int                   ret_val = 1;
   int                   tmp_int;
   XmString              xstr;
-
+char tmp[256], *tmpPt; /* Albert */
   
   va_start (ap, the_sgi);
   for (attrib = va_arg (ap, StripGraphAttribute);
@@ -348,7 +354,20 @@ int     StripGraph_setattr      (StripGraph the_sgi, ...)
       switch (attrib)
       {
           case STRIPGRAPH_HEADING:
-            sgi->title = va_arg (ap, char *);
+#ifdef USE_AAPI/*only under AAPI it's possible choose reduction algorithms*/ 
+	    if((radioBoxAlgorithm >=0) && (radioBoxAlgorithm <algorithmLength))
+	      {
+		tmpPt=va_arg (ap, char *);
+		strcpy(&tmp[0],tmpPt);
+		strcat(tmp," (");
+		strcat(tmp,algorithmString[radioBoxAlgorithm]);
+		strcat(tmp,")");
+		sgi->title=tmp;
+	      }
+	    else 
+#endif /*  USE_AAPI */
+	      sgi->title = va_arg (ap, char *);
+
             xstr = XmStringCreateLocalized (sgi->title? sgi->title : "");
             XtVaSetValues (sgi->title_lbl, XmNlabelString, xstr, 0);
             XmStringFree (xstr);
@@ -677,8 +696,10 @@ void StripGraph_draw    (StripGraph     the_graph,
         sprintf
           (buf,
            sgi->curves[i]->details->scale == STRIPSCALE_LOG_10?
-           "log10 (%g, %g)" : "(%g, %g)",
-           sgi->curves[i]->details->min, sgi->curves[i]->details->max);
+           "log10 (%g, %g)  VAL=%g" : "(%g, %g)  VAL=%g",
+           sgi->curves[i]->details->min, sgi->curves[i]->details->max,
+sgi->curves[i]->get_value(sgi->curves[i]->func_data));
+
         XjLegendUpdateItem
           (sgi->legend,
            sgi->lgitems[i],
@@ -955,6 +976,38 @@ static void StripGraph_plotdata (StripGraphInfo *sgi)
         XSetForeground
           (sgi->display, sgi->gc, curve->details->color->xcolor.pixel);
         XDrawSegments (sgi->display, sgi->plotpix, sgi->gc, segs, n);
+
+#ifdef STRIP_HISTORY
+	if (arch_flag) {
+	  XArc *arcArr;       /* Array of arcs (circle) */
+	  register XArc *arcPtr;
+	  register int i,count;
+	  int s,r;
+	  int numPoints= n;
+	  count=0;
+	  r=2;
+	  s = 2*r;
+	  arcPtr = arcArr;
+	  arcArr = (XArc *) calloc(numPoints, sizeof(XArc));
+	  if (arcArr)
+	    {
+	      arcPtr = arcArr;
+	      for (i = 0; i < numPoints; i++) 
+		{
+		  arcPtr->x = segs[i].x1 -r;
+		  arcPtr->y = segs[i].y1-r;
+		  arcPtr->width = arcArr[count].height = s;
+		  arcPtr->angle1 = 0;
+		  arcPtr->angle2 = 23040;
+		  arcPtr++;
+		  count++;
+		}
+
+	      XDrawArcs(sgi->display,sgi->plotpix,sgi->gc,arcArr,count);
+	      free((char *)arcArr);
+	    }
+	}
+#endif /* STRIP_HISTORY */
         StripGraph_clearstat (sgi, SGSTAT_GRAPH_REFRESH);
       }
     }
@@ -1002,8 +1055,9 @@ int     StripGraph_addcurve     (StripGraph the_sgi, StripCurve curve)
     }
        
     sprintf
-      (buf, "(%g, %g)",
-       sgi->curves[i]->details->min, sgi->curves[i]->details->max);
+      (buf, "(%g, %g) VAL=%g",
+       sgi->curves[i]->details->min, sgi->curves[i]->details->max,
+sgi->curves[i]->get_value(sgi->curves[i]->func_data) );
     sgi->lgitems[i] = XjLegendNewItem
       (sgi->legend,
        sgi->curves[i]->details->name,
@@ -1053,7 +1107,8 @@ int     StripGraph_dumpdata     (StripGraph the_sgi, FILE *f)
 {
   StripGraphInfo        *sgi = (StripGraphInfo *)the_sgi;
   
-  return StripDataSource_dump (sgi->data, f);
+  return StripDataSource_dump (sgi->data, f,the_sgi); /* Albert */
+  /*return StripDataSource_dump (sgi->data, f); */
 }
 
 
@@ -1268,4 +1323,47 @@ static void     x_transform     (void                   *arg,
   register double       db = data->db;
 
   while (--n >= 0) *out++ = (*in++ - t0) / db;
+}
+int 
+StripAuto_min_max (StripDataSource sds, char *sgiP)
+{
+  struct timeval h0,h_end;
+  StripGraphInfo *sgi = (StripGraphInfo *)sgiP; 
+
+  h0=sgi->t0;
+  h_end=sgi->t1;
+return ( StripDataSource_min_max (sds,h0,h_end) );
+}
+
+
+void CurveLegendRefresh(StripCurveInfo *c, StripGraph sg, double a)
+{
+  char buf[256];
+  int i;
+  StripGraphInfo        *sgi = (StripGraphInfo *)sg;
+  LegendWidget cw = (LegendWidget) sgi->legend;
+
+    for (i = 0; i < STRIP_MAX_CURVES; i++)
+      if (sgi->curves[i])
+      {
+	if (strcmp(sgi->curves[i]->details->name,c->details->name)) continue;
+        sprintf
+          (buf,
+           sgi->curves[i]->details->scale == STRIPSCALE_LOG_10?
+           "log10 (%g, %g) VAL=%g" : "(%g, %g) VAL=%g",
+           sgi->curves[i]->details->min, sgi->curves[i]->details->max,
+	   sgi->curves[i]->get_value(sgi->curves[i]->func_data) );
+
+        XjLegendValueUpdateItem
+          (sgi->legend,
+           sgi->lgitems[i],
+           sgi->curves[i]->details->name,
+           buf,
+           strcmp (sgi->curves[i]->details->egu, STRIPDEF_CURVE_EGU)?
+           sgi->curves[i]->details->egu : 0,
+           sgi->curves[i]->details->comment,
+           sgi->curves[i]->details->color->xcolor.pixel);
+      }
+    
+    LegendRefresh(cw);
 }

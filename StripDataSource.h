@@ -107,7 +107,7 @@ int     StripDataSource_removecurve     (StripDataSource, StripCurve);
  *
  *      Tells the buffer to sample the data for all curves it knows about.
  */
-void    StripDataSource_sample  (StripDataSource);
+void    StripDataSource_sample  (StripDataSource, char *); /* Albert */
 
 
 /*
@@ -153,6 +153,7 @@ int     StripDataSource_init_range      (StripDataSource,
  *
  *      Assumes init_range() has already been called.
  */
+#ifndef NO_X11_HERE /* Albert */
 size_t  StripDataSource_render  (StripDataSource,
                                  StripCurve,
                                  sdsTransform,          /* x transform */
@@ -161,13 +162,19 @@ size_t  StripDataSource_render  (StripDataSource,
                                  void *,                /* y transform data */
                                  XSegment **);          /* result */
 
-
+#endif /* Albert */
 /*
  * StripDataSource_dump
  *
  *      Causes all ring buffer data for the current range to be dumped out to
  *      the specified file.
  */
-int     StripDataSource_dump            (StripDataSource, FILE *);
+int     StripDataSource_dump            (StripDataSource, FILE *,char *sgi);/* Albert */
+
+int   Strip_auto_scale     (Strip the_strip);  /* Albert */
+
+int   StripDataSource_removecurveAll(StripDataSource the_sds);
+
+void  StripDataSource_refresh (StripDataSource        the_sds);
 
 #endif

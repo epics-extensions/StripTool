@@ -43,6 +43,8 @@
 #define MAX_WINDOW_MENU_ITEMS   10
 #define MAX_REALNUM_LEN         20
 
+extern int auto_scaleTriger; /* Albert */
+
 typedef enum _sdPage
 {
   SDPAGE_CURVES = 0,
@@ -289,8 +291,10 @@ static char     *getwidgetval_status    (StripDialogInfo *, int);
 static Pixel    getwidgetval_color      (StripDialogInfo *, int);
 static int      getwidgetval_plotstat   (StripDialogInfo *, int);
 static char     *getwidgetval_precision (StripDialogInfo *, int, int *);
+/*
 static char     *getwidgetval_min       (StripDialogInfo *, int, double *);
 static char     *getwidgetval_max       (StripDialogInfo *, int, double *);
+*/
 static int      getwidgetval_scale      (StripDialogInfo *, int);
 
 /*
@@ -2176,10 +2180,11 @@ static char     *getwidgetval_precision (StripDialogInfo        *sd,
 /*
  * getwidgetval_min
  */
-static char     *getwidgetval_min       (StripDialogInfo        *sd,
+/*static */ char     *getwidgetval_min       (char         *sdP,
                                          int                    which,
                                          double                 *val)
 {
+  StripDialogInfo *sd = (StripDialogInfo *) sdP;
   char  *str;
 
   str = XmTextGetString (sd->curve_info[which].min_txt);
@@ -2191,10 +2196,11 @@ static char     *getwidgetval_min       (StripDialogInfo        *sd,
 /*
  * getwidgetval_max
  */
-static char     *getwidgetval_max       (StripDialogInfo        *sd,
+/*static*/ char     *getwidgetval_max       (char        *sdP,
                                          int                    which,
                                          double                 *val)
 {
+  StripDialogInfo *sd = (StripDialogInfo *) sdP;
   char  *str;
 
   str = XmTextGetString (sd->curve_info[which].max_txt);
@@ -2564,8 +2570,8 @@ static void     modify_btn_cb   (Widget w, XtPointer data, XtPointer BOGUS(1))
     else setwidgetval_precision (sd, which, sc->details->precision);
 
     /* make sure that max > min */
-    getwidgetval_min (sd, which, &a);
-    getwidgetval_max (sd, which, &b);
+    getwidgetval_min ((char *)sd, which, &a);
+    getwidgetval_max ((char *)sd, which, &b);
     if (a > b) { tmp = a; a = b; b = tmp; }
 
     if (a < b)
@@ -2893,9 +2899,13 @@ static void     filemenu_cb     (Widget w, XtPointer data, XtPointer BOGUS(1))
 
   /* if a regular save is requested and we already have a filename,
    * we don't have to prompt the user. */
-  if ((which == FSDLG_SAVE) && sd->config->filename)
-    save_config (sd, sd->config->filename, SCFGMASK_ALL);
+  if ((which == FSDLG_SAVE) && sd->config->filename) 
+    {
 
+      if(auto_scaleTriger==1) 
+	Strip_auto_scale(sd->callback[SDCALLBACK_CLEAR].data);
+    save_config (sd, sd->config->filename, SCFGMASK_ALL);
+  }
   else
   {
     sd->fs.state = (FsDlgState)data;
@@ -2932,6 +2942,7 @@ static void     helpmenu_cb     (Widget w, XtPointer data, XtPointer BOGUS(1))
      "linked with: %s\n"
      "Author: Christopher Larrieu, Jefferson Lab\n"
      "based on work by Janet Anderson, APS\n",
+     "support at DESY Albert Kagarmanov DESY_AAPIvers=1.35(10Jun2002)\n",
      strip_name(), strip_version(), strip_lib_version());
 }
 
@@ -3009,8 +3020,18 @@ static void     fsdlg_cb        (Widget w, XtPointer data, XtPointer call)
 
         /* do save or load */
         if (sd->fs.state == FSDLG_LOAD)
+	  {
+sd->callback[SDCALLBACK_CLEAR].func(sd->callback[SDCALLBACK_CLEAR].data,NULL);
           load_config (sd, fname, sd->fs.mask);
-        else save_config (sd, fname, sd->fs.mask);
+Strip_refresh(sd->callback[SDCALLBACK_CLEAR].data); /* perror Albert */
+/*GraphLoadRefresh(sd->callback[SDCALLBACK_CLEAR].data);*/
+	  }
+        else
+	  {
+	    if(auto_scaleTriger==1) 
+	      Strip_auto_scale(sd->callback[SDCALLBACK_CLEAR].data);
+	    save_config (sd, fname, sd->fs.mask);
+	  }
       }
 }
 
@@ -3233,3 +3254,12 @@ static void     load_config     (StripDialogInfo        *sd,
        "Unable to open file for reading.\nname: %s\nerror: %s",
        fname, strerror (errno));
 }
+
+
+int countCurve(void *the_dialog)  /* Albert */
+{
+StripDialogInfo *sd = (StripDialogInfo *)the_dialog;
+return(sd->sdcurve_count);
+}
+
+

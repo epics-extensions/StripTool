@@ -1,20 +1,57 @@
+#******* ADD for Archive record support Albert ****************
+# STRIP_HISTORY is StripHistoryAR+ArR.c StripHistoryLANL.cc StripHistoryNULL.c 
+# ARCHIVER_CALL (CAR,AAPI,NONE)
+# USE_ARCHIVE_RECORD
+#       if IOCs support Archive record (History cashe at IOC)
+#	more recent archive data coming from IOC more older data
+#	comming from Unix Archiver
+# 
+#first you have to choose STRIP_HISTORY:
+#StripHistoryNULL.c ---- no history at all.
+#StripHistoryLANL.cc --- Kay Kazemir (summer 2000) (not so strong) codes
+#StripHistoryAR+ArR.c -- More robust :) (current version from DESY) 
+#
+#Second 2 variables working only with StripHistoryAR+ArR.c
+# ARCHIVER_CALL 2 nontrivial situations:
+# a) CAR -- local request for all history data without any reductions
+#           good enough but please note that data for one hour can have 1000000 points!
+# b) AAPI -- network request with data reductions (average, sharp,raw,splines) 
+#         -- better than local, but need to start AAPI-server. 
+# c) NONE no history if noUSE_ARCHIVE_RECORD , short history otherwise
+#
+# USE_ARCHIVE_RECORD if you choose YES more recent archive data will comming from 
+#                    IOC-cashe.
+# 
+
+STRIP_HISTORY      = StripHistoryAR+ArR.c
+ARCHIVER_CALL      = NONE
+USE_ARCHIVE_RECORD = NO
+
 # Makefile.Host
-TOP = ../../..
-include $(TOP)/config/CONFIG_EXTENSIONS
+#TOP = ../../..
+#include $(TOP)/config/CONFIG_APP
+EPICS 	= ../../../..
+TOP 	= $(EPICS)/base
+include $(TOP)/config/CONFIG_BASE
+HAVE_XPM	= YES
+HAVE_XMU	= YES
+
+
+X11_INC	:= /usr/X11R6/include
+MOTIF_INC	:= /usr/X11R6/include
+X11_LIB	:= /usr/X11R6/lib
+MOTIF_LIB	:= /usr/X11R6/lib
+XMU_INC	:= /usr/include/X11  
+XMU_LIB	:= /usr/X11R6/lib
 
 # ==========================================================================
 # Options
 # ==========================================================================
 CMPLR 		= STRICT
-HOST_OPT	= NO
+HOST_OPT	= YES
 STRIP_DAQ	= StripCA.c
-STRIP_HISTORY	= StripHistoryNULL.c
+#STRIP_HISTORY	= StripHistoryNULL.c
 USE_CLUES	= YES
-
-ifeq ($(STRIP_HISTORY),StripHistoryLANL.cc)
-  HISTORY_API	= CAR
-  THREADED	= YES
-endif
 
 ifeq ($(STRIP_DAQ),StripCDEV.cc)
   USE_CDEV	= YES
@@ -24,12 +61,12 @@ endif
 # ==========================================================================
 # Sources
 # ==========================================================================
+SRCS		+= $(STRIP_HISTORY)
 SRCS		+= StripConfig.c
 SRCS		+= StripCurve.c
 SRCS		+= Strip.c
 SRCS		+= StripDialog.c
 SRCS		+= StripDataSource.c
-SRCS		+= $(STRIP_HISTORY)
 SRCS		+= StripGraph.c
 SRCS		+= StripMisc.c
 SRCS		+= cColorManager.c
@@ -57,6 +94,31 @@ else
 endif
 SRCS		+= $(MAIN)
 
+ifeq ($(STRIP_HISTORY), StripHistoryAR+ArR.c)
+  SRCS		+= getHistory.c
+  ifeq ($(USE_ARCHIVE_RECORD), YES)
+	USR_CFLAGS	+= -DSTRIP_HISTORY	
+	SRCS		+= getArchiveRecord.c
+        USR_CFLAGS      += -DUSE_ARCHIVE_RECORD
+  endif	
+  ifeq ($(ARCHIVER_CALL), CAR)
+	USR_CFLAGS	+= -DUSE_CAR
+	HISTORY_API	= CAR
+        USR_CFLAGS	+= -DSTRIP_HISTORY
+	SRCS		+= StripHistoryLANLmodif.cc
+  endif	
+  ifeq ($(ARCHIVER_CALL), AAPI)
+	SRCS		+= get_AAPI_data.c
+	USR_CFLAGS	+= -DSTRIP_HISTORY
+	USR_CFLAGS	+= -DUSE_AAPI
+        USR_LDLIBS      +=  -lAAPI_client  -lAAPI_common
+  endif
+  ifeq ($(ARCHIVER_CALL), NONE)
+	USR_CFLAGS	+= -DNO_ARCHIVER_CALL
+  endif		
+  USR_CPPFLAGS          += -I$(EPICS)/extensions/include
+  USR_LDFLAGS           += -L$(EPICS)/extensions/lib/$(T_A)
+endif
 
 # ==========================================================================
 # Preprocessor Flags
@@ -64,12 +126,13 @@ SRCS		+= $(MAIN)
 ifneq ($(STRIP_CONFIGFILE_DIR),)
   USR_CPPFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=$(STRIP_CONFIGFILE_DIR)
 else
-  USR_CPPFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
+  USR_CPPFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/applic/stripTool\"
 endif
 
 USR_CPPFLAGS 	+= -DUSE_MOTIF
 USR_CPPFLAGS	+= -I$(MOTIF_INC)
 USR_CPPFLAGS	+= -I$(X11_INC)
+#USR_CPPFLAGS	+= -DDESY_PRINT # use xwpick instead of xwd 
 
 ifeq ($(USE_CLUES), YES)
   USR_CPPFLAGS	+= -DUSE_CLUES
@@ -84,7 +147,8 @@ ifeq ($(HAVE_XMU), YES)
 endif
 
 ifeq ($(HISTORY_API), CAR)
-  USR_CPPFLAGS		+= -I$(CAR_DIR)/include
+#  USR_CPPFLAGS		+= -I$(CAR_DIR)/include
+USR_CPPFLAGS		+= -I$(EPICS)/extensions/include 
   USR_CPPFLAGS		+= -I$(EPICS)/base/src/ca/
   ifeq ($(CCC), aCC)
     USR_CXXFLAGS	+= -I$(CAR_DIR)/include/hp
@@ -109,19 +173,24 @@ endif
 # Libraries
 # ==========================================================================
 ifeq ($(HISTORY_API), CAR)
-  PROD_LIBS	+= ChanArchIO Tools
+#  PROD_LIBS	+= ChanArchIO Tools
+  USR_LIBS	+=    ChanArchIO Tools ca Com pthread posix4
+  USR_LDFLAGS   +=  -L$(EPICS)/extensions/lib/$(T_A)
 endif
 
 ifeq ($(HAVE_XMU), YES)
-  PROD_LIBS	+= Xmu
+#  PROD_LIBS	+= Xmu
+  USR_LIBS	+= Xmu
+USR_LDFLAGS   +=  -L$(XMU_LIB)
 endif
 
 ifeq ($(HAVE_XPM), YES)
-  PROD_LIBS	+= Xpm
+#  PROD_LIBS	+= Xpm
+  USR_LIBS	+= Xpm
 endif
 
-PROD_LIBS	+= Xm Xt X11
-
+#PROD_LIBS	+= Xm Xt X11
+USR_LIBS	+= Xm Xt X11
 ifeq ($(MOTIF_VERSION),2)
   PROD_LIBS	+= Xext Xp
 endif

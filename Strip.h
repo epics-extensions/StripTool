@@ -14,7 +14,9 @@
 
 #include "StripDefines.h"
 #include "StripMisc.h"
+#ifndef NO_X11_HERE /* Albert */
 #include "StripConfig.h"
+#endif /* Albert */
 #include "StripCurve.h"
 
 
@@ -101,6 +103,7 @@ void    Strip_freesomecurves    (Strip, StripCurve[]);
  *      handler with the given data when activity occurs on the file
  *      descriptor.
  */
+#ifndef NO_X11_HERE /* Albert */
 int     Strip_addfd     (Strip,
                          int,                   /* file descriptor */
                          XtInputCallbackProc,   /* callback function */
@@ -118,7 +121,7 @@ XtIntervalId    Strip_addtimeout        (Strip,
                                          XtTimerCallbackProc,   /* function */
                                          XtPointer);            /* data */
 
-
+#endif /* Albert */
 /*
  * Strip_clearfd
  *

@@ -1,20 +1,4 @@
-//######################################################################################
-//Copyright 1999. The Regents of the University of California.
-//This software was produced under U.S. Government contract W-7405-ENG-36
-//for Los Alamos National Laboratory, which is operated by the University of California
-//for the U.S. Department of Energy.
-//The Government is granted for itself and others acting on its behalf a paid-up,
-//nonexclusive irrevocable worldwide license in this software to reproduce,
-//prepare derivative works, and perform publicly and display publicly.
-//NEITHER THE UNITED STATES NOR THE UNITED STATES DEPARTMENT OF ENERGY,
-//NOR THE UNIVERSITY OF CALIFORNIA, NOR ANY OF THEIR EMPLOYEES,
-//MAKES ANY WARRANTY, EXPRESS OR IMPLIED,
-//OR ASSUMES ANY LEGAL LIABILITY OR RESPONSIBILITY FOR THE ACCURACY,
-//COMPLETENESS, OR USEFULNESS OF ANY INFORMATION, APPARATUS,
-//PRODUCT OR PROCESS DISCLOSED,
-//OR REPRESENTS THAT ITS USE WOULD NOT INFRINGE PRIVATELY OWNED RIGHTS.          
-//######################################################################################
-
+#define NO_X11_HERE /* Albert */
 extern "C" {
 #include "StripHistory.h"
 #include "StripDataSource.h"
@@ -30,10 +14,11 @@ extern "C" {
 
 #define ARCHIVE_NAME_ENVIRONMENT_VAR "STRIP_ARCHIVE"
 #define ARCHIVE_REQUEST_ENVIRONMENT_VAR "STRIP_VERBOSE"
-USING_NAMESPACE_CHANARCH
+/*USING_NAMESPACE_CHANARCH
 #ifdef USE_NAMESPACE_STD
   using namespace std;
 #endif
+*/
 
 // AccessChanArch does the actual data acquisition from the archiver
 int AccessChanArch(ArchiveI *, 
@@ -145,6 +130,13 @@ extern "C" FetchStatus     StripHistory_fetch      (StripHistory           the_s
 
   no_of_points = AccessChanArch(shi->archiveI, name, t0, t1, data, status, times, samples);
 
+  if(VERBOSE == true)
+    {  
+      cout << "Requested Channel: " << name << " " << t0 << " - " << t1
+	   << "NoP= (" << no_of_points << ")\n";
+    }
+  
+  
   /* remember the request range */
   result->t0 = *begin;
   result->t1 = *end;
@@ -267,7 +259,7 @@ int AccessChanArch(ArchiveI *archiveI, const stdString &channel_name, const osiT
   
   return ++i;
 }
-
+#undef NO_X11_HERE /* Albert */
 
 
 

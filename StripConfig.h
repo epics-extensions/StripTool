@@ -12,18 +12,27 @@
 #ifndef _StripConfig
 #define _StripConfig
 
+#ifndef NO_X11_HERE /* Albert */ 
 #include <X11/Xlib.h>
 #include <X11/Intrinsic.h>
+#endif /* Albert */ 
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <limits.h>
+
+#ifndef NO_X11_HERE /* Albert */
 #include <float.h>
+#endif /* Albert */ 
+
 #include <unistd.h>
 #include <pwd.h>
 
 #include "StripDefines.h"
 #include "StripMisc.h"
+#ifndef NO_X11_HERE /* Albert */ 
 #include "cColorManager.h"
+#endif /* Albert */ 
 
 extern char *untitled_;
 
@@ -81,7 +90,7 @@ StripGridVisibility;
 /* ====== Min/Max values for all attributes requiring range checking ====== */
 #define STRIPMIN_TIME_TIMESPAN          1
 #define STRIPMAX_TIME_TIMESPAN          UINT_MAX
-#define STRIPMIN_TIME_NUM_SAMPLES       600
+#define STRIPMIN_TIME_NUM_SAMPLES       7200
 #define STRIPMAX_TIME_NUM_SAMPLES       65536
 #define STRIPMIN_TIME_SAMPLE_INTERVAL   0.01
 #define STRIPMAX_TIME_SAMPLE_INTERVAL   DBL_MAX
@@ -299,6 +308,7 @@ extern StripConfigMask  SCFGMASK_ALL;
 /* ======= Data Types ======= */
 typedef void    (*StripConfigUpdateFunc) (StripConfigMask, void *);
   
+#ifndef NO_X11_HERE /* Albert */ 
 typedef struct _StripCurveDetail
 {
   char                  name[STRIP_MAX_NAME_CHAR+1];
@@ -363,7 +373,7 @@ typedef struct _StripConfig
 }
 StripConfig;
 
-
+#endif /* Albert */ 
 /*
  * StripConfig_preinit
  *
@@ -381,6 +391,7 @@ void    StripConfig_preinit     (void);
  *      stdio stream, if it's not null.  See StripConfig_load() below for
  *      specifics on how the file is read.
  */
+#ifndef NO_X11_HERE /* Albert */ 
 StripConfig     *StripConfig_init       (cColorManager,
                                          XVisualInfo *,
                                          FILE *,
@@ -461,5 +472,5 @@ void    StripConfig_update      (StripConfig *, StripConfigMask);
  *      to defaults.
  */
 void    StripConfig_reset_details       (StripConfig *, StripCurveDetail *);
-
+#endif /* Albert */
 #endif
