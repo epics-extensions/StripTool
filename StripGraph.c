@@ -1248,24 +1248,12 @@ static void     y_transform     (void                   *arg,
   register double       height = sgi->window_rect.height;
   register double       delta;
 
-  /* is this the curve whose values the axis describes? */
-  if (cv == sgi->selected_curve)
+  /* transform the points, then translate to graph coordinates */
+  jlaTransformValuesRasterized (data->xform, in, out, n);
+  while (--n >= 0)
   {
-    /* transform the points via the axis, then translate to
-     * graph coordinates */
-    jlaTransformValuesRasterized (data->xform, in, out, n);
-    while (--n >= 0) {
-      *out = height - 1 - *out;
-      out++;
-    }
-  }
-
-  /* must not be */
-  else
-  {
-    delta = cv->details->max - cv->details->min;
-    while (--n >= 0)
-      *out++ = (height - 1) * (1 - ((*in++ - cv->details->min) / delta));
+    *out = height - 1 - *out;
+    out++;
   }
 }
 

@@ -31,7 +31,7 @@ static int      request_disconnect      (StripCurve, void *);
 
 static double   get_cpu_usage           (void *);
 
-int main (int argc, char *argv[])
+int StripTool_main (int argc, char *argv[])
 {
   int           status;
   FILE          *f;

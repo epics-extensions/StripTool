@@ -76,11 +76,25 @@ extern unsigned char    Strip_x_error_code;
 void    StripMisc_init  (Display *, int);       /* display, screen */
 
 
+/* strip_name
+ *
+ *      Returns a string describing the application.
+ */
+char    *strip_name  (void);
+
+
 /* strip_version
  *
- *      Returns a string describing the current version.
+ *      Returns a string describing the current version
  */
 char    *strip_version  (void);
+
+
+/* strip_lib_version
+ *
+ *      Returns a string describing the linked version of system libraries
+ */
+char    *strip_lib_version  (void);
 
 
 /* ====== Various Time Functions ====== */

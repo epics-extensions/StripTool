@@ -8,7 +8,10 @@
  *-----------------------------------------------------------------------------
  */
 
+extern "C" {
 #include "StripDAQ.h"
+}
+
 #include <cdevSystem.h>
 #include <cdevRequestObject.h>
 #include <cdevCallback.h>
@@ -77,7 +80,7 @@ static double   get_value       (void *);
 /*
  * StripDAQ_initialize
  */
-StripDAQ        StripDAQ_initialize     (Strip strip)
+extern "C" StripDAQ        StripDAQ_initialize     (Strip strip)
 {
   cdevSystem    &system = cdevSystem::defaultSystem();
   StripDAQInfo  *scd = NULL;
@@ -123,7 +126,7 @@ StripDAQ        StripDAQ_initialize     (Strip strip)
 /*
  * StripDAQ_terminate
  */
-void    StripDAQ_terminate      (StripDAQ the_scd)
+extern "C" void    StripDAQ_terminate      (StripDAQ the_scd)
 {
   StripDAQInfo  *scd = (StripDAQInfo *)the_scd;
   int           i;
@@ -140,7 +143,7 @@ void    StripDAQ_terminate      (StripDAQ the_scd)
 /*
  * StripDAQ_request_connect
  */
-int     StripDAQ_request_connect        (StripCurve curve, void *the_scd)
+extern "C" int     StripDAQ_request_connect        (StripCurve curve, void *the_scd)
 {
   StripDAQInfo          *scd = (StripDAQInfo *)the_scd;
   DeviceData            *dd;
@@ -204,7 +207,7 @@ int     StripDAQ_request_connect        (StripCurve curve, void *the_scd)
 /*
  * StripDAQ_request_disconnect
  */
-int     StripDAQ_request_disconnect     (StripCurve curve, void *)
+extern "C" int     StripDAQ_request_disconnect     (StripCurve curve, void *)
 {
   DeviceData            *dd;
   cdevSystem            &system = cdevSystem::defaultSystem();
@@ -215,8 +218,8 @@ int     StripDAQ_request_disconnect     (StripCurve curve, void *)
 
   dd = (DeviceData *)StripCurve_getattr_val (curve, STRIPCURVE_FUNCDATA);
 
-  /* this will happen if a non-CA curve is submitted for disconnect */
-  if (!cd) return 1;
+  /* this will happen if a non-CDEV curve is submitted for disconnect */
+  if (!dd) return 1;
 
   if (dd->cb != 0)
   {
@@ -352,7 +355,7 @@ static void     data_callback   (int                    status,
         
       /* make sure that the diplay range will include the current value */
       p = *(int *)StripCurve_getattr_val (curve, STRIPCURVE_PRECISION);
-      while ((hi - lo) < (1.0 / pow (10, p)))
+      while ((hi - lo) < (1.0 / (double)pow ((double)10, p)))
       {
         hi *= 10.0;
         lo /= 10.0;

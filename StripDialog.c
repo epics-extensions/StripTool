@@ -2928,10 +2928,11 @@ static void     helpmenu_cb     (Widget w, XtPointer data, XtPointer BOGUS(1))
   XtVaGetValues (w, XmNuserData, &sd, NULL);
   MessageBox_popup
     (sd->shell, &sd->message_box, XmDIALOG_INFORMATION, "About", "Ok",
-     "StripTool v%s\n"
+     "%s v%s\n"
+     "linked with: %s\n"
      "Author: Christopher Larrieu, Jefferson Lab\n"
      "based on work by Janet Anderson, APS\n",
-     strip_version());
+     strip_name(), strip_version(), strip_lib_version());
 }
 
 
