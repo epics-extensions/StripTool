@@ -676,6 +676,7 @@ void            ColorDialog_popup       (ColorDialog    the_cd,
   /* set the frame title */
   str = XmStringCreateLocalized (title);
   XtVaSetValues (cd->lbl, XmNlabelString, str, NULL);
+  XmStringFree (str);
 
   
   /* build palette, if not already built */

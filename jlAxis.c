@@ -1072,18 +1072,18 @@ Draw            (AxisWidget cw, Drawable canvas)
   XSegment      segs[2*AXIS_MAX_TICS+1];
   XPoint        *box;
   int           n_segs;
-  short         x_mult_tics, y_mult_tics;
-  short         x_mult_line, y_mult_line;
-  int           x_text_units, y_text_units;
+  short         x_mult_tics = 0, y_mult_tics = 0;
+  short         x_mult_line = 0, y_mult_line = 0;
+  int           x_text_units = 0, y_text_units = 0;
   int           x_text_labels, y_text_labels;
   int           x_adjust, y_adjust;
   int           x_min, x_max;
   int           y_min, y_max;
-  int           align_labels, align_units;
-  float         angle_units;
+  int           align_labels = 0, align_units = 0;
+  float         angle_units = 0.0;
   int           i, j;
   int           z;
-  int           length;
+  int           length = 0;
 
   /* clear the drawable */
   XFillRectangle
@@ -1758,7 +1758,7 @@ find_good_linear_tics   (AxisWidget     cw,
 {
   double        *m = TicDivisorValues;
   int           n[NumTicDivisors];              /* num tics for ith divisor */
-  double        m_minor, m_major;               /* best divisor */
+  double        m_minor = 0.0, m_major = 0.0;   /* best divisor */
   int           n_minor, n_major;               /* num tics for best div. */
   double        p, q;                           /* exponent, magnitude */
   double        a, b;
@@ -1848,7 +1848,7 @@ find_good_log_tics      (AxisWidget     cw,
 {
   double        *m = TicDivisorValues;
   int           n[NumTicDivisors];              /* num tics for ith divisor */
-  double        m_minor, m_major;               /* best divisor */
+  double        m_minor = 0.0, m_major = 0.0;   /* best divisor */
   int           n_minor, n_major;               /* num tics for best div. */
   double        p, q;                           /* exponent, magnitude */
   double        a, b;

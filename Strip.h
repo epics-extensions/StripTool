@@ -239,8 +239,10 @@ int     Strip_writeconfig       (Strip, FILE *, StripConfigMask, char *);
 int     Strip_readconfig        (Strip, FILE *, StripConfigMask, char *);
 
 /* Should put descriptions here as for others */
-void    Strip_refresh     (Strip the_strip);
-int     Strip_auto_scale     (Strip the_strip);
+void    Strip_refresh  (Strip the_strip);
+int     Strip_auto_scale (Strip the_strip);
+void    Strip_handlexerrors (void);  
+void    Strip_ignorexerrors (void);  
 
 /*
  * callBrowser

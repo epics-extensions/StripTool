@@ -60,7 +60,8 @@
  *      to which the generated line segments must be attached.
  */     
 
-#define DEBUG1 0  
+#define DEBUG1 0
+#define DEBUG_SDS_TIMES 0
 
 #ifdef USE_SDDS
 #include "SDDS.h"
@@ -132,37 +133,37 @@ typedef enum _SegmentifyDirection
 SegmentifyDirection;
 
 static size_t   segmentify      (StripDataSourceInfo *,
-                                 RenderBuffer *,
-                                 SegmentifyDirection,
-                                 TimeBuffer *,
-                                 ValueBuffer *,
-                                 StatusBuffer *,
-                                 int,
-                                 struct timeval *,
-                                 DataPoint *,
-                                 DataPoint *,
-                                 DataPoint *,
-                                 DataPoint *,
-                                 sdsTransform,
-                                 void *,
-                                 sdsTransform,
-                                 void *);
+  RenderBuffer *,
+  SegmentifyDirection,
+  TimeBuffer *,
+  ValueBuffer *,
+  StatusBuffer *,
+  int,
+  struct timeval *,
+  DataPoint *,
+  DataPoint *,
+  DataPoint *,
+  DataPoint *,
+  sdsTransform,
+  void *,
+  sdsTransform,
+  void *);
 
 static int      resize          (StripDataSourceInfo    *sds,
-                                 size_t                 buf_size);
+  size_t                 buf_size);
 
 
 
 static long     find_date_idx   (struct timeval         *t,
-                                 struct timeval         *times,
-                                 size_t                 n_times,
-                                 size_t                 max_times,
-                                 size_t                 idx_latest,
-                                 int                    mode);
+  struct timeval         *times,
+  size_t                 n_times,
+  size_t                 max_times,
+  size_t                 idx_latest,
+  int                    mode);
 
 static int      pack_array      (void **, size_t,
-                                 int, int, int,
-                                 int, int *, int *);
+  int, int, int,
+  int, int *, int *);
 
 static int      verify_render_buffer    (RenderBuffer   *, int);
 
@@ -178,6 +179,9 @@ StripDataSource_init    (StripHistory history)
   StripDataSourceInfo   *sds;
 
   /* allocate and zero the DataSource structure */
+#if DEBUG_SDS_TIMES
+  printf("StripDataSource_init: malloc StripDataSourceInfo\n");
+#endif
   if ((sds = (StripDataSourceInfo *)malloc (sizeof(StripDataSourceInfo))))
   {
     sds->history        = history;
@@ -242,10 +246,18 @@ StripDataSource_setattr (StripDataSource the_sds, ...)
     if ((ret_val = ((attrib > 0) && (attrib < SDS_LAST_ATTRIBUTE))))
       switch (attrib)
       {
-          case SDS_NUMSAMPLES:
-            tmp = va_arg (ap, size_t);
-            if (tmp > sds->buf_size) resize (sds, tmp);
-            break;
+	case SDS_NUMSAMPLES:
+	  tmp = va_arg (ap, size_t);
+#if DEBUG_SDS_TIMES
+	  printf("StripDataSource_setattr: tmp=%u buf_size=%u resize=%s\n",
+	    tmp,sds->buf_size,tmp>sds->buf_size?"True":"False");
+#endif
+	  if (tmp > sds->buf_size) resize (sds, tmp);
+#if DEBUG_SDS_TIMES
+	  printf("StripDataSource_setattr: After resize buf_size=%u\n",
+	    sds->buf_size);
+#endif
+	  break;
       }
   }
 
@@ -275,9 +287,9 @@ StripDataSource_getattr (StripDataSource the_sds, ...)
     if ((ret_val = ((attrib > 0) && (attrib < SDS_LAST_ATTRIBUTE))))
       switch (attrib)
       {
-          case SDS_NUMSAMPLES:
-            *(va_arg (ap, size_t *)) = sds->buf_size;
-            break;
+	case SDS_NUMSAMPLES:
+	  *(va_arg (ap, size_t *)) = sds->buf_size;
+	  break;
       }
   }
 
@@ -292,7 +304,7 @@ StripDataSource_getattr (StripDataSource the_sds, ...)
  */
 int
 StripDataSource_addcurve        (StripDataSource        the_sds,
-                                 StripCurve             the_curve)
+  StripCurve             the_curve)
 {
   StripDataSourceInfo   *sds = (StripDataSourceInfo *)the_sds;
   int                   i;
@@ -329,57 +341,57 @@ StripDataSource_addcurve        (StripDataSource        the_sds,
   return ret;
 }
 #if 0
-      if(sds->cur_idx > 1) {
-	CurveData *cd = CURVE_DATA(the_curve);
-	struct timeval h0, h_end;
-	int n,m,k; 
-	int status;
+if(sds->cur_idx > 1) {
+  CurveData *cd = CURVE_DATA(the_curve);
+  struct timeval h0, h_end;
+  int n,m,k; 
+  int status;
 
-	h_end=sds->times[sds->cur_idx];
-	for (m=0;m<sds->cur_idx; m++) {
-	  if ( sds->times[m].tv_sec != 0 ) { 
-	    h0=sds->times[m];
-	    break;
-	  }
-	}
-	printf("m=%d cur_idx=%d\n",m,sds->cur_idx );
-	if (m < sds->cur_idx)
-	  { 
+  h_end=sds->times[sds->cur_idx];
+  for (m=0;m<sds->cur_idx; m++) {
+    if ( sds->times[m].tv_sec != 0 ) { 
+	h0=sds->times[m];
+	break;
+    }
+  }
+  printf("m=%d cur_idx=%d\n",m,sds->cur_idx );
+  if (m < sds->cur_idx)
+  { 
 		    
-	    printf("sds->cur_idx=%ld\n",sds->cur_idx);
-	    k=0;
-	    do 
-	      {
-		k++;
-		status = StripHistory_fetch
-		  (sds->history, cd->curve->details->name, &h0, &h_end,
-		   &cd->history, 0, 0);
-		printf("%d %d %s:cd->history.n_points=%d\n",
-		       k,status,cd->curve->details->name,cd->history.n_points);
+    printf("sds->cur_idx=%ld\n",sds->cur_idx);
+    k=0;
+    do 
+    {
+	k++;
+	status = StripHistory_fetch
+	  (sds->history, cd->curve->details->name, &h0, &h_end,
+	    &cd->history, 0, 0);
+	printf("%d %d %s:cd->history.n_points=%d\n",
+	  k,status,cd->curve->details->name,cd->history.n_points);
 		
-	      } 
-	    while ( (cd->history.n_points == 0 ) && ( k < 2)  ) ;
+    } 
+    while ( (cd->history.n_points == 0 ) && ( k < 2)  ) ;
  
-	    if(cd->history.n_points > 0) {
-	      for(n=0;n<cd->history.n_points;n++)
-		printf("%s",ctime(&cd->history.times[n].tv_sec));
-		  }   
+    if(cd->history.n_points > 0) {
+	for(n=0;n<cd->history.n_points;n++)
+	  printf("%s",ctime(&cd->history.times[n].tv_sec));
+    }   
 
-	    /* History problem  */
+    /* History problem  */
 	    
-	  }
-	else printf(" only zerro time\n");
-      }
+  }
+  else printf(" only zerro time\n");
+}
 #endif
 
 void  StripDataSource_refresh (StripDataSource        the_sds)
 {
-StripDataSourceInfo   *sds = (StripDataSourceInfo *)the_sds;
-int i;
+  StripDataSourceInfo   *sds = (StripDataSourceInfo *)the_sds;
+  int i;
 
 /* Albert */
- for(i=0;i<STRIP_MAX_CURVES;i++)
-   sds->buffers[i].history.fetch_stat = FETCH_IDLE;
+  for(i=0;i<STRIP_MAX_CURVES;i++)
+    sds->buffers[i].history.fetch_stat = FETCH_IDLE;
 }
 
 
@@ -413,9 +425,9 @@ StripDataSource_min_max (StripDataSourceInfo *sds,struct timeval h0, struct time
       some_data = 0;
 
       first=find_date_idx
-	(&h0, sds->times, sds->count, sds->buf_size, sds->cur_idx, SDS_GTE);
+	  (&h0, sds->times, sds->count, sds->buf_size, sds->cur_idx, SDS_GTE);
       last=find_date_idx
-	(&h_end, sds->times, sds->count, sds->buf_size, sds->cur_idx, SDS_LTE);
+	  (&h_end, sds->times, sds->count, sds->buf_size, sds->cur_idx, SDS_LTE);
 
       if ((first > -1) && (last > -1) )
 	{
@@ -424,72 +436,72 @@ StripDataSource_min_max (StripDataSourceInfo *sds,struct timeval h0, struct time
 	  max=cd->val[first];
 	  if (first<=last)
 	    for(i=first;i<= last; i++) 
-	      {
+	    {
 		if(cd->val[i]<min) min=cd->val[i]; 
 		if(cd->val[i]>max) max=cd->val[i]; 
-	      }
+	    }
 	  else
 	    for(i=first;i<= last; i--) /* perror Albert problem */
-	      {
+	    {
 		printf("\n\n!!!!%f;\n",cd->val[i]); 
 		if(cd->val[i]<min) min=cd->val[i]; 
 		if(cd->val[i]>max) max=cd->val[i]; 
-	      }
+	    }
 	}
 #ifdef STRIP_HISTORY
 	if(!cursor) cursor = XCreateFontCursor(XtDisplay(history_topShell),XC_watch);
 	XDefineCursor(XtDisplay(history_topShell),
-		      XtWindow(history_topShell), cursor);
+	  XtWindow(history_topShell), cursor);
 	XFlush(XtDisplay(history_topShell));
 
       StripHistory_fetch
-	(sds->history, cd->curve->details->name, &h0, &h_end,
-	 &cd->history, 0, 0);
+	  (sds->history, cd->curve->details->name, &h0, &h_end,
+	    &cd->history, 0, 0);
 
 	XUndefineCursor(XtDisplay(history_topShell),
-		      XtWindow(history_topShell));
+	  XtWindow(history_topShell));
 
-        if((cd->history.n_points>0)&&(cd->history.fetch_stat==FETCH_DONE))
+	if((cd->history.n_points>0)&&(cd->history.fetch_stat==FETCH_DONE))
 	{
 	  first = find_date_idx
 	    (&h0, cd->history.times, cd->history.n_points,
-	     cd->history.n_points, cd->history.n_points - 1, SDS_GTE);
+		cd->history.n_points, cd->history.n_points - 1, SDS_GTE);
 	  last = find_date_idx
 	    (&h_end, cd->history.times, cd->history.n_points,
-	     cd->history.n_points, cd->history.n_points - 1, SDS_LTE);
+		cd->history.n_points, cd->history.n_points - 1, SDS_LTE);
 	  
 	  if ((first > -1) && (last > -1) && (first<=last ) )
+	  {
+	    if (some_data == 0) 
 	    {
-	      if (some_data == 0) 
-		{
-		  min=cd->history.data[first];
-		  max=cd->history.data[first];
-		  some_data =1;
-		}
-	      for(i=first;i<= last; i++)  
-		{
-		  if (cd->history.data[i]< min) min=cd->history.data[i]; 
-		  if (cd->history.data[i]> max) max=cd->history.data[i]; 
-		}
+		min=cd->history.data[first];
+		max=cd->history.data[first];
+		some_data =1;
 	    }
+	    for(i=first;i<= last; i++)  
+	    {
+		if (cd->history.data[i]< min) min=cd->history.data[i]; 
+		if (cd->history.data[i]> max) max=cd->history.data[i]; 
+	    }
+	  }
 	}
 
 #endif /* STRIP_HISTORY */
 
       if ((min <  max) && (some_data) )
 	{
-	if((c->details->min != min)||(c->details->max != max)) 
+	  if((c->details->min != min)||(c->details->max != max)) 
 	  {
 	    need_refresh=1;
 	    width = max-min;
 	    c->details->max= max + (double) (width/100.0);
 	    c->details->min= min - (double) (width/100.0);
-          }
+	  }
 	}
 
       else if ((min == max)&& (some_data) )
 	{
-	if( !((c->details->min < min)&& (c->details->max > min)) && 
+	  if( !((c->details->min < min)&& (c->details->max > min)) && 
 	    (c->details->max - c->details->min > 0 ) )
 	  {
 	    /* constant-curve is unvisible - put it in visible area
@@ -553,6 +565,9 @@ StripDataSource_removecurve     (StripDataSource the_sds, StripCurve the_curve)
 
   return ret_val;
 }
+
+#if 0
+/* KE: This is not used */
 /*
  * StripDataSource_removecurveAll
  * for final clean all garbage at data-buffer  Albert
@@ -564,6 +579,13 @@ StripDataSource_removecurveAll(StripDataSource the_sds)
 {
   StripDataSourceInfo   *sds = (StripDataSourceInfo *)the_sds;
   int                   ret_val = 1;
+
+#if DEBUG_SDS_TIMES
+  /* KE: Expect you should free things before setting the pointers to
+     zero, e.g. sds->times */
+  printf("StripDataSource_removecurveAll: times=%x\n",sds->times);
+#endif  
+  
   /*sds->history        = NULL; Albert*/
   sds->buf_size       = 0;
   sds->cur_idx        = 0;
@@ -579,6 +601,7 @@ StripDataSource_removecurveAll(StripDataSource the_sds)
   
   return ret_val;
 }
+#endif
 
 /*
  * StripDataSource_sample
@@ -657,10 +680,10 @@ StripDataSource_sample  (StripDataSource the_sds, char *sgP)
  */
 int
 StripDataSource_init_range      (StripDataSource        the_sds,
-                                 struct timeval         *t0,
-                                 double                 bin_size,
-                                 int                    n_bins,
-                                 sdsRenderTechnique     method)
+  struct timeval         *t0,
+  double                 bin_size,
+  int                    n_bins,
+  sdsRenderTechnique     method)
 {
   StripDataSourceInfo   *sds = (StripDataSourceInfo *)the_sds;
   CurveData             *cd;
@@ -683,9 +706,9 @@ StripDataSource_init_range      (StripDataSource        the_sds,
   /* find earliest timestamp in ring buffer which is greater than
    * or equal to the desired begin time */
   r0 = ((sds->count > 0)?
-        find_date_idx
-        (t0, sds->times, sds->count, sds->buf_size, sds->cur_idx, SDS_GTE)
-        : -1);
+    find_date_idx
+    (t0, sds->times, sds->count, sds->buf_size, sds->cur_idx, SDS_GTE)
+    : -1);
 
   /* look for last date only if the first one was ok,
    * set up history request range */
@@ -733,7 +756,7 @@ StripDataSource_init_range      (StripDataSource        the_sds,
       cd->connectable = False;
       if (compare_times (&cd->endpoints[0].t, &cd->endpoints[1].t) < 0)
         if ((compare_times (t0, &cd->endpoints[0].t) < 0) ||
-            (compare_times (&t1, &cd->endpoints[1].t) > 0))
+	    (compare_times (&t1, &cd->endpoints[1].t) > 0))
           cd->connectable = (method == SDS_JOIN_NEW);
 
       
@@ -778,7 +801,7 @@ StripDataSource_init_range      (StripDataSource        the_sds,
 
       /* case 4-b-1 */
       else if ((compare_times (&sds->times[cd->first], &cd->extents[0]) < 0) ||
-               (compare_times (&sds->times[cd->first], &cd->extents[1]) > 0))
+	  (compare_times (&sds->times[cd->first], &cd->extents[1]) > 0))
         h_end = &sds->times[cd->first];
 
       /* case 4-b-2 */
@@ -791,47 +814,47 @@ StripDataSource_init_range      (StripDataSource        the_sds,
 
       /* get the history data? */
       if ( (compare_times (&h0, h_end) < 0) &&
-           ((cd->history.fetch_stat == FETCH_IDLE) ||
-           (compare_times (&cd->history.t0, &h0) > 0) ||
-           (compare_times (&cd->history.t1, h_end) < 0)) && 
-	   ((auto_scaleTriger!=1)||((auto_scaleTriger==1)&&(radioChange))) 
-	   && (n_bins*bin_size > 0) && (deltaHistoryTime > 1) &&
-           (deltaHistoryTime > ((5.0*n_bins*bin_size)/100.0) )
-	   )
+	  ((cd->history.fetch_stat == FETCH_IDLE) ||
+	    (compare_times (&cd->history.t0, &h0) > 0) ||
+	    (compare_times (&cd->history.t1, h_end) < 0)) && 
+	  ((auto_scaleTriger!=1)||((auto_scaleTriger==1)&&(radioChange))) 
+	  && (n_bins*bin_size > 0) && (deltaHistoryTime > 1) &&
+	  (deltaHistoryTime > ((5.0*n_bins*bin_size)/100.0) )
+	  )
       {
         /* cancel preceding request if necessary */
         if (cd->history.fetch_stat == FETCH_PENDING)
           StripHistory_cancel (sds->history, &cd->history);
 
         /* send off new request */
-	if(!cursor) cursor=XCreateFontCursor(XtDisplay(history_topShell),XC_watch);
-	XDefineCursor(XtDisplay(history_topShell),
-		      XtWindow(history_topShell), cursor);
-	XFlush(XtDisplay(history_topShell));
+	  if(!cursor) cursor=XCreateFontCursor(XtDisplay(history_topShell),XC_watch);
+	  XDefineCursor(XtDisplay(history_topShell),
+	    XtWindow(history_topShell), cursor);
+	  XFlush(XtDisplay(history_topShell));
 
         StripHistory_fetch
           (sds->history, cd->curve->details->name, &h0, h_end,
-           &cd->history, 0, 0);
-	XUndefineCursor(XtDisplay(history_topShell),
-		      XtWindow(history_topShell));
+		&cd->history, 0, 0);
+	  XUndefineCursor(XtDisplay(history_topShell),
+	    XtWindow(history_topShell));
       }
 
       /* if we have history data, we now need to find the
        * begin and end locations for the current history range */
       if ((compare_times (&h0, h_end) < 0) &&
-          (cd->history.fetch_stat == FETCH_DONE))
+	  (cd->history.fetch_stat == FETCH_DONE))
       {
         cd->hidx_t0 = find_date_idx
           (&h0, cd->history.times, cd->history.n_points,
-           cd->history.n_points, cd->history.n_points - 1, SDS_GTE);
+		cd->history.n_points, cd->history.n_points - 1, SDS_GTE);
         cd->hidx_t1 = find_date_idx
           (h_end, cd->history.times, cd->history.n_points,
-           cd->history.n_points, cd->history.n_points - 1, SDS_LTE);
+		cd->history.n_points, cd->history.n_points - 1, SDS_LTE);
 
         have_data |= ((cd->hidx_t0 >= 0) && (cd->hidx_t1 >= cd->hidx_t0));
       }
     }
-    	if (radioChange)  radioChange=0;
+  if (radioChange)  radioChange=0;
   sds->req_t0 = *t0;
   sds->req_t1 = t1;
   sds->bin_size = bin_size;
@@ -846,16 +869,16 @@ StripDataSource_init_range      (StripDataSource        the_sds,
  */
 size_t
 StripDataSource_render  (StripDataSource        the_sds,
-                         StripCurve             curve,
-                         sdsTransform           x_transform,
-                         void                   *x_data,
-                         sdsTransform           y_transform,
-                         void                   *y_data,
-                         XSegment               **segs)
+  StripCurve             curve,
+  sdsTransform           x_transform,
+  void                   *x_data,
+  sdsTransform           y_transform,
+  void                   *y_data,
+  XSegment               **segs)
 {
   StripDataSourceInfo   *sds = (StripDataSourceInfo *)the_sds;
   CurveData             *cd = CURVE_DATA(curve);
-  int                   max_points;
+  int                   max_points = 0;
   DataPoint             ring_first, hist_first, ring_last, hist_last;
   TimeBuffer            ring_times, hist_times;
   ValueBuffer           ring_values, hist_values;
@@ -908,7 +931,7 @@ StripDataSource_render  (StripDataSource        the_sds,
     if (data_state & SDS_BUFFERED_DATA)
     {
       if (compare_times
-          (&ring_times.base[sds->idx_t0], &cd->endpoints[0].t) < 0)
+	  (&ring_times.base[sds->idx_t0], &cd->endpoints[0].t) < 0)
       {
         ring_times.ptr = ring_times.base + sds->idx_t0;
         ring_values.ptr = ring_values.base + sds->idx_t0;
@@ -916,10 +939,10 @@ StripDataSource_render  (StripDataSource        the_sds,
         
         segmentify
           (sds, &render_buffer, SDS_INCREASING,
-           &ring_times, &ring_values, &ring_status,
-           max_points, &cd->endpoints[0].t,
-           0, &cd->endpoints[0],
-           &ring_first, 0, x_transform, x_data, y_transform, y_data);
+		&ring_times, &ring_values, &ring_status,
+		max_points, &cd->endpoints[0].t,
+		0, &cd->endpoints[0],
+		&ring_first, 0, x_transform, x_data, y_transform, y_data);
         
         /* remember new beginning endpoint */
         cd->endpoints[0] = ring_first;
@@ -936,7 +959,7 @@ StripDataSource_render  (StripDataSource        the_sds,
     if (data_state & SDS_HISTORY_DATA)
     {
       if (compare_times
-          (&hist_times.base[cd->hidx_t0], &cd->endpoints[0].t) < 0)
+	  (&hist_times.base[cd->hidx_t0], &cd->endpoints[0].t) < 0)
       {
         hist_times.ptr = hist_times.base + cd->hidx_t0;
         hist_values.ptr = hist_values.base + cd->hidx_t0;
@@ -944,10 +967,10 @@ StripDataSource_render  (StripDataSource        the_sds,
 
         segmentify
           (sds, &render_buffer, SDS_INCREASING,
-           &hist_times, &hist_values, &hist_status,
-           cd->hidx_t1 - cd->hidx_t0 + 1, &cd->endpoints[0].t,
-           0, &cd->endpoints[0],
-           &hist_first, 0, x_transform, x_data, y_transform, y_data);
+		&hist_times, &hist_values, &hist_status,
+		cd->hidx_t1 - cd->hidx_t0 + 1, &cd->endpoints[0].t,
+		0, &cd->endpoints[0],
+		&hist_first, 0, x_transform, x_data, y_transform, y_data);
         
         /* new beginning endpoint */
         cd->endpoints[0] = hist_first;
@@ -964,7 +987,7 @@ StripDataSource_render  (StripDataSource        the_sds,
     if (data_state & SDS_HISTORY_DATA)
     {
       if (compare_times
-          (&hist_times.base[cd->hidx_t1], &cd->endpoints[1].t) > 0)
+	  (&hist_times.base[cd->hidx_t1], &cd->endpoints[1].t) > 0)
       {
         hist_times.ptr = hist_times.base + cd->hidx_t1;
         hist_values.ptr = hist_values.base + cd->hidx_t1;
@@ -972,10 +995,10 @@ StripDataSource_render  (StripDataSource        the_sds,
         
         segmentify
           (sds, &render_buffer, SDS_DECREASING,
-           &hist_times, &hist_values, &hist_status,
-           cd->hidx_t1 - cd->hidx_t0 + 1, &cd->endpoints[1].t,
-           0, &cd->endpoints[1],
-           &hist_last, 0, x_transform, x_data, y_transform, y_data);
+		&hist_times, &hist_values, &hist_status,
+		cd->hidx_t1 - cd->hidx_t0 + 1, &cd->endpoints[1].t,
+		0, &cd->endpoints[1],
+		&hist_last, 0, x_transform, x_data, y_transform, y_data);
         
         /* new finishing endpoint */
         cd->endpoints[1] = hist_last;
@@ -992,7 +1015,7 @@ StripDataSource_render  (StripDataSource        the_sds,
     if (data_state & SDS_BUFFERED_DATA)
     {
       if (compare_times
-          (&ring_times.base[sds->idx_t1], &cd->endpoints[1].t) > 0)
+	  (&ring_times.base[sds->idx_t1], &cd->endpoints[1].t) > 0)
       {
         ring_times.ptr = ring_times.base + sds->idx_t1;
         ring_values.ptr = ring_values.base + sds->idx_t1;
@@ -1000,10 +1023,10 @@ StripDataSource_render  (StripDataSource        the_sds,
 
         segmentify
           (sds, &render_buffer, SDS_DECREASING,
-           &ring_times, &ring_values, &ring_status,
-           max_points, &cd->endpoints[1].t,
-           0, &cd->endpoints[1],
-           &ring_last, 0, x_transform, x_data, y_transform, y_data);
+		&ring_times, &ring_values, &ring_status,
+		max_points, &cd->endpoints[1].t,
+		0, &cd->endpoints[1],
+		&ring_last, 0, x_transform, x_data, y_transform, y_data);
         
         /* remember new finishing endpoint */
         cd->endpoints[1] = ring_last;
@@ -1071,11 +1094,11 @@ StripDataSource_render  (StripDataSource        the_sds,
       
       segmentify
         (sds, &render_buffer, SDS_INCREASING,
-         &ring_times, &ring_values, &ring_status,
-         max_points, &ring_times.base[sds->idx_t1],
-         0, 0,
-         &cd->endpoints[0], &cd->endpoints[1],  /* new endpoints */
-         x_transform, x_data, y_transform, y_data);
+	    &ring_times, &ring_values, &ring_status,
+	    max_points, &ring_times.base[sds->idx_t1],
+	    0, 0,
+	    &cd->endpoints[0], &cd->endpoints[1],  /* new endpoints */
+	    x_transform, x_data, y_transform, y_data);
     }
       
     /* ====== history data ====== */
@@ -1089,14 +1112,14 @@ StripDataSource_render  (StripDataSource        the_sds,
       {
         /* any history data ahead of currently rendered buffer data? */
         if (compare_times
-            (&hist_times.base[cd->hidx_t0], &cd->endpoints[0].t) < 0)
+	    (&hist_times.base[cd->hidx_t0], &cd->endpoints[0].t) < 0)
         {
           segmentify
             (sds, &render_buffer, SDS_INCREASING,
-             &hist_times, &hist_values, &hist_status,
-             cd->hidx_t1 - cd->hidx_t0 + 1, &cd->endpoints[0].t,
-             0, &cd->endpoints[0],
-             &hist_first, 0, x_transform, x_data, y_transform, y_data);
+		  &hist_times, &hist_values, &hist_status,
+		  cd->hidx_t1 - cd->hidx_t0 + 1, &cd->endpoints[0].t,
+		  0, &cd->endpoints[0],
+		  &hist_first, 0, x_transform, x_data, y_transform, y_data);
           
           /* new beginning endpoint */
           cd->endpoints[0] = hist_first;
@@ -1106,11 +1129,11 @@ StripDataSource_render  (StripDataSource        the_sds,
       {
         segmentify
           (sds, &render_buffer, SDS_INCREASING,
-           &hist_times, &hist_values, &hist_status,
-           cd->hidx_t1 - cd->hidx_t0 + 1, &hist_times.base[cd->hidx_t1],
-           0, 0,
-           &cd->endpoints[0], &cd->endpoints[1],        /* new endpoints */
-           x_transform, x_data, y_transform, y_data);
+		&hist_times, &hist_values, &hist_status,
+		cd->hidx_t1 - cd->hidx_t0 + 1, &hist_times.base[cd->hidx_t1],
+		0, 0,
+		&cd->endpoints[0], &cd->endpoints[1],        /* new endpoints */
+		x_transform, x_data, y_transform, y_data);
       }
     }
 
@@ -1129,21 +1152,21 @@ StripDataSource_render  (StripDataSource        the_sds,
  */
 static size_t
 segmentify      (StripDataSourceInfo    *sds,
-                 RenderBuffer           *rbuf,
-                 SegmentifyDirection    direction,
-                 TimeBuffer             *times,
-                 ValueBuffer            *values,
-                 StatusBuffer           *status,
-                 int                    max_points,
-                 struct timeval         *stop_t,
-                 DataPoint              *connect_first,
-                 DataPoint              *connect_last,
-                 DataPoint              *first,
-                 DataPoint              *last,
-                 sdsTransform           x_transform,
-                 void                   *x_data,
-                 sdsTransform           y_transform,
-                 void                   *y_data)
+  RenderBuffer           *rbuf,
+  SegmentifyDirection    direction,
+  TimeBuffer             *times,
+  ValueBuffer            *values,
+  StatusBuffer           *status,
+  int                    max_points,
+  struct timeval         *stop_t,
+  DataPoint              *connect_first,
+  DataPoint              *connect_last,
+  DataPoint              *first,
+  DataPoint              *last,
+  sdsTransform           x_transform,
+  void                   *x_data,
+  sdsTransform           y_transform,
+  void                   *y_data)
 {
   XPoint                p1, p2;         /* previous point, current point */
   XSegment              *s;             /* current line segment */
@@ -1151,10 +1174,10 @@ segmentify      (StripDataSourceInfo    *sds,
   Boolean               done;
   int                   d1x, d1y;       /* dx, dy for current line (s) */
   int                   d2x, d2y;       /* dx, dy for new line (p1, p2) */
-  struct timeval        *t;
-  double                *v;
+  struct timeval        *t = NULL;
+  double                *v = NULL;
   double                z;
-  StatusType            *stat;
+  StatusType            *stat = NULL;
   int                   offset;
   int                   n_processed;
   Boolean               zero_points;
@@ -1190,7 +1213,7 @@ segmentify      (StripDataSourceInfo    *sds,
     else if ((n_processed < max_points) && !done)
     {
       if ((direction == SDS_INCREASING) &&
-          (compare_times (times->ptr, stop_t) <= 0))
+	  (compare_times (times->ptr, stop_t) <= 0))
       {
         t = times->ptr++;
         v = values->ptr++;
@@ -1206,7 +1229,7 @@ segmentify      (StripDataSourceInfo    *sds,
           status->ptr -= status->count;
       }
       else if ((direction == SDS_DECREASING) &&
-               (compare_times (times->ptr, stop_t) >= 0))
+	  (compare_times (times->ptr, stop_t) >= 0))
       {
         t = times->ptr--;
         v = values->ptr--;
@@ -1269,8 +1292,8 @@ segmentify      (StripDataSourceInfo    *sds,
       {
         fprintf
           (stderr,
-           "StripDataSource_segmentify():\n"
-           "  memory exhausted, unable to render all data\n");
+		"StripDataSource_segmentify():\n"
+		"  memory exhausted, unable to render all data\n");
         return rbuf->n_segs;
       }
       s = rbuf->segs + offset;
@@ -1398,8 +1421,8 @@ segmentify      (StripDataSourceInfo    *sds,
           {
             fprintf
               (stderr,
-               "StripDataSource_segmentify(): memory exhausted, unable to\n"
-               "  render all data\n");
+		    "StripDataSource_segmentify(): memory exhausted, unable to\n"
+		    "  render all data\n");
             return rbuf->n_segs;
           }
           s = rbuf->segs + offset;
@@ -1432,7 +1455,7 @@ segmentify      (StripDataSourceInfo    *sds,
  */
 int
 StripDataSource_dump_sdds    (StripDataSource        the_sds,
-                         char                    *fName)
+  char                    *fName)
 {
   StripDataSourceInfo   *sds = (StripDataSourceInfo *)the_sds;
   char                  buf[SDS_DUMP_FIELDWIDTH+1];
@@ -1453,7 +1476,7 @@ StripDataSource_dump_sdds    (StripDataSource        the_sds,
 
   /* Initializes a SDDS_TABLE structure for use writing data to a SDDS file */
   if (!SDDS_InitializeOutput(&Table,SDDS_BINARY,1L,DUMP_SDDS_DESCRIPTION,DUMP_SDDS_CONTENTS,fName))
-      SDDS_PrintErrors(stderr,SDDS_VERBOSE_PrintErrors|SDDS_EXIT_PrintErrors);
+    SDDS_PrintErrors(stderr,SDDS_VERBOSE_PrintErrors|SDDS_EXIT_PrintErrors);
 
   /* Processes definition of the time column */
   if (SDDS_DefineColumn(&Table,DUMP_SDDS_TIME_COL,NULL,DUMP_SDDS_TIME_COL_UNITS,
@@ -1472,7 +1495,7 @@ StripDataSource_dump_sdds    (StripDataSource        the_sds,
         sds->buffers[i].curve->details->egu, sds->buffers[i].curve->details->comment,
         buf, SDDS_DOUBLE, 0) == -1)
         SDDS_PrintErrors(stderr, SDDS_VERBOSE_PrintErrors|SDDS_EXIT_PrintErrors);
-     }
+    }
 
   /* Writes the SDDS header describing the layout of the data tables */
   if (!SDDS_WriteLayout(&Table))
@@ -1481,8 +1504,8 @@ StripDataSource_dump_sdds    (StripDataSource        the_sds,
   /* Initializes a SDDS_TABLE structure */
   numRows = ((sds->idx_t1 - sds->idx_t0 ) % sds->buf_size) + 1;
   for (i = sds->idx_t0; i != sds->idx_t1; i = (i+1) % sds->buf_size)
-  if (!SDDS_StartTable(&Table, numRows))
-    SDDS_PrintErrors(stderr, SDDS_VERBOSE_PrintErrors|SDDS_EXIT_PrintErrors);
+    if (!SDDS_StartTable(&Table, numRows))
+	SDDS_PrintErrors(stderr, SDDS_VERBOSE_PrintErrors|SDDS_EXIT_PrintErrors);
 
   /* Set SDDS table values */
   rowIndex = 0;
@@ -1497,7 +1520,7 @@ StripDataSource_dump_sdds    (StripDataSource        the_sds,
     /* Set time value */
     if (SDDS_SetRowValues(&Table, SDDS_SET_BY_NAME|SDDS_PASS_BY_VALUE, rowIndex,
       DUMP_SDDS_TIME_COL , time, NULL) != 1)
-        SDDS_PrintErrors(stderr, SDDS_VERBOSE_PrintErrors|SDDS_EXIT_PrintErrors);
+	SDDS_PrintErrors(stderr, SDDS_VERBOSE_PrintErrors|SDDS_EXIT_PrintErrors);
 
     /* Format and set data column values */
     for (j = 0; j < STRIP_MAX_CURVES; j++)
@@ -1540,7 +1563,7 @@ StripDataSource_dump_sdds    (StripDataSource        the_sds,
  */
 int
 StripDataSource_dump    (StripDataSource        the_sds,
-                         FILE                   *outfile,char * cgi) /* Albert */
+  FILE                   *outfile,char * cgi) /* Albert */
 {
   StripDataSourceInfo   *sds = (StripDataSourceInfo *)the_sds;
   char                  buf[SDS_DUMP_FIELDWIDTH+1];
@@ -1553,7 +1576,7 @@ StripDataSource_dump    (StripDataSource        the_sds,
   StripGraph sg = (StripGraph) cgi; /* Albert */
 
   /* if range is not initialized, return failure  Albert not nessary for hist
-  if (sds->idx_t0 == sds->idx_t1) return 0; */
+     if (sds->idx_t0 == sds->idx_t1) return 0; */
 
   /* if no curves, return failure */
   for (i = 0; i < STRIP_MAX_CURVES; i++) if (sds->buffers[i].curve) break;
@@ -1570,7 +1593,7 @@ StripDataSource_dump    (StripDataSource        the_sds,
 
   if(!cursor) cursor = XCreateFontCursor(XtDisplay(history_topShell),XC_watch);
   XDefineCursor(XtDisplay(history_topShell),
-		XtWindow(history_topShell), cursor);
+    XtWindow(history_topShell), cursor);
   XFlush(XtDisplay(history_topShell));
 
   for (i = 0; i < STRIP_MAX_CURVES; i++) {
@@ -1578,7 +1601,7 @@ StripDataSource_dump    (StripDataSource        the_sds,
     cd = &sds->buffers[i];
     StripHistory_fetch
       (sds->history, cd->curve->details->name, &StartCopy, &EndCopy,
-       &cd->history, 0, 0);
+	  &cd->history, 0, 0);
   }
 
   /* this is very straightforward:
@@ -1592,78 +1615,78 @@ StripDataSource_dump    (StripDataSource        the_sds,
   fprintf (outfile, "%s\t", "Time");
   for (i = 0; i < STRIP_MAX_CURVES; i++)
     if (sds->buffers[i].curve) fprintf(outfile, "%s [%s]\t", 
-       sds->buffers[i].curve->details->name,sds->buffers[i].curve->details->egu);
+	sds->buffers[i].curve->details->name,sds->buffers[i].curve->details->egu);
   fprintf (outfile, "\n");
   
   /* (b) */
   timeP=&StartCopy;
 
   while(findNextTime(timeP,timeP,sds) ==0) 
-    {
-      if(compare_times(timeP,&Start)<0) continue;
-      if(compare_times(timeP,&End)>0) break;
+  {
+    if(compare_times(timeP,&Start)<0) continue;
+    if(compare_times(timeP,&End)>0) break;
 
-      /* (b-1) */
-      memset(buf,0,SDS_DUMP_FIELDWIDTH+1);
-      strftime(buf, SDS_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
-	       localtime (&(timeP->tv_sec)));
-      fprintf (outfile, "%s.%d\t",buf,(int)timeP->tv_usec);
+    /* (b-1) */
+    memset(buf,0,SDS_DUMP_FIELDWIDTH+1);
+    strftime(buf, SDS_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
+	localtime (&(timeP->tv_sec)));
+    fprintf (outfile, "%s.%d\t",buf,(int)timeP->tv_usec);
       
-      /* (b-2) */
-      for (j = 0; j < STRIP_MAX_CURVES; j++)
+    /* (b-2) */
+    for (j = 0; j < STRIP_MAX_CURVES; j++)
 	if (sds->buffers[j].curve)
-	  {
-	    cd = &sds->buffers[j];
-	    memset(buf,0,SDS_DUMP_FIELDWIDTH+1);
-	    printData(timeP,cd,buf);
-	    fprintf (outfile, "%s\t",buf);
-	  }
+	{
+	  cd = &sds->buffers[j];
+	  memset(buf,0,SDS_DUMP_FIELDWIDTH+1);
+	  printData(timeP,cd,buf);
+	  fprintf (outfile, "%s\t",buf);
+	}
       
-      /* finally, the end-line */
-      fprintf (outfile, "\n");
-    } /* end of history while() handeling */
+    /* finally, the end-line */
+    fprintf (outfile, "\n");
+  } /* end of history while() handeling */
 
   
   if(DEBUG1)printf("Start=%s",ctime(&(Start.tv_sec)));
   if(DEBUG1)printf("End=%s",ctime(&(End.tv_sec)));
 
- if (sds->idx_t0 != sds->idx_t1) 
-   {
-     for (i = sds->idx_t0; i != sds->idx_t1; i = (i+1) % sds->buf_size)
-       {
-	 if(compare_times(&(sds->times[i]),&End)>0) 
-	   {if(DEBUG1)printf("T[%d]>End   break\n",i); break;}
-	 if(compare_times(&(sds->times[i]),&Start)<0) 
-	   {if(DEBUG1)
-	     printf("Start > T[%d]=%s",i,ctime(&(sds->times[i].tv_sec))); 
-	   continue;}
-	 if(DEBUG1)printf("Good i=%d\n",i);
+  if (sds->idx_t0 != sds->idx_t1) 
+  {
+    for (i = sds->idx_t0; i != sds->idx_t1; i = (i+1) % sds->buf_size)
+    {
+	if(compare_times(&(sds->times[i]),&End)>0) 
+	{if(DEBUG1)printf("T[%d]>End   break\n",i); break;}
+	if(compare_times(&(sds->times[i]),&Start)<0) 
+	{if(DEBUG1)
+	  printf("Start > T[%d]=%s",i,ctime(&(sds->times[i].tv_sec))); 
+	continue;}
+	if(DEBUG1)printf("Good i=%d\n",i);
+	
+	/* (b-1) */
+	memset(buf,0,SDS_DUMP_FIELDWIDTH+1);
+	strftime(buf, SDS_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
+	  localtime (&(sds->times[i].tv_sec)));
+	fprintf (outfile, "%s.%d\t",buf,(int)sds->times[i].tv_usec); 
+	/* (b-2) */
+	for (j = 0; j < STRIP_MAX_CURVES; j++)
+	  if (sds->buffers[j].curve)
+	  {
+	    if (sds->buffers[j].stat[i] & DATASTAT_PLOTABLE)
+		fprintf (outfile, "%g\t",sds->buffers[j].val[i]);
+	    else fprintf (outfile, "%s\t",SDS_DUMP_BADVALUESTR);
+	  }
+	
+	/* finally, the end-line */
+	fprintf (outfile, "\n");
+    }
+  } else {if(DEBUG1) perror("DUMP:NO CURRENT DATA");}
 
-	 /* (b-1) */
-	 memset(buf,0,SDS_DUMP_FIELDWIDTH+1);
-	 strftime(buf, SDS_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
-		  localtime (&(sds->times[i].tv_sec)));
-	 fprintf (outfile, "%s.%d\t",buf,(int)sds->times[i].tv_usec); 
-	 /* (b-2) */
-	 for (j = 0; j < STRIP_MAX_CURVES; j++)
-	   if (sds->buffers[j].curve)
-	     {
-	       if (sds->buffers[j].stat[i] & DATASTAT_PLOTABLE)
-		 fprintf (outfile, "%g\t",sds->buffers[j].val[i]);
-	       else fprintf (outfile, "%s\t",SDS_DUMP_BADVALUESTR);
-	     }
-	 
-	 /* finally, the end-line */
-	 fprintf (outfile, "\n");
-       }
-   } else {if(DEBUG1) perror("DUMP:NO CURRENT DATA");}
 
-
- if(DEBUG1)printf("Last i=%d\n",i);
+  if(DEBUG1)printf("Last i=%d\n",i);
 
   fflush (outfile);
   XUndefineCursor(XtDisplay(history_topShell),
-		  XtWindow(history_topShell));
+    XtWindow(history_topShell));
   return 1;
 }
 
@@ -1672,11 +1695,11 @@ StripDataSource_dump    (StripDataSource        the_sds,
 /* ====== Static Functions ====== */
 static long
 find_date_idx   (struct timeval         *t,
-                 struct timeval         *times,
-                 size_t                 n_times,
-                 size_t                 max_times,
-                 size_t                 idx_latest,
-                 int                    mode)
+  struct timeval         *times,
+  size_t                 n_times,
+  size_t                 max_times,
+  size_t                 idx_latest,
+  int                    mode)
 {
   long  a, b, i;
   long  x;
@@ -1765,9 +1788,14 @@ resize  (StripDataSourceInfo *sds, size_t buf_size)
   
   int                   new_index;
 
+    
+#if DEBUG_SDS_TIMES
+  printf("resize: times=%u buf_size=%u\n",
+    sds->times,buf_size);
+#endif
+  
   if (sds->buf_size == 0)
   {
-    
     sds->times = (struct timeval *)malloc
       (buf_size * sizeof(struct timeval));
     new_index = new_count = 0;
@@ -1777,21 +1805,21 @@ resize  (StripDataSourceInfo *sds, size_t buf_size)
   {
     ret_val = pack_array
       ((void **)&sds->times, sizeof(struct timeval),
-       sds->buf_size, sds->cur_idx, sds->count,
-       buf_size, &new_index, &new_count);
+	  sds->buf_size, sds->cur_idx, sds->count,
+	  buf_size, &new_index, &new_count);
     if (ret_val)
       for (i = 0; i < STRIP_MAX_CURVES; i++)
         if (sds->buffers[i].val)
         {
           ret_val = pack_array
             ((void **)&sds->buffers[i].val, sizeof(double),
-             sds->buf_size, sds->cur_idx, sds->count,
-             buf_size, 0, 0);
+		  sds->buf_size, sds->cur_idx, sds->count,
+		  buf_size, 0, 0);
           if (ret_val)
             ret_val = pack_array
               ((void **)&sds->buffers[i].stat, sizeof (StatusType),
-               sds->buf_size, sds->cur_idx, sds->count,
-               buf_size, 0, 0);
+		    sds->buf_size, sds->cur_idx, sds->count,
+		    buf_size, 0, 0);
           if (!ret_val) break;
         }
   }
@@ -1808,13 +1836,13 @@ resize  (StripDataSourceInfo *sds, size_t buf_size)
 
 static int
 pack_array      (void   **p,    /* address of pointer */
-                 size_t nbytes, /* array element size */
-                 int    n0,     /* old size */
-                 int    i0,     /* old index */
-                 int    s0,     /* old count */
-                 int    n1,     /* new size */
-                 int    *i1,    /* new index */
-                 int    *s1)    /* new count */
+  size_t nbytes, /* array element size */
+  int    n0,     /* old size */
+  int    i0,     /* old index */
+  int    s0,     /* old count */
+  int    n1,     /* new size */
+  int    *i1,    /* new index */
+  int    *s1)    /* new count */
 {
   int   x, y;
   char  *q;
@@ -1896,28 +1924,28 @@ static int findNextTime (struct timeval *tv,struct timeval *result,StripDataSour
   int first=1;
 
   for (m = 0; m < STRIP_MAX_CURVES; m++)
-    {
-      if (sds->buffers[m].curve == NULL) continue;
-       cd = &sds->buffers[m];
-       if(cd->history.n_points<1) continue;
-       if(cd->history.fetch_stat!=FETCH_DONE){perror("FETCH_DONE!"); continue;}
+  {
+    if (sds->buffers[m].curve == NULL) continue;
+    cd = &sds->buffers[m];
+    if(cd->history.n_points<1) continue;
+    if(cd->history.fetch_stat!=FETCH_DONE){perror("FETCH_DONE!"); continue;}
 
-       for(i=0;i<cd->history.n_points;i++) 
-	 {
-	   if( compare_times(&(cd->history.times[i]),tv) >0) {
-	     if (first) {
-	       first=0;
-	       result->tv_sec= (cd->history.times[i]).tv_sec;
-	       result->tv_usec=(cd->history.times[i]).tv_usec;
-	       continue;
-	     }
-	     if(compare_times(&(cd->history.times[i]),result)<0) { 
-	       result->tv_sec= (cd->history.times[i]).tv_sec;
-	       result->tv_usec=(cd->history.times[i]).tv_usec;
-	     }
-	   }
-	 }
+    for(i=0;i<cd->history.n_points;i++) 
+    {
+	if( compare_times(&(cd->history.times[i]),tv) >0) {
+	  if (first) {
+	    first=0;
+	    result->tv_sec= (cd->history.times[i]).tv_sec;
+	    result->tv_usec=(cd->history.times[i]).tv_usec;
+	    continue;
+	  }
+	  if(compare_times(&(cd->history.times[i]),result)<0) { 
+	    result->tv_sec= (cd->history.times[i]).tv_sec;
+	    result->tv_usec=(cd->history.times[i]).tv_usec;
+	  }
+	}
     }
+  }
 
   return(first);
 }
@@ -1927,12 +1955,12 @@ static int printData(struct timeval *time, CurveData *cd, char *val)
   int i;
   short first=1;
   for(i=0;i<cd->history.n_points;i++) 
-    {
-      if(!compare_times(&(cd->history.times[i]),time)) {
+  {
+    if(!compare_times(&(cd->history.times[i]),time)) {
 	first=0;
 	sprintf(val,"%g",cd->history.data[i]);
-      }
     }
+  }
   if(first) sprintf(val,"%s","N/A");
   return(first);    
 }

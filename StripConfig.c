@@ -8,6 +8,8 @@
  *-----------------------------------------------------------------------------
  */
 
+#define DEBUG_SCM 0
+
 #include "StripConfig.h"
 
 #include <stdlib.h>
@@ -16,7 +18,7 @@
 #include <X11/Xlib.h>
 #include <X11/Intrinsic.h>
 
-#ifndef WIN32
+#if !defined(WIN32) && !defined(linux)
 /* This is not an ANSI function and may not be included from string.h.
    Include it here explicitly */
 extern char *strdup(const char *);
@@ -201,8 +203,8 @@ void    StripConfig_preinit     (void)
 
 /* ====== Static Function Declarations ====== */
 static int              read_oldformat  (StripConfig *,
-                                         FILE *,
-                                         StripConfigMask);
+  FILE *,
+  StripConfigMask);
 
 /* StripConfigMask_clear
  *
@@ -272,7 +274,7 @@ void    StripConfigMask_xor     (StripConfigMask *A, StripConfigMask *B)
  *
  */
 int     StripConfigMask_intersect       (StripConfigMask *A,
-                                         StripConfigMask *B)
+  StripConfigMask *B)
 {
   int   i;
 
@@ -289,9 +291,9 @@ int     StripConfigMask_intersect       (StripConfigMask *A,
  *
  */
 StripConfig     *StripConfig_init       (cColorManager  scm,
-                                         XVisualInfo            *xvi,
-                                         FILE                   *f,
-                                         StripConfigMask        mask)
+  XVisualInfo            *xvi,
+  FILE                   *f,
+  StripConfigMask        mask)
 {
   StripConfig           *scfg;
   cColor                colors[STRIPCONFIG_NUMCOLORS];
@@ -376,7 +378,26 @@ StripConfig     *StripConfig_clone      (StripConfig *original)
     if (original->title && (original->title != STRIPDEF_TITLE))
       clone->title = strdup (original->title);
     if (original->filename) clone->title = strdup (original->filename);
+#if 0
+    /* KE: This logic should be checked */
+    if (original->scm)
+    {
+	Display *display = cColorManager_getdisplay(original->scm);
+	cColorManager scm = cColorManager_init (display, /*STRIPCONFIG_NUMCOLORS*/ 0);
+	clone->scm = scm;
+    }
+    else
+    {
+      fprintf (stdout, "StripConfig_clone: cannot initialize color manager.\n");
+	clone->scm = NULL;
+    }
+#endif
   }
+
+#if DEBUG_SCM
+  print("StripConfig_clone: original=%x scm=%x\n",original,original->scm);
+  print("                   clone=   %x scm=%x\n",clone,clone->scm);
+#endif  
 
   return clone;
 }
@@ -388,8 +409,12 @@ StripConfig     *StripConfig_clone      (StripConfig *original)
  */
 void    StripConfig_delete      (StripConfig *scfg)
 {
+#if DEBUG_SCM
+  print("StripConfig_delete: scfg=%x scm=%x\n",scfg,scfg->scm);
+#endif  
   if (scfg->title && (scfg->title != STRIPDEF_TITLE)) free (scfg->title);
   if (scfg->filename) free (scfg->filename);
+  if (scfg->scm) cColorManager_delete (scfg->scm);
   free (scfg);
 }
 
@@ -417,212 +442,212 @@ int     StripConfig_setattr (StripConfig *scfg, ...)
        attrib = va_arg (ap, StripConfigAttribute))
   {
     if ((ret_val = ((attrib >= STRIPCONFIG_FIRST_ATTRIBUTE) &&
-                    (attrib <= STRIPCONFIG_LAST_ATTRIBUTE))))
+	(attrib <= STRIPCONFIG_LAST_ATTRIBUTE))))
       switch (attrib)
       {
-          case STRIPCONFIG_TITLE:
-            tmp.str = va_arg (ap, char *);
-            if (scfg->title && scfg->title != STRIPDEF_TITLE)
-              free (scfg->title);
-            if (tmp.str) scfg->title = strdup (tmp.str);
-            else scfg->title = STRIPDEF_TITLE;
-            StripConfigMask_set
-              (&scfg->UpdateInfo.update_mask, SCFGMASK_TITLE);
-            break;
+	case STRIPCONFIG_TITLE:
+	  tmp.str = va_arg (ap, char *);
+	  if (scfg->title && scfg->title != STRIPDEF_TITLE)
+	    free (scfg->title);
+	  if (tmp.str) scfg->title = strdup (tmp.str);
+	  else scfg->title = STRIPDEF_TITLE;
+	  StripConfigMask_set
+	    (&scfg->UpdateInfo.update_mask, SCFGMASK_TITLE);
+	  break;
             
-          case STRIPCONFIG_FILENAME:
-            tmp.str = va_arg (ap, char *);
-            if (scfg->filename) free (scfg->filename);
-            if (tmp.str) scfg->filename = strdup (tmp.str);
-            else scfg->filename = 0;
-            StripConfigMask_set
-              (&scfg->UpdateInfo.update_mask, SCFGMASK_FILENAME);
-            break;
+	case STRIPCONFIG_FILENAME:
+	  tmp.str = va_arg (ap, char *);
+	  if (scfg->filename) free (scfg->filename);
+	  if (tmp.str) scfg->filename = strdup (tmp.str);
+	  else scfg->filename = 0;
+	  StripConfigMask_set
+	    (&scfg->UpdateInfo.update_mask, SCFGMASK_FILENAME);
+	  break;
             
-          case STRIPCONFIG_TIME_TIMESPAN:
-            tmp.u = va_arg (ap, unsigned);
-            if (tmp.u != scfg->Time.timespan)
-            {
-              tmp.u = max (tmp.u, STRIPMIN_TIME_TIMESPAN);
-              tmp.u = min (tmp.u, STRIPMAX_TIME_TIMESPAN);
-              scfg->Time.timespan = tmp.u;
-              StripConfigMask_set
-                (&scfg->UpdateInfo.update_mask, SCFGMASK_TIME_TIMESPAN);
-            }
-            break;
+	case STRIPCONFIG_TIME_TIMESPAN:
+	  tmp.u = va_arg (ap, unsigned);
+	  if (tmp.u != scfg->Time.timespan)
+	  {
+	    tmp.u = max (tmp.u, STRIPMIN_TIME_TIMESPAN);
+	    tmp.u = min (tmp.u, STRIPMAX_TIME_TIMESPAN);
+	    scfg->Time.timespan = tmp.u;
+	    StripConfigMask_set
+		(&scfg->UpdateInfo.update_mask, SCFGMASK_TIME_TIMESPAN);
+	  }
+	  break;
             
-          case STRIPCONFIG_TIME_NUM_SAMPLES:
-            tmp.i = va_arg (ap, int);
-            if (tmp.u != scfg->Time.num_samples)
-            {
-              tmp.i = max (tmp.i, STRIPMIN_TIME_NUM_SAMPLES);
-              tmp.i = min (tmp.i, STRIPMAX_TIME_NUM_SAMPLES);
-              scfg->Time.num_samples = tmp.i;
-              StripConfigMask_set
-                (&scfg->UpdateInfo.update_mask, SCFGMASK_TIME_NUM_SAMPLES);
-            }
-            break;
+	case STRIPCONFIG_TIME_NUM_SAMPLES:
+	  tmp.i = va_arg (ap, int);
+	  if (tmp.u != scfg->Time.num_samples)
+	  {
+	    tmp.i = max (tmp.i, STRIPMIN_TIME_NUM_SAMPLES);
+	    tmp.i = min (tmp.i, STRIPMAX_TIME_NUM_SAMPLES);
+	    scfg->Time.num_samples = tmp.i;
+	    StripConfigMask_set
+		(&scfg->UpdateInfo.update_mask, SCFGMASK_TIME_NUM_SAMPLES);
+	  }
+	  break;
             
-          case STRIPCONFIG_TIME_SAMPLE_INTERVAL:
-            tmp.d = va_arg (ap, double);
-            if (tmp.d != scfg->Time.sample_interval)
-            {
-              tmp.d = max (tmp.d, STRIPMIN_TIME_SAMPLE_INTERVAL);
-              tmp.d = min (tmp.d, STRIPMAX_TIME_SAMPLE_INTERVAL);
-              scfg->Time.sample_interval = tmp.d;
-              StripConfigMask_set
-                (&scfg->UpdateInfo.update_mask,
-                 SCFGMASK_TIME_SAMPLE_INTERVAL);
-            }
-            break;
+	case STRIPCONFIG_TIME_SAMPLE_INTERVAL:
+	  tmp.d = va_arg (ap, double);
+	  if (tmp.d != scfg->Time.sample_interval)
+	  {
+	    tmp.d = max (tmp.d, STRIPMIN_TIME_SAMPLE_INTERVAL);
+	    tmp.d = min (tmp.d, STRIPMAX_TIME_SAMPLE_INTERVAL);
+	    scfg->Time.sample_interval = tmp.d;
+	    StripConfigMask_set
+		(&scfg->UpdateInfo.update_mask,
+		  SCFGMASK_TIME_SAMPLE_INTERVAL);
+	  }
+	  break;
             
-          case STRIPCONFIG_TIME_REFRESH_INTERVAL:
-            tmp.d = va_arg (ap, double);
-            if (tmp.d != scfg->Time.refresh_interval)
-            {
-              tmp.d = max (tmp.d, STRIPMIN_TIME_REFRESH_INTERVAL);
-              tmp.d = min (tmp.d, STRIPMAX_TIME_REFRESH_INTERVAL);
-              scfg->Time.refresh_interval = tmp.d;
-              StripConfigMask_set
-                (&scfg->UpdateInfo.update_mask,
-                 SCFGMASK_TIME_REFRESH_INTERVAL);
-            }
-            break;
+	case STRIPCONFIG_TIME_REFRESH_INTERVAL:
+	  tmp.d = va_arg (ap, double);
+	  if (tmp.d != scfg->Time.refresh_interval)
+	  {
+	    tmp.d = max (tmp.d, STRIPMIN_TIME_REFRESH_INTERVAL);
+	    tmp.d = min (tmp.d, STRIPMAX_TIME_REFRESH_INTERVAL);
+	    scfg->Time.refresh_interval = tmp.d;
+	    StripConfigMask_set
+		(&scfg->UpdateInfo.update_mask,
+		  SCFGMASK_TIME_REFRESH_INTERVAL);
+	  }
+	  break;
             
-          case STRIPCONFIG_COLOR_BACKGROUND:
-            scfg->Color.background = *(va_arg (ap, cColor *));
-            StripConfigMask_set
-              (&scfg->UpdateInfo.update_mask,
-               SCFGMASK_COLOR_BACKGROUND);
-            break;
-          case STRIPCONFIG_COLOR_FOREGROUND:
-            scfg->Color.foreground = *(va_arg (ap, cColor *));
-            StripConfigMask_set
-              (&scfg->UpdateInfo.update_mask,
-               SCFGMASK_COLOR_FOREGROUND);
-            break;
-          case STRIPCONFIG_COLOR_GRID:
-            scfg->Color.grid = *(va_arg (ap, cColor *));
-            StripConfigMask_set
-              (&scfg->UpdateInfo.update_mask,
-               SCFGMASK_COLOR_GRID);
-            break;
-          case STRIPCONFIG_COLOR_COLOR1:
-            scfg->Color.color[0] = *(va_arg (ap, cColor *));
-            StripConfigMask_set
-              (&scfg->UpdateInfo.update_mask,
-               SCFGMASK_COLOR_COLOR1);
-            break;
-          case STRIPCONFIG_COLOR_COLOR2:
-            scfg->Color.color[1] = *(va_arg (ap, cColor *));
-            StripConfigMask_set
-              (&scfg->UpdateInfo.update_mask,
-               SCFGMASK_COLOR_COLOR2);
-            break;
-          case STRIPCONFIG_COLOR_COLOR3:
-            scfg->Color.color[2] = *(va_arg (ap, cColor *));
-            StripConfigMask_set
-              (&scfg->UpdateInfo.update_mask,
-               SCFGMASK_COLOR_COLOR3);
-            break;
-          case STRIPCONFIG_COLOR_COLOR4:
-            scfg->Color.color[3] = *(va_arg (ap, cColor *));
-            StripConfigMask_set
-              (&scfg->UpdateInfo.update_mask,
-               SCFGMASK_COLOR_COLOR4);
-            break;
-          case STRIPCONFIG_COLOR_COLOR5:
-            scfg->Color.color[4] = *(va_arg (ap, cColor *));
-            StripConfigMask_set
-              (&scfg->UpdateInfo.update_mask,
-               SCFGMASK_COLOR_COLOR5);
-            break;
-          case STRIPCONFIG_COLOR_COLOR6:
-            scfg->Color.color[5] = *(va_arg (ap, cColor *));
-            StripConfigMask_set
-              (&scfg->UpdateInfo.update_mask,
-               SCFGMASK_COLOR_COLOR6);
-            break;
-          case STRIPCONFIG_COLOR_COLOR7:
-            scfg->Color.color[6] = *(va_arg (ap, cColor *));
-            StripConfigMask_set
-              (&scfg->UpdateInfo.update_mask,
-               SCFGMASK_COLOR_COLOR7);
-            break;
-          case STRIPCONFIG_COLOR_COLOR8:
-            scfg->Color.color[7] = *(va_arg (ap, cColor *));
-            StripConfigMask_set
-              (&scfg->UpdateInfo.update_mask,
-               SCFGMASK_COLOR_COLOR8);
-            break;
-          case STRIPCONFIG_COLOR_COLOR9:
-            scfg->Color.color[8] = *(va_arg (ap, cColor *));
-            StripConfigMask_set
-              (&scfg->UpdateInfo.update_mask,
-               SCFGMASK_COLOR_COLOR9);
-            break;
-          case STRIPCONFIG_COLOR_COLOR10:
-            scfg->Color.color[9] = *(va_arg (ap, cColor *));
-            StripConfigMask_set
-              (&scfg->UpdateInfo.update_mask,
-               SCFGMASK_COLOR_COLOR10);
-            break;
+	case STRIPCONFIG_COLOR_BACKGROUND:
+	  scfg->Color.background = *(va_arg (ap, cColor *));
+	  StripConfigMask_set
+	    (&scfg->UpdateInfo.update_mask,
+		SCFGMASK_COLOR_BACKGROUND);
+	  break;
+	case STRIPCONFIG_COLOR_FOREGROUND:
+	  scfg->Color.foreground = *(va_arg (ap, cColor *));
+	  StripConfigMask_set
+	    (&scfg->UpdateInfo.update_mask,
+		SCFGMASK_COLOR_FOREGROUND);
+	  break;
+	case STRIPCONFIG_COLOR_GRID:
+	  scfg->Color.grid = *(va_arg (ap, cColor *));
+	  StripConfigMask_set
+	    (&scfg->UpdateInfo.update_mask,
+		SCFGMASK_COLOR_GRID);
+	  break;
+	case STRIPCONFIG_COLOR_COLOR1:
+	  scfg->Color.color[0] = *(va_arg (ap, cColor *));
+	  StripConfigMask_set
+	    (&scfg->UpdateInfo.update_mask,
+		SCFGMASK_COLOR_COLOR1);
+	  break;
+	case STRIPCONFIG_COLOR_COLOR2:
+	  scfg->Color.color[1] = *(va_arg (ap, cColor *));
+	  StripConfigMask_set
+	    (&scfg->UpdateInfo.update_mask,
+		SCFGMASK_COLOR_COLOR2);
+	  break;
+	case STRIPCONFIG_COLOR_COLOR3:
+	  scfg->Color.color[2] = *(va_arg (ap, cColor *));
+	  StripConfigMask_set
+	    (&scfg->UpdateInfo.update_mask,
+		SCFGMASK_COLOR_COLOR3);
+	  break;
+	case STRIPCONFIG_COLOR_COLOR4:
+	  scfg->Color.color[3] = *(va_arg (ap, cColor *));
+	  StripConfigMask_set
+	    (&scfg->UpdateInfo.update_mask,
+		SCFGMASK_COLOR_COLOR4);
+	  break;
+	case STRIPCONFIG_COLOR_COLOR5:
+	  scfg->Color.color[4] = *(va_arg (ap, cColor *));
+	  StripConfigMask_set
+	    (&scfg->UpdateInfo.update_mask,
+		SCFGMASK_COLOR_COLOR5);
+	  break;
+	case STRIPCONFIG_COLOR_COLOR6:
+	  scfg->Color.color[5] = *(va_arg (ap, cColor *));
+	  StripConfigMask_set
+	    (&scfg->UpdateInfo.update_mask,
+		SCFGMASK_COLOR_COLOR6);
+	  break;
+	case STRIPCONFIG_COLOR_COLOR7:
+	  scfg->Color.color[6] = *(va_arg (ap, cColor *));
+	  StripConfigMask_set
+	    (&scfg->UpdateInfo.update_mask,
+		SCFGMASK_COLOR_COLOR7);
+	  break;
+	case STRIPCONFIG_COLOR_COLOR8:
+	  scfg->Color.color[7] = *(va_arg (ap, cColor *));
+	  StripConfigMask_set
+	    (&scfg->UpdateInfo.update_mask,
+		SCFGMASK_COLOR_COLOR8);
+	  break;
+	case STRIPCONFIG_COLOR_COLOR9:
+	  scfg->Color.color[8] = *(va_arg (ap, cColor *));
+	  StripConfigMask_set
+	    (&scfg->UpdateInfo.update_mask,
+		SCFGMASK_COLOR_COLOR9);
+	  break;
+	case STRIPCONFIG_COLOR_COLOR10:
+	  scfg->Color.color[9] = *(va_arg (ap, cColor *));
+	  StripConfigMask_set
+	    (&scfg->UpdateInfo.update_mask,
+		SCFGMASK_COLOR_COLOR10);
+	  break;
             
-          case STRIPCONFIG_OPTION_GRID_XON:
-            tmp.i = va_arg (ap, int);
-            if (tmp.i != scfg->Option.grid_xon)
-            {
-              tmp.i = max (tmp.i, STRIPMIN_OPTION_GRID_XON);
-              tmp.i = min (tmp.i, STRIPMAX_OPTION_GRID_XON);
-              scfg->Option.grid_xon = tmp.i;
-              StripConfigMask_set
-                (&scfg->UpdateInfo.update_mask, SCFGMASK_OPTION_GRID_XON);
-            }
-            break;
+	case STRIPCONFIG_OPTION_GRID_XON:
+	  tmp.i = va_arg (ap, int);
+	  if (tmp.i != scfg->Option.grid_xon)
+	  {
+	    tmp.i = max (tmp.i, STRIPMIN_OPTION_GRID_XON);
+	    tmp.i = min (tmp.i, STRIPMAX_OPTION_GRID_XON);
+	    scfg->Option.grid_xon = tmp.i;
+	    StripConfigMask_set
+		(&scfg->UpdateInfo.update_mask, SCFGMASK_OPTION_GRID_XON);
+	  }
+	  break;
             
-          case STRIPCONFIG_OPTION_GRID_YON:
-            tmp.i = va_arg (ap, int);
-            if (tmp.i != scfg->Option.grid_yon)
-            {
-              tmp.i = max (tmp.i, STRIPMIN_OPTION_GRID_YON);
-              tmp.i = min (tmp.i, STRIPMAX_OPTION_GRID_YON);
-              scfg->Option.grid_yon = tmp.i;
-              StripConfigMask_set
-                (&scfg->UpdateInfo.update_mask, SCFGMASK_OPTION_GRID_YON);
-            }
-            break;
+	case STRIPCONFIG_OPTION_GRID_YON:
+	  tmp.i = va_arg (ap, int);
+	  if (tmp.i != scfg->Option.grid_yon)
+	  {
+	    tmp.i = max (tmp.i, STRIPMIN_OPTION_GRID_YON);
+	    tmp.i = min (tmp.i, STRIPMAX_OPTION_GRID_YON);
+	    scfg->Option.grid_yon = tmp.i;
+	    StripConfigMask_set
+		(&scfg->UpdateInfo.update_mask, SCFGMASK_OPTION_GRID_YON);
+	  }
+	  break;
             
-          case STRIPCONFIG_OPTION_AXIS_YCOLORSTAT:
-            tmp.i = va_arg (ap, int);
-            if (tmp.i != scfg->Option.axis_ycolorstat)
-            {
-              scfg->Option.axis_ycolorstat = tmp.i;
-              StripConfigMask_set
-                (&scfg->UpdateInfo.update_mask,
-                 SCFGMASK_OPTION_AXIS_YCOLORSTAT);
-            }
-            break;
+	case STRIPCONFIG_OPTION_AXIS_YCOLORSTAT:
+	  tmp.i = va_arg (ap, int);
+	  if (tmp.i != scfg->Option.axis_ycolorstat)
+	  {
+	    scfg->Option.axis_ycolorstat = tmp.i;
+	    StripConfigMask_set
+		(&scfg->UpdateInfo.update_mask,
+		  SCFGMASK_OPTION_AXIS_YCOLORSTAT);
+	  }
+	  break;
             
-          case STRIPCONFIG_OPTION_GRAPH_LINEWIDTH:
-            tmp.i = va_arg (ap, int);
-            if (tmp.i != scfg->Option.graph_linewidth)
-            {
-              tmp.i = max (tmp.i, STRIPMIN_OPTION_GRAPH_LINEWIDTH);
-              tmp.i = min (tmp.i, STRIPMAX_OPTION_GRAPH_LINEWIDTH);
-              scfg->Option.graph_linewidth = tmp.i;
-              StripConfigMask_set
-                (&scfg->UpdateInfo.update_mask,
-                SCFGMASK_OPTION_GRAPH_LINEWIDTH);
-            }
-            break;
+	case STRIPCONFIG_OPTION_GRAPH_LINEWIDTH:
+	  tmp.i = va_arg (ap, int);
+	  if (tmp.i != scfg->Option.graph_linewidth)
+	  {
+	    tmp.i = max (tmp.i, STRIPMIN_OPTION_GRAPH_LINEWIDTH);
+	    tmp.i = min (tmp.i, STRIPMAX_OPTION_GRAPH_LINEWIDTH);
+	    scfg->Option.graph_linewidth = tmp.i;
+	    StripConfigMask_set
+		(&scfg->UpdateInfo.update_mask,
+		  SCFGMASK_OPTION_GRAPH_LINEWIDTH);
+	  }
+	  break;
             
-          default:
-            fprintf
-              (stderr,
-               "StripConfig_setattr: cannot set read-only value, %d\n",
-               attrib);
-            ret_val = 0;
-            goto done;
+	default:
+	  fprintf
+	    (stderr,
+		"StripConfig_setattr: cannot set read-only value, %d\n",
+		attrib);
+	  ret_val = 0;
+	  goto done;
       }
     else break;
   }
@@ -648,78 +673,78 @@ int     StripConfig_getattr (StripConfig *scfg, ...)
        attrib = va_arg (ap, StripConfigAttribute))
   {
     if ((ret_val = ((attrib >= STRIPCONFIG_FIRST_ATTRIBUTE) &&
-                    (attrib <= STRIPCONFIG_LAST_ATTRIBUTE))))
+	(attrib <= STRIPCONFIG_LAST_ATTRIBUTE))))
       switch (attrib)
       {
-          case STRIPCONFIG_TITLE:
-            *(va_arg (ap, char **)) = scfg->title;
-            break;
-          case STRIPCONFIG_FILENAME:
-            *(va_arg (ap, char **)) = scfg->filename;
-            break;
-          case STRIPCONFIG_TIME_TIMESPAN:
-            *(va_arg (ap, unsigned *)) = scfg->Time.timespan;
-            break;
-          case STRIPCONFIG_TIME_NUM_SAMPLES:
-            *(va_arg (ap, int *)) = scfg->Time.num_samples;
-            break;
-          case STRIPCONFIG_TIME_SAMPLE_INTERVAL:
-            *(va_arg (ap, double *)) = scfg->Time.sample_interval;
-            break;
-          case STRIPCONFIG_TIME_REFRESH_INTERVAL:
-            *(va_arg (ap, double *)) = scfg->Time.refresh_interval;
-            break;
-          case STRIPCONFIG_COLOR_BACKGROUND:
-            *(va_arg (ap, cColor **)) = &scfg->Color.background;
-            break;
-          case STRIPCONFIG_COLOR_FOREGROUND:
-            *(va_arg (ap, cColor **)) = &scfg->Color.foreground;
-            break;
-          case STRIPCONFIG_COLOR_GRID:
-            *(va_arg (ap, cColor **)) = &scfg->Color.grid;
-            break;
-          case STRIPCONFIG_COLOR_COLOR1:
-            *(va_arg (ap, cColor **)) = &scfg->Color.color[0];
-            break;
-          case STRIPCONFIG_COLOR_COLOR2:
-            *(va_arg (ap, cColor **)) = &scfg->Color.color[1];
-            break;
-          case STRIPCONFIG_COLOR_COLOR3:
-            *(va_arg (ap, cColor **)) = &scfg->Color.color[2];
-            break;
-          case STRIPCONFIG_COLOR_COLOR4:
-            *(va_arg (ap, cColor **)) = &scfg->Color.color[3];
-            break;
-          case STRIPCONFIG_COLOR_COLOR5:
-            *(va_arg (ap, cColor **)) = &scfg->Color.color[4];
-            break;
-          case STRIPCONFIG_COLOR_COLOR6:
-            *(va_arg (ap, cColor **)) = &scfg->Color.color[5];
-            break;
-          case STRIPCONFIG_COLOR_COLOR7:
-            *(va_arg (ap, cColor **)) = &scfg->Color.color[6];
-            break;
-          case STRIPCONFIG_COLOR_COLOR8:
-            *(va_arg (ap, cColor **)) = &scfg->Color.color[7];
-            break;
-          case STRIPCONFIG_COLOR_COLOR9:
-            *(va_arg (ap, cColor **)) = &scfg->Color.color[8];
-            break;
-          case STRIPCONFIG_COLOR_COLOR10:
-            *(va_arg (ap, cColor **)) = &scfg->Color.color[9];
-            break;
-          case STRIPCONFIG_OPTION_GRID_XON:
-            *(va_arg (ap, int *)) = scfg->Option.grid_xon;
-            break;
-          case STRIPCONFIG_OPTION_GRID_YON:
-            *(va_arg (ap, int *)) = scfg->Option.grid_yon;
-            break;
-          case STRIPCONFIG_OPTION_AXIS_YCOLORSTAT:
-            *(va_arg (ap, int *)) = scfg->Option.axis_ycolorstat;
-            break;
-          case STRIPCONFIG_OPTION_GRAPH_LINEWIDTH:
-            *(va_arg (ap, int *)) = scfg->Option.graph_linewidth;
-            break;
+	case STRIPCONFIG_TITLE:
+	  *(va_arg (ap, char **)) = scfg->title;
+	  break;
+	case STRIPCONFIG_FILENAME:
+	  *(va_arg (ap, char **)) = scfg->filename;
+	  break;
+	case STRIPCONFIG_TIME_TIMESPAN:
+	  *(va_arg (ap, unsigned *)) = scfg->Time.timespan;
+	  break;
+	case STRIPCONFIG_TIME_NUM_SAMPLES:
+	  *(va_arg (ap, int *)) = scfg->Time.num_samples;
+	  break;
+	case STRIPCONFIG_TIME_SAMPLE_INTERVAL:
+	  *(va_arg (ap, double *)) = scfg->Time.sample_interval;
+	  break;
+	case STRIPCONFIG_TIME_REFRESH_INTERVAL:
+	  *(va_arg (ap, double *)) = scfg->Time.refresh_interval;
+	  break;
+	case STRIPCONFIG_COLOR_BACKGROUND:
+	  *(va_arg (ap, cColor **)) = &scfg->Color.background;
+	  break;
+	case STRIPCONFIG_COLOR_FOREGROUND:
+	  *(va_arg (ap, cColor **)) = &scfg->Color.foreground;
+	  break;
+	case STRIPCONFIG_COLOR_GRID:
+	  *(va_arg (ap, cColor **)) = &scfg->Color.grid;
+	  break;
+	case STRIPCONFIG_COLOR_COLOR1:
+	  *(va_arg (ap, cColor **)) = &scfg->Color.color[0];
+	  break;
+	case STRIPCONFIG_COLOR_COLOR2:
+	  *(va_arg (ap, cColor **)) = &scfg->Color.color[1];
+	  break;
+	case STRIPCONFIG_COLOR_COLOR3:
+	  *(va_arg (ap, cColor **)) = &scfg->Color.color[2];
+	  break;
+	case STRIPCONFIG_COLOR_COLOR4:
+	  *(va_arg (ap, cColor **)) = &scfg->Color.color[3];
+	  break;
+	case STRIPCONFIG_COLOR_COLOR5:
+	  *(va_arg (ap, cColor **)) = &scfg->Color.color[4];
+	  break;
+	case STRIPCONFIG_COLOR_COLOR6:
+	  *(va_arg (ap, cColor **)) = &scfg->Color.color[5];
+	  break;
+	case STRIPCONFIG_COLOR_COLOR7:
+	  *(va_arg (ap, cColor **)) = &scfg->Color.color[6];
+	  break;
+	case STRIPCONFIG_COLOR_COLOR8:
+	  *(va_arg (ap, cColor **)) = &scfg->Color.color[7];
+	  break;
+	case STRIPCONFIG_COLOR_COLOR9:
+	  *(va_arg (ap, cColor **)) = &scfg->Color.color[8];
+	  break;
+	case STRIPCONFIG_COLOR_COLOR10:
+	  *(va_arg (ap, cColor **)) = &scfg->Color.color[9];
+	  break;
+	case STRIPCONFIG_OPTION_GRID_XON:
+	  *(va_arg (ap, int *)) = scfg->Option.grid_xon;
+	  break;
+	case STRIPCONFIG_OPTION_GRID_YON:
+	  *(va_arg (ap, int *)) = scfg->Option.grid_yon;
+	  break;
+	case STRIPCONFIG_OPTION_AXIS_YCOLORSTAT:
+	  *(va_arg (ap, int *)) = scfg->Option.axis_ycolorstat;
+	  break;
+	case STRIPCONFIG_OPTION_GRAPH_LINEWIDTH:
+	  *(va_arg (ap, int *)) = scfg->Option.graph_linewidth;
+	  break;
       }
     else break;
   }
@@ -734,22 +759,22 @@ int     StripConfig_getattr (StripConfig *scfg, ...)
  *
  */
 int     StripConfig_write       (StripConfig            *scfg,
-                                 FILE                   *f,
-                                 StripConfigMask        mask)
+  FILE                   *f,
+  StripConfigMask        mask)
 {
   StripConfigMaskElement        elem;
-  int                           i, j;
+  int                           i, j = 0;
   char                          cbuf[BUFSIZE], fbuf[BUFSIZE], num_buf[BUFSIZE];
   char                          *p;
   cColor                        *pcolor;
 
   fprintf
     (f,
-     "%-*s%d.%d\n",
-     LEFT_COLUMNWIDTH,
-     STRIPCONFIG_HEADER_STR,
-     STRIPCONFIG_MAJOR_VERSION,
-     STRIPCONFIG_MINOR_VERSION);
+	"%-*s%d.%d\n",
+	LEFT_COLUMNWIDTH,
+	STRIPCONFIG_HEADER_STR,
+	STRIPCONFIG_MAJOR_VERSION,
+	STRIPCONFIG_MINOR_VERSION);
 
   for (i = 0; i < SCFGMASK_NUM_ELEMENTS; i++)
   {
@@ -766,25 +791,25 @@ int     StripConfig_write       (StripConfig            *scfg,
       {
         sprintf
           (p, "%s%s%s%s",
-           SCFTokenStr[SEPARATOR], SCFTokenStr[TIME],
-           SCFTokenStr[SEPARATOR], SCFTokenStr[i]);
+		SCFTokenStr[SEPARATOR], SCFTokenStr[TIME],
+		SCFTokenStr[SEPARATOR], SCFTokenStr[i]);
         sprintf
           (fbuf, "%-*s", LEFT_COLUMNWIDTH, cbuf);
 
         switch (elem)
         {
-            case SCFGMASK_TIME_TIMESPAN:
-              fprintf (f, "%s%u\n", fbuf, scfg->Time.timespan);
-              break;
-            case SCFGMASK_TIME_NUM_SAMPLES:
-              fprintf (f, "%s%d\n", fbuf, scfg->Time.num_samples);
-              break;
-            case SCFGMASK_TIME_SAMPLE_INTERVAL:
-              fprintf (f, "%s%f\n", fbuf, scfg->Time.sample_interval);
-              break;
-            case SCFGMASK_TIME_REFRESH_INTERVAL:
-              fprintf (f, "%s%f\n", fbuf, scfg->Time.refresh_interval);
-              break;
+	  case SCFGMASK_TIME_TIMESPAN:
+	    fprintf (f, "%s%u\n", fbuf, scfg->Time.timespan);
+	    break;
+	  case SCFGMASK_TIME_NUM_SAMPLES:
+	    fprintf (f, "%s%d\n", fbuf, scfg->Time.num_samples);
+	    break;
+	  case SCFGMASK_TIME_SAMPLE_INTERVAL:
+	    fprintf (f, "%s%f\n", fbuf, scfg->Time.sample_interval);
+	    break;
+	  case SCFGMASK_TIME_REFRESH_INTERVAL:
+	    fprintf (f, "%s%f\n", fbuf, scfg->Time.refresh_interval);
+	    break;
         }
       }
 
@@ -793,8 +818,8 @@ int     StripConfig_write       (StripConfig            *scfg,
       {
         sprintf
           (p, "%s%s%s%s",
-           SCFTokenStr[SEPARATOR], SCFTokenStr[COLOR],
-           SCFTokenStr[SEPARATOR], SCFTokenStr[i]);
+		SCFTokenStr[SEPARATOR], SCFTokenStr[COLOR],
+		SCFTokenStr[SEPARATOR], SCFTokenStr[i]);
         sprintf
           (fbuf, "%-*s", LEFT_COLUMNWIDTH, cbuf);
 
@@ -803,10 +828,10 @@ int     StripConfig_write       (StripConfig            *scfg,
         StripConfig_getattr (scfg, (StripConfigAttribute)i+1, &pcolor, 0);
         fprintf
           (f, "%s%-*hu%-*hu%-*hu\n",
-           fbuf,
-           NUMERIC_COLUMNWIDTH, pcolor->xcolor.red,
-           NUMERIC_COLUMNWIDTH, pcolor->xcolor.green,
-           NUMERIC_COLUMNWIDTH, pcolor->xcolor.blue);
+		fbuf,
+		NUMERIC_COLUMNWIDTH, pcolor->xcolor.red,
+		NUMERIC_COLUMNWIDTH, pcolor->xcolor.green,
+		NUMERIC_COLUMNWIDTH, pcolor->xcolor.blue);
       }
 
       /* Option */
@@ -814,25 +839,25 @@ int     StripConfig_write       (StripConfig            *scfg,
       {
         sprintf
           (p, "%s%s%s%s",
-           SCFTokenStr[SEPARATOR], SCFTokenStr[OPTION],
-           SCFTokenStr[SEPARATOR], SCFTokenStr[i]);
+		SCFTokenStr[SEPARATOR], SCFTokenStr[OPTION],
+		SCFTokenStr[SEPARATOR], SCFTokenStr[i]);
         sprintf
           (fbuf, "%-*s", LEFT_COLUMNWIDTH, cbuf);
 
         switch (elem)
         {
-            case SCFGMASK_OPTION_GRID_XON:
-              j = scfg->Option.grid_xon;
-              break;
-            case SCFGMASK_OPTION_GRID_YON:
-              j = scfg->Option.grid_yon;
-              break;
-            case SCFGMASK_OPTION_AXIS_YCOLORSTAT:
-              j = scfg->Option.axis_ycolorstat;
-              break;
-            case SCFGMASK_OPTION_GRAPH_LINEWIDTH:
-              j = scfg->Option.graph_linewidth;
-              break;
+	  case SCFGMASK_OPTION_GRID_XON:
+	    j = scfg->Option.grid_xon;
+	    break;
+	  case SCFGMASK_OPTION_GRID_YON:
+	    j = scfg->Option.grid_yon;
+	    break;
+	  case SCFGMASK_OPTION_AXIS_YCOLORSTAT:
+	    j = scfg->Option.axis_ycolorstat;
+	    break;
+	  case SCFGMASK_OPTION_GRAPH_LINEWIDTH:
+	    j = scfg->Option.graph_linewidth;
+	    break;
         }
         fprintf (f, "%s%d\n", fbuf, j);
       }
@@ -842,8 +867,8 @@ int     StripConfig_write       (StripConfig            *scfg,
       {
         sprintf
           (p, "%s%s",
-           SCFTokenStr[SEPARATOR],
-           SCFTokenStr[CURVE]);
+		SCFTokenStr[SEPARATOR],
+		SCFTokenStr[CURVE]);
 
         for (j = 0; j < STRIP_MAX_CURVES; j++)
         {
@@ -851,72 +876,72 @@ int     StripConfig_write       (StripConfig            *scfg,
             continue;
           sprintf
             (fbuf, "%s%s%d%s%s",
-             cbuf, SCFTokenStr[SEPARATOR],
-             j, SCFTokenStr[SEPARATOR],
-             SCFTokenStr[i]);
+		  cbuf, SCFTokenStr[SEPARATOR],
+		  j, SCFTokenStr[SEPARATOR],
+		  SCFTokenStr[i]);
           switch (elem)
           {
-              case SCFGMASK_CURVE_NAME:
-                fprintf
-                  (f, "%-*s%s\n",
-                   LEFT_COLUMNWIDTH, fbuf,
-                   scfg->Curves.Detail[j].name);
-                break;
-              case SCFGMASK_CURVE_EGU:
-                if (StripConfigMask_stat
-                    (&scfg->Curves.Detail[j].set_mask, SCFGMASK_CURVE_EGU))
-                  fprintf
-                    (f, "%-*s%s\n",
-                     LEFT_COLUMNWIDTH, fbuf, scfg->Curves.Detail[j].egu);
-                break;
-              case SCFGMASK_CURVE_COMMENT:
-                if (StripConfigMask_stat
-                    (&scfg->Curves.Detail[j].set_mask, SCFGMASK_CURVE_COMMENT))
-                  fprintf
-                    (f, "%-*s%s\n",
-                     LEFT_COLUMNWIDTH, fbuf, scfg->Curves.Detail[j].comment);
-                break;
-              case SCFGMASK_CURVE_PRECISION:
-                if (StripConfigMask_stat
-                    (&scfg->Curves.Detail[j].set_mask, SCFGMASK_CURVE_PRECISION))
-                  fprintf
-                    (f, "%-*s%d\n",
-                     LEFT_COLUMNWIDTH, fbuf, scfg->Curves.Detail[j].precision);
-                break;
-              case SCFGMASK_CURVE_MIN:
-                if (StripConfigMask_stat
-                    (&scfg->Curves.Detail[j].set_mask, SCFGMASK_CURVE_MIN))
-                {
-                  dbl2str
-                    (scfg->Curves.Detail[j].min,
-                     scfg->Curves.Detail[j].precision,
-                     num_buf, 31);
-                  fprintf (f, "%-*s%s\n", LEFT_COLUMNWIDTH, fbuf, num_buf);
-                }
-                break;
-              case SCFGMASK_CURVE_MAX:
-                if (StripConfigMask_stat
-                    (&scfg->Curves.Detail[j].set_mask, SCFGMASK_CURVE_MAX))
-                {
-                  dbl2str
-                    (scfg->Curves.Detail[j].max,
-                     scfg->Curves.Detail[j].precision,
-                     num_buf, 31);
-                  fprintf (f, "%-*s%s\n", LEFT_COLUMNWIDTH, fbuf, num_buf);
-                  break;
-                }
-              case SCFGMASK_CURVE_SCALE:
-                fprintf
-                  (f, "%-*s%d\n",
-                   LEFT_COLUMNWIDTH, fbuf,
-                   scfg->Curves.Detail[j].scale);
-                break;
-              case SCFGMASK_CURVE_PLOTSTAT:
-                fprintf
-                  (f, "%-*s%d\n",
-                   LEFT_COLUMNWIDTH, fbuf,
-                   scfg->Curves.Detail[j].plotstat);
-                break;
+	    case SCFGMASK_CURVE_NAME:
+		fprintf
+		  (f, "%-*s%s\n",
+		    LEFT_COLUMNWIDTH, fbuf,
+		    scfg->Curves.Detail[j].name);
+		break;
+	    case SCFGMASK_CURVE_EGU:
+		if (StripConfigMask_stat
+		  (&scfg->Curves.Detail[j].set_mask, SCFGMASK_CURVE_EGU))
+		  fprintf
+		    (f, "%-*s%s\n",
+			LEFT_COLUMNWIDTH, fbuf, scfg->Curves.Detail[j].egu);
+		break;
+	    case SCFGMASK_CURVE_COMMENT:
+		if (StripConfigMask_stat
+		  (&scfg->Curves.Detail[j].set_mask, SCFGMASK_CURVE_COMMENT))
+		  fprintf
+		    (f, "%-*s%s\n",
+			LEFT_COLUMNWIDTH, fbuf, scfg->Curves.Detail[j].comment);
+		break;
+	    case SCFGMASK_CURVE_PRECISION:
+		if (StripConfigMask_stat
+		  (&scfg->Curves.Detail[j].set_mask, SCFGMASK_CURVE_PRECISION))
+		  fprintf
+		    (f, "%-*s%d\n",
+			LEFT_COLUMNWIDTH, fbuf, scfg->Curves.Detail[j].precision);
+		break;
+	    case SCFGMASK_CURVE_MIN:
+		if (StripConfigMask_stat
+		  (&scfg->Curves.Detail[j].set_mask, SCFGMASK_CURVE_MIN))
+		{
+		  dbl2str
+		    (scfg->Curves.Detail[j].min,
+			scfg->Curves.Detail[j].precision,
+			num_buf, 31);
+		  fprintf (f, "%-*s%s\n", LEFT_COLUMNWIDTH, fbuf, num_buf);
+		}
+		break;
+	    case SCFGMASK_CURVE_MAX:
+		if (StripConfigMask_stat
+		  (&scfg->Curves.Detail[j].set_mask, SCFGMASK_CURVE_MAX))
+		{
+		  dbl2str
+		    (scfg->Curves.Detail[j].max,
+			scfg->Curves.Detail[j].precision,
+			num_buf, 31);
+		  fprintf (f, "%-*s%s\n", LEFT_COLUMNWIDTH, fbuf, num_buf);
+		  break;
+		}
+	    case SCFGMASK_CURVE_SCALE:
+		fprintf
+		  (f, "%-*s%d\n",
+		    LEFT_COLUMNWIDTH, fbuf,
+		    scfg->Curves.Detail[j].scale);
+		break;
+	    case SCFGMASK_CURVE_PLOTSTAT:
+		fprintf
+		  (f, "%-*s%d\n",
+		    LEFT_COLUMNWIDTH, fbuf,
+		    scfg->Curves.Detail[j].plotstat);
+		break;
           }
         }
       }
@@ -932,14 +957,14 @@ int     StripConfig_write       (StripConfig            *scfg,
  *
  */
 int     StripConfig_load        (StripConfig            *scfg,
-                                 FILE                   *f,
-                                 StripConfigMask        mask)
+  FILE                   *f,
+  StripConfigMask        mask)
 {
   StripConfig                   *clone;
   char                          fbuf[BUFSIZE], ebuf[BUFSIZE];
   char                          *p, *ptok, *pval, *ptmp;
   int                           i;
-  int                           token, token_min, token_max;
+  int                           token, token_min = 0, token_max = 0;
   StripConfigMaskElement        elem;
   int                           curve_idx;
   cColor                        *pcolor, color;
@@ -977,15 +1002,15 @@ int     StripConfig_load        (StripConfig            *scfg,
     error = !read_oldformat (clone, f, mask);
   }
   else if ((major_version > STRIPCONFIG_MAJOR_VERSION) ||
-           ((major_version == STRIPCONFIG_MAJOR_VERSION) &&
-            (minor_version > STRIPCONFIG_MINOR_VERSION)))
+    ((major_version == STRIPCONFIG_MAJOR_VERSION) &&
+	(minor_version > STRIPCONFIG_MINOR_VERSION)))
   {
     fprintf
       (stderr,
-       "StripConfig_load(): can't read configuration file version %d.%d\n"
-       "                    I only know about version %d.%d and lower!\n",
-       major_version, minor_version,
-       STRIPCONFIG_MAJOR_VERSION, STRIPCONFIG_MINOR_VERSION);
+	  "StripConfig_load(): can't read configuration file version %d.%d\n"
+	  "                    I only know about version %d.%d and lower!\n",
+	  major_version, minor_version,
+	  STRIPCONFIG_MAJOR_VERSION, STRIPCONFIG_MINOR_VERSION);
   }
   else while (fgets (fbuf, BUFSIZE, f))
   {
@@ -1017,32 +1042,32 @@ int     StripConfig_load        (StripConfig            *scfg,
 
     switch (token)
     {
-        case TIME:
-          token_min = TIMESPAN;
-          token_max = REFRESH_INTERVAL;
-          break;
-        case COLOR:
-          token_min = BACKGROUND;
-          token_max = COLOR10;
-          break;
-        case OPTION:
-          token_min = GRID_XON;
-          token_max = GRAPH_LINEWIDTH;
-          break;
-        case CURVE:
-          token_min = NAME;
-          token_max = PLOTSTAT;
-          /* must read the curve index */
-          if ((ret = ((p = strtok (NULL, SCFTokenStr[SEPARATOR])) != NULL)))
-            if ((ret = sscanf (p, "%d", &curve_idx) == 1))
-              ret = (curve_idx >= 0) && (curve_idx <= STRIP_MAX_CURVES);
-          if (!ret) {
-            fprintf (stderr, "StripConfig_load: bad curve index, \"%s\"\n", p);
-            fprintf (stderr, "==> %s\n", ebuf);
-            error = 1;
-            goto finish;
-          }
-          break;
+    case TIME:
+	token_min = TIMESPAN;
+	token_max = REFRESH_INTERVAL;
+	break;
+    case COLOR:
+	token_min = BACKGROUND;
+	token_max = COLOR10;
+	break;
+    case OPTION:
+	token_min = GRID_XON;
+	token_max = GRAPH_LINEWIDTH;
+	break;
+    case CURVE:
+	token_min = NAME;
+	token_max = PLOTSTAT;
+	/* must read the curve index */
+	if ((ret = ((p = strtok (NULL, SCFTokenStr[SEPARATOR])) != NULL)))
+	  if ((ret = sscanf (p, "%d", &curve_idx) == 1))
+	    ret = (curve_idx >= 0) && (curve_idx <= STRIP_MAX_CURVES);
+	if (!ret) {
+	  fprintf (stderr, "StripConfig_load: bad curve index, \"%s\"\n", p);
+	  fprintf (stderr, "==> %s\n", ebuf);
+	  error = 1;
+	  goto finish;
+	}
+	break;
     }
 
     /* the next token should be the the last in the attribute so the
@@ -1069,142 +1094,142 @@ int     StripConfig_load        (StripConfig            *scfg,
       
     switch (token)
     {
-        case TIMESPAN:
-	    if ((ret = (sscanf (pval, "%ud", &tmp.u) == 1)))
-            StripConfig_setattr (clone, STRIPCONFIG_TIME_TIMESPAN, tmp.u, 0);
-          break;
+    case TIMESPAN:
+	if ((ret = (sscanf (pval, "%ud", &tmp.u) == 1)))
+	  StripConfig_setattr (clone, STRIPCONFIG_TIME_TIMESPAN, tmp.u, 0);
+	break;
           
-        case NUM_SAMPLES:
-	    if ((ret = (sscanf (pval, "%d", &tmp.i) == 1)))
-            StripConfig_setattr
-              (clone, STRIPCONFIG_TIME_NUM_SAMPLES, tmp.i, 0);
-          break;
+    case NUM_SAMPLES:
+	if ((ret = (sscanf (pval, "%d", &tmp.i) == 1)))
+	  StripConfig_setattr
+	    (clone, STRIPCONFIG_TIME_NUM_SAMPLES, tmp.i, 0);
+	break;
           
-        case SAMPLE_INTERVAL:
-	    if ((ret = (sscanf (pval, "%lf", &tmp.d) == 1)))
-            StripConfig_setattr
-              (clone, STRIPCONFIG_TIME_SAMPLE_INTERVAL, tmp.d, 0);
-          break;
+    case SAMPLE_INTERVAL:
+	if ((ret = (sscanf (pval, "%lf", &tmp.d) == 1)))
+	  StripConfig_setattr
+	    (clone, STRIPCONFIG_TIME_SAMPLE_INTERVAL, tmp.d, 0);
+	break;
           
-        case REFRESH_INTERVAL:
-	    if ((ret = (sscanf (pval, "%lf", &tmp.d) == 1)))
-            StripConfig_setattr
-              (clone, STRIPCONFIG_TIME_REFRESH_INTERVAL, tmp.d, 0);
-          break;
+    case REFRESH_INTERVAL:
+	if ((ret = (sscanf (pval, "%lf", &tmp.d) == 1)))
+	  StripConfig_setattr
+	    (clone, STRIPCONFIG_TIME_REFRESH_INTERVAL, tmp.d, 0);
+	break;
           
-        case BACKGROUND:
-        case FOREGROUND:
-        case GRID:
-        case COLOR1:
-        case COLOR2:
-        case COLOR3:
-        case COLOR4:
-        case COLOR5:
-        case COLOR6:
-        case COLOR7:
-        case COLOR8:
-        case COLOR9:
-        case COLOR10:
-          StripConfig_getattr
-            (clone, (StripConfigAttribute)token+1, &pcolor, 0);
-          ret =
-            (sscanf
-             (pval, "%hu%hu%hu",
-              &pcolor->xcolor.red, &pcolor->xcolor.green, &pcolor->xcolor.blue)
-             == 3);
-          break;
+    case BACKGROUND:
+    case FOREGROUND:
+    case GRID:
+    case COLOR1:
+    case COLOR2:
+    case COLOR3:
+    case COLOR4:
+    case COLOR5:
+    case COLOR6:
+    case COLOR7:
+    case COLOR8:
+    case COLOR9:
+    case COLOR10:
+	StripConfig_getattr
+	  (clone, (StripConfigAttribute)token+1, &pcolor, 0);
+	ret =
+	  (sscanf
+	    (pval, "%hu%hu%hu",
+		&pcolor->xcolor.red, &pcolor->xcolor.green, &pcolor->xcolor.blue)
+	    == 3);
+	break;
           
-        case GRID_XON:
-          ret = (sscanf (pval, "%d", &clone->Option.grid_xon) == 1);
-          if ((clone->Option.grid_xon < STRIPGRID_NONE) ||
-              (clone->Option.grid_xon > STRIPGRID_ALL))
-            clone->Option.grid_xon = STRIPGRID_SOME;
-          break;
+    case GRID_XON:
+	ret = (sscanf (pval, "%d", &clone->Option.grid_xon) == 1);
+	if ((clone->Option.grid_xon < STRIPGRID_NONE) ||
+	  (clone->Option.grid_xon > STRIPGRID_ALL))
+	  clone->Option.grid_xon = STRIPGRID_SOME;
+	break;
           
-        case GRID_YON:
-          ret = (sscanf (pval, "%d", &clone->Option.grid_yon) == 1);
-          if ((clone->Option.grid_yon < STRIPGRID_NONE) ||
-              (clone->Option.grid_yon > STRIPGRID_ALL))
-            clone->Option.grid_yon = STRIPGRID_SOME;
-          break;
+    case GRID_YON:
+	ret = (sscanf (pval, "%d", &clone->Option.grid_yon) == 1);
+	if ((clone->Option.grid_yon < STRIPGRID_NONE) ||
+	  (clone->Option.grid_yon > STRIPGRID_ALL))
+	  clone->Option.grid_yon = STRIPGRID_SOME;
+	break;
           
-        case AXIS_YCOLORSTAT:
-          ret = (sscanf (pval, "%d", &clone->Option.axis_ycolorstat) == 1);
-          break;
+    case AXIS_YCOLORSTAT:
+	ret = (sscanf (pval, "%d", &clone->Option.axis_ycolorstat) == 1);
+	break;
           
-        case GRAPH_LINEWIDTH:
-          ret = (sscanf (pval, "%d", &clone->Option.graph_linewidth) == 1);
-          break;
+    case GRAPH_LINEWIDTH:
+	ret = (sscanf (pval, "%d", &clone->Option.graph_linewidth) == 1);
+	break;
           
-        case NAME:
-          ret =
-            (sscanf (pval, "%s", clone->Curves.Detail[curve_idx].name) == 1);
-          break;
+    case NAME:
+	ret =
+	  (sscanf (pval, "%s", clone->Curves.Detail[curve_idx].name) == 1);
+	break;
           
-        case EGU:
-          /* may be empty */
-          clone->Curves.Detail[curve_idx].egu[0] = 0;
-          sscanf (pval, "%s", clone->Curves.Detail[curve_idx].egu);
-          break;
+    case EGU:
+	/* may be empty */
+	clone->Curves.Detail[curve_idx].egu[0] = 0;
+	sscanf (pval, "%s", clone->Curves.Detail[curve_idx].egu);
+	break;
           
-        case COMMENT:
-          ptmp = clone->Curves.Detail[curve_idx].comment;
-          for (i = 0; i < STRIP_MAX_COMMENT_CHAR; i++)
-            if (*pval) *ptmp++ = *pval++;
-            else break;
+    case COMMENT:
+	ptmp = clone->Curves.Detail[curve_idx].comment;
+	for (i = 0; i < STRIP_MAX_COMMENT_CHAR; i++)
+	  if (*pval) *ptmp++ = *pval++;
+	  else break;
 
-          /* remove trailing whitespace */
-          while (ptmp > clone->Curves.Detail[curve_idx].comment)
-          {
-            ptmp--;
-            if (isspace ((int)*ptmp)) *ptmp = 0;
-            else break;
-          }
-          ret = (ptmp > clone->Curves.Detail[curve_idx].comment);
-          break;
+	/* remove trailing whitespace */
+	while (ptmp > clone->Curves.Detail[curve_idx].comment)
+	{
+	  ptmp--;
+	  if (isspace ((int)*ptmp)) *ptmp = 0;
+	  else break;
+	}
+	ret = (ptmp > clone->Curves.Detail[curve_idx].comment);
+	break;
           
-        case PRECISION:
-          ret = (sscanf (pval, "%d", &tmp.i) == 1);
-          if (ret)
-          {
-            clone->Curves.Detail[curve_idx].precision =
-              max (tmp.i, STRIPMIN_CURVE_PRECISION);
-            clone->Curves.Detail[curve_idx].precision =
-              min (tmp.i, STRIPMAX_CURVE_PRECISION);
-          }
-          break;
+    case PRECISION:
+	ret = (sscanf (pval, "%d", &tmp.i) == 1);
+	if (ret)
+	{
+	  clone->Curves.Detail[curve_idx].precision =
+	    max (tmp.i, STRIPMIN_CURVE_PRECISION);
+	  clone->Curves.Detail[curve_idx].precision =
+	    min (tmp.i, STRIPMAX_CURVE_PRECISION);
+	}
+	break;
           
-        case MIN:
-          ret =
-            (sscanf (pval, "%lf", &clone->Curves.Detail[curve_idx].min) == 1);
-          break;
+    case MIN:
+	ret =
+	  (sscanf (pval, "%lf", &clone->Curves.Detail[curve_idx].min) == 1);
+	break;
           
-        case MAX:
-          ret =
-            (sscanf (pval, "%lf", &clone->Curves.Detail[curve_idx].max) == 1);
-          break;
+    case MAX:
+	ret =
+	  (sscanf (pval, "%lf", &clone->Curves.Detail[curve_idx].max) == 1);
+	break;
 
-        case SCALE:
-          ret =
-            (sscanf (pval, "%d", &clone->Curves.Detail[curve_idx].scale) == 1);
-          if (ret)
-            ret =
-              (clone->Curves.Detail[curve_idx].scale == STRIPSCALE_LINEAR ||
-               clone->Curves.Detail[curve_idx].scale == STRIPSCALE_LOG_10);
-          break;
+    case SCALE:
+	ret =
+	  (sscanf (pval, "%d", &clone->Curves.Detail[curve_idx].scale) == 1);
+	if (ret)
+	  ret =
+	    (clone->Curves.Detail[curve_idx].scale == STRIPSCALE_LINEAR ||
+		clone->Curves.Detail[curve_idx].scale == STRIPSCALE_LOG_10);
+	break;
 
-        case PLOTSTAT:
-          ret =
-            (sscanf (pval, "%d", &clone->Curves.Detail[curve_idx].plotstat)
-             == 1);
-          break;
+    case PLOTSTAT:
+	ret =
+	  (sscanf (pval, "%d", &clone->Curves.Detail[curve_idx].plotstat)
+	    == 1);
+	break;
           
-        default:
-          fprintf
-            (stderr,
-             "StripConfig_load: unknown or obsolete attribute (ignore)\n");
-          fprintf (stderr, "==> %s\n", pval);
-          continue;
+    default:
+	fprintf
+	  (stderr,
+	    "StripConfig_load: unknown or obsolete attribute (ignore)\n");
+	fprintf (stderr, "==> %s\n", pval);
+	continue;
     }
 
     if (ret)
@@ -1240,7 +1265,7 @@ int     StripConfig_load        (StripConfig            *scfg,
     /* if NumSamples wasn't specified, then set it to be the time span
      * divided by the sample interval */
     if (!StripConfigMask_stat
-        (&clone->UpdateInfo.update_mask, STRIPCONFIG_TIME_NUM_SAMPLES))
+	(&clone->UpdateInfo.update_mask, STRIPCONFIG_TIME_NUM_SAMPLES))
     {
       tmp.d = ceil((double)clone->Time.timespan / clone->Time.sample_interval);
       clone->Time.num_samples = (int)tmp.d;
@@ -1250,9 +1275,9 @@ int     StripConfig_load        (StripConfig            *scfg,
 
     /* update colors if necessary */
     if (!old &&
-        StripConfigMask_intersect (&SCFGMASK_COLOR, &mask) &&
-        StripConfigMask_intersect
-        (&SCFGMASK_COLOR, &clone->UpdateInfo.update_mask))
+	StripConfigMask_intersect (&SCFGMASK_COLOR, &mask) &&
+	StripConfigMask_intersect
+	(&SCFGMASK_COLOR, &clone->UpdateInfo.update_mask))
     {
       cColorManager_build_palette (scfg->scm, 0, CCM_MAX_PALETTE_SIZE);
 
@@ -1299,6 +1324,9 @@ int     StripConfig_load        (StripConfig            *scfg,
     if (clone->filename) scfg->filename = strdup (clone->filename);
   }
 
+  /* set the scm to NULL in the clone so it won't be freed (the scfg
+     is using it) */
+  clone->scm = NULL;
   StripConfig_delete (clone);
   return !error;
 }
@@ -1309,9 +1337,9 @@ int     StripConfig_load        (StripConfig            *scfg,
  *
  */
 int     StripConfig_addcallback (StripConfig            *scfg,
-                                 StripConfigMask        mask,
-                                 StripConfigUpdateFunc  func,
-                                 void                   *data)
+  StripConfigMask        mask,
+  StripConfigUpdateFunc  func,
+  void                   *data)
 {
   int   i;
   int   ret;
@@ -1350,7 +1378,7 @@ void    StripConfig_update      (StripConfig *scfg, StripConfigMask mask)
       if (scfg->UpdateInfo.Callbacks[i].call_func != NULL)
       {
         if (StripConfigMask_intersect
-            (&mask, &scfg->UpdateInfo.Callbacks[i].call_event))
+	    (&mask, &scfg->UpdateInfo.Callbacks[i].call_event))
         {
           tmp_mask = scfg->UpdateInfo.Callbacks[i].call_event;
           StripConfigMask_and (&tmp_mask, &mask);
@@ -1381,8 +1409,8 @@ void    StripConfig_update      (StripConfig *scfg, StripConfigMask mask)
 
 /* ====== Static Functions ====== */
 static int      read_oldformat  (StripConfig            *scfg,
-                                 FILE                   *f,
-                                 StripConfigMask        mask)
+  FILE                   *f,
+  StripConfigMask        mask)
 {
   char          fbuf[BUFSIZE];
   char          *pattr, *pval;
@@ -1409,14 +1437,14 @@ static int      read_oldformat  (StripConfig            *scfg,
                 (scfg, STRIPCONFIG_TIME_SAMPLE_INTERVAL, tmp.d, 0);
               StripConfigMask_set
                 (&scfg->UpdateInfo.update_mask,
-                 SCFGMASK_TIME_SAMPLE_INTERVAL);
+			SCFGMASK_TIME_SAMPLE_INTERVAL);
                       
               /* make sample frequency default update frequency */
               StripConfig_setattr
                 (scfg, STRIPCONFIG_TIME_REFRESH_INTERVAL, tmp.d, 0);
               StripConfigMask_set
                 (&scfg->UpdateInfo.update_mask,
-                 SCFGMASK_TIME_REFRESH_INTERVAL);
+			SCFGMASK_TIME_REFRESH_INTERVAL);
                       
               ret = 1;
             }
@@ -1445,11 +1473,11 @@ static int      read_oldformat  (StripConfig            *scfg,
               StripConfigMask_set
                 (&scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_NAME);
               StripConfigMask_set
-              (&scfg->Curves.Detail[curve_idx].update_mask,
-                SCFGMASK_CURVE_NAME);
+		    (&scfg->Curves.Detail[curve_idx].update_mask,
+			SCFGMASK_CURVE_NAME);
               StripConfigMask_set
-              (&scfg->Curves.Detail[curve_idx].set_mask,
-                SCFGMASK_CURVE_NAME);                 
+		    (&scfg->Curves.Detail[curve_idx].set_mask,
+			SCFGMASK_CURVE_NAME);                 
               ret = 1;
             }
         }
@@ -1466,10 +1494,10 @@ static int      read_oldformat  (StripConfig            *scfg,
                   (&scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_MAX);
                 StripConfigMask_set
                   (&scfg->Curves.Detail[curve_idx].update_mask,
-                   SCFGMASK_CURVE_MAX);
+			  SCFGMASK_CURVE_MAX);
                 StripConfigMask_set
                   (&scfg->Curves.Detail[curve_idx].set_mask,
-                   SCFGMASK_CURVE_MAX);               
+			  SCFGMASK_CURVE_MAX);               
                 ret = 1;
               }
             }
@@ -1487,10 +1515,10 @@ static int      read_oldformat  (StripConfig            *scfg,
                   (&scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_MIN);
                 StripConfigMask_set
                   (&scfg->Curves.Detail[curve_idx].update_mask,
-                   SCFGMASK_CURVE_MIN);
+			  SCFGMASK_CURVE_MIN);
                 StripConfigMask_set
                   (&scfg->Curves.Detail[curve_idx].set_mask,
-                   SCFGMASK_CURVE_MIN);               
+			  SCFGMASK_CURVE_MIN);               
                 ret = 1;
               }
             }
@@ -1506,7 +1534,7 @@ static int      read_oldformat  (StripConfig            *scfg,
  * StripConfig_reset_details
  */
 void    StripConfig_reset_details       (StripConfig *scfg,
-                                         StripCurveDetail *detail)
+  StripCurveDetail *detail)
 {
   strcpy (detail->egu, STRIPDEF_CURVE_EGU);
   strcpy (detail->comment, STRIPDEF_CURVE_COMMENT);
@@ -1520,3 +1548,15 @@ void    StripConfig_reset_details       (StripConfig *scfg,
   StripConfigMask_clear (&detail->update_mask);
   StripConfigMask_clear (&detail->set_mask);
 }
+
+/* **************************** Emacs Editing Sequences ***************** */
+/* Local Variables: */
+/* tab-width: 6 */
+/* c-basic-offset: 2 */
+/* c-comment-only-line-offset: 0 */
+/* c-indent-comments-syntactically-p: t */
+/* c-label-minimum-indentation: 1 */
+/* c-file-offsets: ((substatement-open . 0) (label . 2) */
+/* (brace-entry-open . 0) (label .2) (arglist-intro . +) */
+/* (arglist-cont-nonempty . c-lineup-arglist) ) */
+/* End: */

@@ -8,12 +8,14 @@
  *-----------------------------------------------------------------------------
  */
 
+#define DEBUG_SCM 0
 
 #include "cColorManager.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "Strip.h"
 
 #ifndef max
 #define max(a,b) ((a)>(b)?(a):(b))
@@ -594,7 +596,11 @@ cColorManager	cColorManager_init	(Display	*dpy,
       scmi->private_cmap = 0;
     }
   }
-  
+
+#if DEBUG_SCM && 0
+  printf("cColorManager_init: scmi=%x\n",scmi);
+#endif  
+
   return (cColorManager)scmi;
 }
 
@@ -609,13 +615,35 @@ void	cColorManager_delete	(cColorManager the_scm)
   Pixel		pixels[CCM_MAX_PALETTE_SIZE];
   int		i;
 
+#if DEBUG_SCM
+  printf("cColorManager_delete: the_scm=%x\n",the_scm);
+#endif  
+
+  /* ignore errors since some cells may be private resources, or fix
+     this up */
+  XSync(scmi->display, False);
+  Strip_ignorexerrors();
+
   if (scmi->private_cmap)
+  {
+#if DEBUG_SCM
+    printf("  XFreeColormap\n");
+#endif  
     XFreeColormap (scmi->display, scmi->cmap);
+  }
   else if (scmi->n_grab > 0)
+  {
+#if DEBUG_SCM
+    printf("  XFreeColormap\n");
+#endif  
     XwFreeColors (scmi->display, scmi->cmap, scmi->grab_pix, scmi->n_grab, 0);
+  }
 
   if (scmi->palette_size > 0)
   {
+#if DEBUG_SCM
+    printf("  XFreeColors palette_size=%d\n",scmi->palette_size);
+#endif  
     for (i = 0; i < scmi->palette_size; i++)
       pixels[i] = scmi->palette[i].pixel;
     XwFreeColors (scmi->display, scmi->cmap, pixels, i, 0);
@@ -623,11 +651,23 @@ void	cColorManager_delete	(cColorManager the_scm)
 
   if (scmi->n_keep > 0)
   {
+#if DEBUG_SCM
+    printf("  XFreeColors n_keep=%d\n",scmi->n_keep);
+#endif  
     for (i = 0; i < scmi->n_keep; i++)
       pixels[i] = scmi->keep[i].pixel;
     XwFreeColors (scmi->display, scmi->cmap, pixels, i, 0);
   }
 
+#if DEBUG_SCM
+  printf("  XFreeColors scmi=%x\n",scmi);
+#endif  
+  
+  /* start handling errors again */
+  XSync(scmi->display, False);
+  Strip_handlexerrors();
+  
+  
   free (scmi);
 }
 
@@ -1328,6 +1368,15 @@ Colormap	cColorManager_getcmap	(cColorManager the_scm)
 }
   
 /*
+ * getdisplay
+ */
+Display    *cColorManager_getdisplay (cColorManager the_scm)
+{
+  CCMinfo	*scmi = (CCMinfo *)the_scm;
+  return scmi->display;
+}
+
+/*
  * cColorManager_readonly
  */
 int		cColorManager_readonly	(cColorManager the_scm)
@@ -1409,3 +1458,15 @@ void		cColorManager_free_writables	(cColorManager	the_scm,
 
   XwFreeColors (scmi->display, scmi->cmap, cells, n_cells, 0);
 }
+
+/* **************************** Emacs Editing Sequences ***************** */
+/* Local Variables: */
+/* tab-width: 6 */
+/* c-basic-offset: 2 */
+/* c-comment-only-line-offset: 0 */
+/* c-indent-comments-syntactically-p: t */
+/* c-label-minimum-indentation: 1 */
+/* c-file-offsets: ((substatement-open . 0) (label . 2) */
+/* (brace-entry-open . 0) (label .2) (arglist-intro . +) */
+/* (arglist-cont-nonempty . c-lineup-arglist) ) */
+/* End: */

@@ -554,7 +554,7 @@ void StripGraph_draw    (StripGraph     the_graph,
 {
   StripGraphInfo        *sgi = (StripGraphInfo *)the_graph;
   Pixel                 text_color;
-  int                   i, n, pos;
+  int                   i, n = 0, pos;
   int                   update_loc_lbl = 0;
   double                dbl_min, dbl_max;
   double                log_epsilon;
@@ -801,11 +801,11 @@ static void StripGraph_plotdata (StripGraphInfo *sgi)
   XSegment              *segs;
   struct timeval        dt_new, dt_cur; /* interval width (time) */
   double                dl_new, dl_cur; /* interval width (real) */
-  double                db;             /* bin width (real) */
+  double                db = 0.0;             /* bin width (real) */
   double                dl;             /* interval width (real) */
   double                l_min, l_max;   /* min, max (real) */
   int                   b_min, b_max;   /* min, max (quantized) */
-  int                   n_shift;
+  int                   n_shift = 0;
   int                   n, m;
   struct timeval        t;
   double                r;

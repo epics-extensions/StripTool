@@ -159,13 +159,19 @@ int	cColorManager_change_color	(cColorManager, cColor *);
  *
  *	Returns a pointer to the current XVisualInfo structure.
  */
-XVisualInfo	*cColorManager_get_visinfo	(cColorManager);
+XVisualInfo	*cColorManager_get_visinfo (cColorManager);
 
 
 /*
  * getcmap
  */
-Colormap	cColorManager_getcmap	(cColorManager);
+Colormap	cColorManager_getcmap (cColorManager);
+
+
+/*
+ * getdisplay
+ */
+Display	        *cColorManager_getdisplay (cColorManager);
 
 
 /*

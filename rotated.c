@@ -715,7 +715,7 @@ XRotDrawHorizontalString        (Display        *dpy,
 {
     GC my_gc;
     char *p;
-    int nl;
+    int nl = 0;
     int height;
     int xp, yp;
     char *str1, *str2, *str3;

@@ -137,13 +137,14 @@ int     StripDialog_ismapped    (StripDialog);
  */
 int     StripDialog_isiconic    (StripDialog);
 
-char     *getwidgetval_min       (char  *, int, double *); /* Albert */
-char     *getwidgetval_max       (char  *, int, double *);
-
 /*
  * StripDialog_reset
  */
 void            StripDialog_reset(StripDialog);
 
+
+void    getwidgetval_min       (StripDialog, int, double *);
+void    getwidgetval_max       (StripDialog, int, double *);
+void    getwidgetval_precision (StripDialog, int, int *);
 
 #endif

@@ -302,6 +302,7 @@ static void     Strip_setbrowsemode     (StripInfo *, int);
 
 static void     callback                (Widget, XtPointer, XtPointer);
 static int      X_error_handler         (Display *, XErrorEvent *);
+static int      X_ignore_error         (Display *, XErrorEvent *);
 
 
 static void     dlgrequest_connect      (void *, void *);
@@ -557,7 +558,7 @@ Strip   Strip_init      (int    *argc,
     /* initialize any miscellaeous routines */
     StripMisc_init (si->display, xvi.screen);
     
-    /* initialize the Config module */
+    /* initialize the Config module. will set scfg->scm=scm. */
     if (!(si->config = StripConfig_init (scm, &xvi, NULL, scfg_mask)))
     {
       fprintf
@@ -579,7 +580,7 @@ Strip   Strip_init      (int    *argc,
     if (!env) env = STRIP_SITE_DEFAULTS_FILE;
     db_site = XrmGetFileDatabase (env);
 
-      /* Help URL */
+      /* help URL */
     envHelpPath = getenv("STRIP_HELP_PATH");
     if(envHelpPath != NULL) {
 	strncpy(stripHelpPath, envHelpPath, STRIP_PATH_MAX);
@@ -604,11 +605,11 @@ Strip   Strip_init      (int    *argc,
     
     si->shell = XtVaCreatePopupShell
       ("StripGraph",
-	  topLevelShellWidgetClass,        si->toplevel,
-	  XmNdeleteResponse,               XmDO_NOTHING,
-	  XmNmappedWhenManaged,            False,
-	  XmNvisual,                       si->config->xvi.visual,
-	  XmNcolormap,                     cColorManager_getcmap (scm),
+	  topLevelShellWidgetClass, si->toplevel,
+	  XmNdeleteResponse,        XmDO_NOTHING,
+	  XmNmappedWhenManaged,     False,
+	  XmNvisual,                si->config->xvi.visual,
+	  XmNcolormap,              cColorManager_getcmap (scm),
 	  NULL);
     
     history_topShell=si->shell;
@@ -1152,13 +1153,15 @@ void    Strip_delete    (Strip the_strip)
 {
   StripInfo     *si = (StripInfo *)the_strip;
 
-  StripGraph_delete             (si->graph);
-  StripDataSource_delete        (si->data);
-  StripHistory_delete           (si->history);
-  StripDialog_delete            (si->dialog);
-  StripConfig_delete            (si->config);
+  if (!si) return;
 
-  XtDestroyWidget (si->toplevel);
+  if (si->graph) StripGraph_delete (si->graph);
+  if (si->data) StripDataSource_delete (si->data);
+  if (si->history) StripHistory_delete (si->history);
+  if (si->dialog) StripDialog_delete (si->dialog);
+  if (si->config) StripConfig_delete (si->config);
+  if (si->pd) free (si->pd);
+  if(si->toplevel) XtDestroyWidget (si->toplevel);
   free (si);
 }
 
@@ -1669,8 +1672,8 @@ static int changeMinMax( Strip the_strip)
     {
 	if (!si->curves[i].details) continue;
 	if (si->curves[i].details->plotstat != STRIPCURVE_PLOTTED) continue;
-	getwidgetval_min((char *)si->dialog,i,&widgetMin);
-	getwidgetval_max((char *)si->dialog,i,&widgetMax);
+	getwidgetval_min(si->dialog,i,&widgetMin);
+	getwidgetval_max(si->dialog,i,&widgetMax);
 	if (si->curves[i].details->min != widgetMin) 
 	{si->curves[i].details->min=widgetMin;need_refresh =1;}
 	if (si->curves[i].details->max != widgetMax) 
@@ -2456,6 +2459,15 @@ static void     Strip_printer_init      (StripInfo *si)
 }
 
 /*
+ * Strip_ignorexerror
+ */
+void     Strip_ignorexerror     (StripInfo *si, int browse)
+{
+}
+
+
+
+/*
  * Strip_setbrowsemode
  */
 static void     Strip_setbrowsemode     (StripInfo *si, int browse)
@@ -2981,6 +2993,26 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
     }
     break;
   }
+}
+
+void    Strip_handlexerrors (void)
+{
+    XSetErrorHandler (X_error_handler);
+}
+
+
+void    Strip_ignorexerrors (void)
+{
+    XSetErrorHandler (X_ignore_error);
+}
+
+
+/* X_error_handler
+ */
+static int      X_ignore_error          (Display * BOGUS(display),
+  XErrorEvent * BOGUS(error))
+{
+  return 0;     /* not used? */
 }
 
 /* X_error_handler
@@ -3521,21 +3553,31 @@ static void     PrinterDialog_cb        (Widget         w,
 {
   XmAnyCallbackStruct   *cbs = (XmAnyCallbackStruct *)call;
   StripInfo             *si;
-  char                  *a, *b;
+  char                  *str, *b;
 
   if (cbs->reason == XmCR_OK)
   {
     XtVaGetValues (w, XmNuserData, &si, 0);
 
     /* get printer name, if not empty string */
-    a = XmTextFieldGetString (si->pd->name_textf);
+    str = XmTextFieldGetString (si->pd->name_textf);
     b = si->print_info.printer;
-    if (a) if (*a) { while (*a) *b++ = *a++; *b = 0; }
+    if (str)
+    {
+	char *a = str;
+	while (*a) *b++ = *a++; *b = 0;
+	XtFree (str);
+    }
     
     /* get device name, if not empty string */
-    a = XgComboBoxGetString (si->pd->device_combo);
+    str = XgComboBoxGetString (si->pd->device_combo);
     b = si->print_info.device;
-    if (a) if (*a) { while (*a) *b++ = *a++; *b = 0; }
+    if (str)
+    {
+	char *a = str;
+	while (*a) *b++ = *a++; *b = 0;
+	XtFree (str);
+    }
   }
 }
 
@@ -3609,12 +3651,17 @@ static void     fsdlg_cb        (Widget w, XtPointer data, XtPointer call)
   XtUnmanageChild (w);
 
   if (si)
+  {
     if (XmStringGetLtoR (cbs->value, XmFONTLIST_DEFAULT_TAG, &fname))
+    {
       if (fname != NULL)
       {
         XtVaGetValues (w, XmNuserData, &func, NULL);
         func ((Strip)si, fname);
+	  XtFree(fname);
       }
+    }
+  }
 }
 
 

@@ -1154,8 +1154,8 @@ XgTabsWidget tabw;
 int *width;
 int *height;
 {
-int pref_height;
-int pref_width;
+    int pref_height;
+    int pref_width = 0;
 
     pref_height = (tabw->primitive.shadow_thickness +
         tabw->tabs.textmargin + HIGHLIGHT_THICKNESS(tabw)) * 2 +

@@ -33,27 +33,27 @@ StripHistory    StripHistory_init       (Strip strip)
   } 
   else
     {
-      perror("can't allocate memory");
+      perror("StripHistory_init: can't allocate memory");
       exit(1);
     }
 #ifdef USE_AAPI
   if(AAPI_init() !=0 ) 
     {
-     fprintf(stderr,"can't init AAPI\n");
+     fprintf(stderr,"StripHistory_init: can't init AAPI\n");
      exit(1);
     }
 
   if(extractAAPIfilterList(&algorithmString,&algorithmLength) != 0) 
     {
       algorithmLength=0;
-      fprintf(stderr,"can't extractAAPIfilterList\n"); 
+      fprintf(stderr,"StripHistory_init: can't extractAAPIfilterList\n"); 
       exit(1);
     }
 #endif
 #ifdef USE_CAR
   if(CAR_init(&(shi->archiverInfo)) !=0 ) 
     {
-     fprintf(stderr,"can't init CAR\n");
+     fprintf(stderr,"StripHistory_init: can't init CAR\n");
      exit(1);
     }
 #endif

@@ -299,11 +299,6 @@ static Pixel    getwidgetval_color      (StripDialogInfo *, int);
 static int      getwidgetval_plotstat   (StripDialogInfo *, int);
 static int      getwidgetval_scale      (StripDialogInfo *, int);
 #endif
-static char     *getwidgetval_precision (StripDialogInfo *, int, int *);
-/*
-static char     *getwidgetval_min       (StripDialogInfo *, int, double *);
-static char     *getwidgetval_max       (StripDialogInfo *, int, double *);
-*/
 
 /*
  * these functions operate on StripConfig attribute control widgets
@@ -317,12 +312,12 @@ static void     setwidgetval_tm_ds              (StripDialogInfo *, double);
 static void     setwidgetval_tm_gr              (StripDialogInfo *, double);
 static void     setwidgetval_tm_modify          (StripDialogInfo *, int);
 
-static char     *getwidgetval_tm_tshour         (StripDialogInfo *, int *);
-static char     *getwidgetval_tm_tsminute       (StripDialogInfo *, int *);
-static char     *getwidgetval_tm_tssecond       (StripDialogInfo *, int *);
-static char     *getwidgetval_tm_numsamples     (StripDialogInfo *, int *);
-static char     *getwidgetval_tm_ds             (StripDialogInfo *, double *);
-static char     *getwidgetval_tm_gr             (StripDialogInfo *, double *);
+static void     getwidgetval_tm_tshour          (StripDialogInfo *, int *);
+static void     getwidgetval_tm_tsminute        (StripDialogInfo *, int *);
+static void     getwidgetval_tm_tssecond        (StripDialogInfo *, int *);
+static void     getwidgetval_tm_numsamples      (StripDialogInfo *, int *);
+static void     getwidgetval_tm_ds              (StripDialogInfo *, double *);
+static void     getwidgetval_tm_gr              (StripDialogInfo *, double *);
 
 /* graph controls */
 static void     setwidgetval_gr_fg              (StripDialogInfo *, Pixel);
@@ -1548,7 +1543,11 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
  */
 void    StripDialog_delete      (StripDialog the_sd)
 {
-  free ((StripDialogInfo *)the_sd);
+  StripDialogInfo *sd = (StripDialogInfo *)the_sd;
+  if (!sd) return;
+
+  if(sd->clrdlg) ColorDialog_delete(sd->clrdlg);
+  free (sd);
 }
 
 
@@ -1937,8 +1936,8 @@ void            StripDialog_reset(StripDialog the_sd)
   for (which = 0; which < sd->sdcurve_count; which++)
   {
     /* make sure that max > min */
-    getwidgetval_min ((char *)sd, which, &a);
-    getwidgetval_max ((char *)sd, which, &b);
+    getwidgetval_min (sd, which, &a);
+    getwidgetval_max (sd, which, &b);
     if (a > b) { tmp = a; a = b; b = tmp; }
 
     sc = (StripCurveInfo *)sd->curve_info[which].curve;
@@ -2294,49 +2293,44 @@ static int      getwidgetval_scale      (StripDialogInfo *sd, int which)
 #endif
 
 /*
- * getwidgetval_precision
- */
-static char     *getwidgetval_precision (StripDialogInfo        *sd,
-                                         int                    which,
-                                         int                    *val)
-{
-  char  *str;
-
-  str = XmTextGetString (sd->curve_info[which].precision_txt);
-  *val = atoi (str);
-  return str;
-}
-
-
-/*
  * getwidgetval_min
  */
-/*static */ char     *getwidgetval_min       (char         *sdP,
-                                         int                    which,
-                                         double                 *val)
+void getwidgetval_min (StripDialog the_sd, int which, double *val)
 {
-  StripDialogInfo *sd = (StripDialogInfo *) sdP;
+  StripDialogInfo *sd = (StripDialogInfo *)the_sd;
   char  *str;
 
   str = XmTextGetString (sd->curve_info[which].min_txt);
   *val = atof (str);
-  return str;
+  XtFree (str);
 }
 
 
 /*
  * getwidgetval_max
  */
-/*static*/ char     *getwidgetval_max       (char        *sdP,
-                                         int                    which,
-                                         double                 *val)
+void getwidgetval_max (StripDialog the_sd, int which, double *val)
 {
-  StripDialogInfo *sd = (StripDialogInfo *) sdP;
+  StripDialogInfo *sd = (StripDialogInfo *)the_sd;
   char  *str;
 
   str = XmTextGetString (sd->curve_info[which].max_txt);
   *val = atof (str);
-  return str;
+  XtFree (str);
+}
+
+
+/*
+ * getwidgetval_precision
+ */
+void getwidgetval_precision (StripDialog the_sd, int which, int *val)
+{
+  StripDialogInfo *sd = (StripDialogInfo *)the_sd;
+  char  *str;
+
+  str = XmTextGetString (sd->curve_info[which].precision_txt);
+  *val = atoi (str);
+  XtFree (str);
 }
 
 
@@ -2450,69 +2444,69 @@ static void     setwidgetval_tm_modify  (StripDialogInfo        *sd,
 }
 
 
-static char     *getwidgetval_tm_tshour         (StripDialogInfo        *sd,
+static void     getwidgetval_tm_tshour         (StripDialogInfo        *sd,
                                                  int                    *val)
 {
   char  *str;
 
   str = XmTextGetString (sd->time_info.ts_hour_txt);
   *val = atoi (str);
-  return str;
+  XtFree (str);
 }
 
 
-static char     *getwidgetval_tm_tsminute       (StripDialogInfo        *sd,
+static void     getwidgetval_tm_tsminute       (StripDialogInfo        *sd,
                                                  int                    *val)
 {
   char  *str;
 
   str = XmTextGetString (sd->time_info.ts_minute_txt);
   *val = atoi (str);
-  return str;
+  XtFree (str);
 }
 
 
-static char     *getwidgetval_tm_tssecond       (StripDialogInfo        *sd,
+static void     getwidgetval_tm_tssecond       (StripDialogInfo        *sd,
                                                  int                    *val)
 {
   char  *str;
 
   str = XmTextGetString (sd->time_info.ts_second_txt);
   *val = atoi (str);
-  return str;
+  XtFree (str);
 }
 
 
-static char     *getwidgetval_tm_numsamples     (StripDialogInfo        *sd,
+static void     getwidgetval_tm_numsamples     (StripDialogInfo        *sd,
                                                  int                    *val)
 {
   char  *str;
 
   str = XmTextGetString (sd->time_info.num_samples_txt);
   *val = atoi (str);
-  return str;
+  XtFree (str);
 }
 
 
-static char     *getwidgetval_tm_ds             (StripDialogInfo        *sd,
+static void     getwidgetval_tm_ds             (StripDialogInfo        *sd,
                                                  double                 *val)
 {
   char  *str;
 
   str = XmTextGetString (sd->time_info.ds_txt);
   *val = atof (str);
-  return str;
+  XtFree (str);
 }
 
 
-static char     *getwidgetval_tm_gr             (StripDialogInfo        *sd,
+static void     getwidgetval_tm_gr             (StripDialogInfo        *sd,
                                                  double                 *val)
 {
   char  *str;
 
   str = XmTextGetString (sd->time_info.gr_txt);
   *val = atof (str);
-  return str;
+  XtFree (str);
 }
 
 
@@ -2703,8 +2697,8 @@ static void     modify_btn_cb   (Widget w, XtPointer data, XtPointer BOGUS(1))
     else setwidgetval_precision (sd, which, sc->details->precision);
 
     /* make sure that max > min */
-    getwidgetval_min ((char *)sd, which, &a);
-    getwidgetval_max ((char *)sd, which, &b);
+    getwidgetval_min (sd, which, &a);
+    getwidgetval_max (sd, which, &b);
     if (a > b) { tmp = a; a = b; b = tmp; }
 
     if (a < b)
@@ -3193,30 +3187,38 @@ static void     fsdlg_cb        (Widget w, XtPointer data, XtPointer call)
   XtVaGetValues (w, XmNuserData, &sd, 0);
 
   if (mode == FSDLG_OK)
+  {
     if (XmStringGetLtoR (cbs->value, XmFONTLIST_DEFAULT_TAG, &fname))
-      if (fname && *fname)
-      {
-        /* get the attribute mask */
-        StripConfigMask_clear (&sd->fs.mask);
-        for (i = 0; i < FSDLG_TGL_COUNT; i++)
-          if (XmToggleButtonGetState (sd->fs.tgl[i]))
-            StripConfigMask_or (&sd->fs.mask, FsDlgTglVal[i]);
-	  
-        /* do save or load */
-        if (sd->fs.state == FSDLG_LOAD)
+    {
+      if (fname)
+	{
+	  if(*fname)
 	  {
-	    sd->callback[SDCALLBACK_CLEAR].func(sd->callback[SDCALLBACK_CLEAR].data,NULL);
-	    load_config (sd, fname, sd->fs.mask);
-	    Strip_refresh(sd->callback[SDCALLBACK_CLEAR].data); /* perror Albert */
-	    /*GraphLoadRefresh(sd->callback[SDCALLBACK_CLEAR].data);*/
+	    /* get the attribute mask */
+	    StripConfigMask_clear (&sd->fs.mask);
+	    for (i = 0; i < FSDLG_TGL_COUNT; i++)
+		if (XmToggleButtonGetState (sd->fs.tgl[i]))
+		  StripConfigMask_or (&sd->fs.mask, FsDlgTglVal[i]);
+	    
+	    /* do save or load */
+	    if (sd->fs.state == FSDLG_LOAD)
+	    {
+		sd->callback[SDCALLBACK_CLEAR].func(sd->callback[SDCALLBACK_CLEAR].data,NULL);
+		load_config (sd, fname, sd->fs.mask);
+		Strip_refresh(sd->callback[SDCALLBACK_CLEAR].data); /* perror Albert */
+		/*GraphLoadRefresh(sd->callback[SDCALLBACK_CLEAR].data);*/
+	    }
+	    else
+	    {
+		if(auto_scaleTriger==1) 
+		  Strip_auto_scale(sd->callback[SDCALLBACK_CLEAR].data);
+		save_config (sd, fname, sd->fs.mask);
+	    }
 	  }
-        else
-	  {
-	    if(auto_scaleTriger==1) 
-	      Strip_auto_scale(sd->callback[SDCALLBACK_CLEAR].data);
-	    save_config (sd, fname, sd->fs.mask);
-	  }
-      }
+	  XtFree(fname);
+	}
+    }
+  }
 }
 
 
