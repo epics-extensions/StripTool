@@ -136,7 +136,6 @@ endif
 
 ifeq ($(USE_SDDS), YES)
   SYS_PROD_LIBS_solaris	+= sunmath
-  SYS_PROD_LIBS	+= rpcsvc
   PROD_LIBS	+= SDDS1 namelist rpnlib mdblib $(ZLIB_PROD_LIB)
   SDDS1_DIR = $(EPICS_EXTENSIONS_LIB)
   namelist_DIR = $(EPICS_EXTENSIONS_LIB)
