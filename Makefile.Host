@@ -125,13 +125,15 @@ PROD		= StripTool
 
 ifeq ($(PURIFY), YES)
   PROD		= StripTool.purify
-  LINK.c	:= purify $(LINK.c)
+  LINK.cc	= purify $(CXX) -o $@ $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS)
+  LINK.c	= $(LINK.cc)
   HOST_OPT	= NO
 endif
 
 ifeq ($(QUANTIFY), YES)
   PROD		= StripTool.quantify
-  LINK.c	:= quantify $(LINK.c)
+  LINK.cc	= quantify $(CXX) -o $@ $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS)
+  LINK.c	= $(LINK.cc)
   HOST_OPT	= NO
 endif
 
