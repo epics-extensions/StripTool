@@ -1,0 +1,39 @@
+Mon Oct 21 CDT 2002 - StripTool-2-4-4-desy
+	Committed Desy StripTool 2.4.4 from 
+		Albert Kagarmanov (kagarman@mail.desy.de)
+		Last modif. 25/06/2002
+		New features:
+		  1) Common(/no historical)
+		  a) AutoScale
+		  b) Y-scale zooms and movements
+		  c) Current value and recordDescription was added in LegendPanel
+		  2) History specific features:
+		  a) From-To Pannel
+		  b) reduction Algorithms (average,spline,fft) radioButtons.
+		  c) Redraw Button.
+		Details you can find in Trieste-99 workshop .
+		Desy Version of StripTool can work with archive data as well as currentdata
+		There are 2 way here:
+		1) use local standart ChannelArchiver from LANL
+		2) ask (reducted) data in AAPI-server developed here.
+		For 1) you need specify STRIP_ARCHIVE environment variable .As example you can
+		use this shell-script.
+		For 2) you need specify AAPI_LOCATION environment variable. As example you can
+		use this shell-script. AAPI installation/description you can find here . AAPI
+		server is Unix TCP/IP server. Default TCP/IP port is 3947.
+		This is Example for DesyStripTool Makefile.
+		Finally, this is source codes.
+
+Mon Oct 21 CDT 2002 - StripTool-2-5-0-0 - evans
+	Fixed Makefile.Host to use $(X11_LIB), etc and changed TOP to standard
+	for extensions.  (StripTool directory should be just under src
+	directory.)  Added StripVersion.h and changed helpmenu_cb to use
+	definitions from StripVersion.h.  All future version change
+	information can and should be done in StripVersion.h.
+
+Mon Oct 21 CDT 2002 - StripTool-2-5-1-0 - jba
+	Joined branch-2-4-4-aps - Dump data in SDDS format.
+	Make selected curve the last (top) curve drawn.
+	Added pan mode indicator.
+	Portability change - converted gcvt to sprintf.
+
