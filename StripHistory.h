@@ -36,7 +36,19 @@ typedef enum _FetchStatus
 
 /* StripHistoryResult
  *
- *      Structure used for returning results of history request.
+ *    Structure used for returning results of history request.  Note
+ *    that the contained data is not copied, and so should only be
+ *    freed in the following circumstances:
+ *
+ *    (a) a request for a different time range is made.  The history module
+ *        may be able to reuse some portion of the buffer, or it may simply
+ *        deallocate the buffers and then get fresh memory.  Up to the
+ *        implementor.
+ *
+ *    (b) an explicit free request is made via StripHistoryResult_release()
+ *
+ *    (c) StripHistory_delete() is called.  This function is invoked only
+ *        when the application is terminating.
  */
 typedef struct _StripHistoryResult
 {
@@ -49,6 +61,20 @@ typedef struct _StripHistoryResult
   FetchStatus           fetch_stat;
 } StripHistoryResult;
 
+
+/* StripHistoryResult_release
+ *
+ *    Explicitly free the (times, data, status) arrays.  The implementation
+ *    must verify that any outstanding ansynchronous transactions involving
+ *    this result buffer are canceled, and must also verify that the
+ *    buffer's memory is valid before freeing it (the data source might
+ *    call this function even if no history data was ever requested).
+ */
+void        StripHistoryResult_release    (StripHistory,
+                                           StripHistoryResult *); /* buffer */
+
+
+
 typedef void    (*StripHistoryCallback) (StripHistoryResult *, void *);
 
 
@@ -59,14 +85,14 @@ typedef void    (*StripHistoryCallback) (StripHistoryResult *, void *);
  *      Performs whatever initializations are required by history
  *      service, and returns handle of history module.
  */
-StripHistory    StripHistory_init       (Strip);
+StripHistory    StripHistory_init         (Strip);
 
 
 /* StripHistory_delete
  *
  *      Handles shut down tasks for history service, and frees resources.
  */
-void            StripHistory_delete     (StripHistory);
+void            StripHistory_delete       (StripHistory);
 
 
 /* StripHistory_fetch

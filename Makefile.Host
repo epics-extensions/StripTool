@@ -48,19 +48,19 @@
 #	NULL		(if not defined) default
 #EPICS 	= /home/larrieu/epics
 #TOP 	= $(EPICS)/base
-TOP 	= ../../..
+#include $(TOP)/config/CONFIG_BASE
+TOP = ../../..
 include $(TOP)/config/CONFIG_EXTENSIONS
-CMPLR 	= STRICT
 
-USE_PSPRINTER   = YES
+CMPLR 	= STRICT
 
 LIBTYPE		= DEFAULT
 USE_CLUES	= YES
-HAVE_XPM	= NO
-HAVE_XMU	= NO
-HAVE_X11R6	= NO
-STRIP_DAQ	= StripCA
-STRIP_HISTORY	= StripHistoryNULL
+HAVE_XPM	= YES
+HAVE_XMU	= YES
+HAVE_X11R6	= YES
+STRIP_DAQ	= StripCA.c
+STRIP_HISTORY	= StripHistoryNULL.c
 
 XPM_INC		= $(HOME)/include
 XPM_LIB		= $(HOME)/lib
@@ -96,9 +96,9 @@ else
 	USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
 endif
 
-##CFLAGS          += -g
+CFLAGS          += -g
 
-UNIX_OPT_FLAGS  =
+UNIX_OPT_FLAGS  :=
 
 #
 # the $(LINK.c) macro uses the c compiler for linking, so linker
@@ -117,8 +117,7 @@ endif
 
 
 
-USR_LIBS_default	= Xm Xt X11 Xext Xp
-USR_LIBS_solaris	= Xm Xt X11 Xext
+USR_LIBS	= Xm Xt X11 Xext Xp
 USR_LIBS	+= ca Db Com
 SYS_PROD_LIBS	= m
 
@@ -140,18 +139,18 @@ ifeq ($(HAVE_XMU), YES)
 endif
 
 
-SRCS		= StripConfig.c
+SRCS		:= StripConfig.c
 SRCS		+= StripCurve.c
 SRCS		+= Strip.c
 SRCS		+= StripDialog.c
 SRCS		+= StripDataSource.c
-SRCS		+= $(STRIP_HISTORY).c
+SRCS		+= $(STRIP_HISTORY)
 SRCS		+= StripGraph.c
 SRCS		+= StripMisc.c
 SRCS		+= cColorManager.c
 SRCS		+= ColorDialog.c
 SRCS		+= StripTool.c
-SRCS		+= $(STRIP_DAQ).c
+SRCS		+= $(STRIP_DAQ)
 SRCS		+= jlAxis.c
 SRCS		+= jlLegend.c
 SRCS		+= ComboBox.c
@@ -165,20 +164,20 @@ ifeq ($(USE_CLUES), YES)
   SRCS		+= LiteClue.c
 endif
 
-PROD		= StripTool
+PROD		:= StripTool
 
 ifeq ($(PURIFY), YES)
-  PROD		= StripTool.purify
+  PROD		:= StripTool.purify
   LINK.c	:= purify $(LINK.c)
 endif
 
 ifeq ($(QUANTIFY), YES)
-  PROD		= StripTool.quantify
+  PROD		:= StripTool.quantify
   LINK.c	:= quantify $(LINK.c)
 endif
 
 ifeq ($(QUANTIFY), PRECISE)
-  PROD		= StripTool.quantify-precise
+  PROD		:= StripTool.quantify-precise
   LINK.c	:= quantify -record-data=no $(LINK.c)
   USR_CFLAGS	+= -DQUANTIFY_PRECISE
   USR_CFLAGS	+= -I/usr/csite1/pure/quantify-3.1-hpux

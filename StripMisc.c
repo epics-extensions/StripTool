@@ -24,7 +24,7 @@
 #define EXP_DIGITS      3       /* digits in exp numerical portion */
 #define EXP_LEN         (2+EXP_DIGITS)  /* length of exponent string */
 
-static char             *StripVersion   = "2.4b11";
+static char             *StripVersion   = "2.4";
 unsigned char   Strip_x_error_code = Success;
 
 float   vertical_pixels_per_mm;

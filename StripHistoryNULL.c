@@ -64,3 +64,12 @@ void    StripHistory_cancel     (StripHistory           BOGUS(1),
                                  StripHistoryResult     *BOGUS(2))
 {
 }
+
+
+
+/* StripHistoryResult_release
+ */
+void  StripHistoryResult_release    (StripHistory           BOGUS(1),
+                                     StripHistoryResult     *BOGUS(2))
+{
+}

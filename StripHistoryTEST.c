@@ -119,3 +119,12 @@ void    StripHistory_cancel     (StripHistory           the_shi,
                                  StripHistoryResult     *result)
 {
 }
+
+
+
+/* StripHistoryResult_release
+ */
+void  StripHistoryResult_release    (StripHistory           the_shi,
+                                     StripHistoryResult     *result)
+{
+}

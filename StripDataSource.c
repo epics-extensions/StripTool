@@ -381,6 +381,7 @@ StripDataSource_removecurve     (StripDataSource the_sds, StripCurve the_curve)
 
   if ((cd = CURVE_DATA(the_curve)) != NULL)
   {
+    StripHistoryResult_release (sds->history, &cd->history);
     cd->curve = NULL;
     free (cd->val);
     free (cd->stat);
@@ -431,7 +432,7 @@ StripDataSource_sample  (StripDataSource the_sds)
         else if (sds->cur_idx == sds->buffers[i].first)
           sds->buffers[i].first = (sds->buffers[i].first + 1) % sds->buf_size;
       }
-      else sds->buffers[i].stat[sds->cur_idx] = !DATASTAT_PLOTABLE;
+      else sds->buffers[i].stat[sds->cur_idx] &= ~DATASTAT_PLOTABLE;
     }
   }
 }
@@ -1197,114 +1198,70 @@ segmentify      (StripDataSourceInfo    *sds,
  */
 int
 StripDataSource_dump    (StripDataSource        the_sds,
-                         StripCurve             curves[],
-                         struct timeval         *begin,
-                         struct timeval         *end,   
                          FILE                   *outfile)
 {
-#if 1
-  return 0;
-#else
   StripDataSourceInfo   *sds = (StripDataSourceInfo *)the_sds;
-  struct timeval        *times;
-  int                   n_curves;
-  int                   n, i, j;
-  int                   msec;
-  time_t                tt;
   char                  buf[SDS_DUMP_FIELDWIDTH+1];
-  int                   ret_val = 0;
-  struct                _cv
-  {
-    CurveData   *cd;
-    double      *val;
-    StatusType  *stat;
-  }
-  cv[STRIP_MAX_CURVES];
+  time_t                tt;
+  int                   msec;
+  int                   i, j;
 
-  /* first build the array of curves to dump */
-  if (curves[0])
-  {
-    /* get curves from array */
-    for (n = 0; curves[n]; n++)
-      if ((cv[n].cd = CURVE_DATA(curves[n])) == NULL)
-      {
-        fprintf (stderr, "StripDataSource_dump(): bad curve descriptor\n");
-        return 0;
-      }
-  }
-  else for (i = 0, n = 0; i < STRIP_MAX_CURVES; i++)    /* all curves */
-  {
-    if (sds->buffers[i].curve != NULL)
-    {
-      cv[n].cd = &sds->buffers[i];
-      n++;
-    }
-  }
-  n_curves = n;
+  /* if range is not initialized, return failure */
+  if (sds->idx_t0 == sds->idx_t1) return 0;
+
+  /* if no curves, return failure */
+  for (i = 0; i < STRIP_MAX_CURVES; i++) if (sds->buffers[i].curve) break;
+  if (i >= STRIP_MAX_CURVES) return 0;
+
   
-  /* now set the begin, end times */
-  if (!begin) begin = &sds->times[sds->idx_t0];
-  if (!end) end = &sds->times[sds->idx_t1];
+  /* this is very straightforward:
+   * (a) for every curve, print out its name across the top
+   * (b) for every time on the range
+   *     (1) print out the time
+   *     (2) for every curve, print out its value
+   */
 
-  /* now get the data */
-  if (StripDataSource_init_range (the_sds, begin, end) > 0)
-  {
-    /* first print out the curve names along the top */
-    fprintf (outfile, "%-*s", SDS_DUMP_FIELDWIDTH, "Sample Time");
-    for (i = 0; i < n_curves; i++)
+  /* (a) */
+  fprintf (outfile, "%-*s", SDS_DUMP_FIELDWIDTH, "Sample Time");
+  for (i = 0; i < STRIP_MAX_CURVES; i++)
+    if (sds->buffers[i].curve)
       fprintf
         (outfile, "%*s", SDS_DUMP_FIELDWIDTH,
-         cv[i].cd->curve->details->name);
-    fprintf (outfile, "\n");
-    
-    while ((n = StripDataSource_get_times (the_sds, &times)) > 0)
-    {
-      /* get the value array for each curve */
-      for (i = 0; i < n_curves; i++)
-        if (StripDataSource_get_data
-            (the_sds, (StripCurve)cv[i].cd->curve, &cv[i].val, &cv[i].stat)
-            != n)
-        {
-          fprintf
-            (stderr, "StripDataSource_dump(): unexpected data count!\n");
-          return 0;
-        }
-      
-      /* write out the samples */
-      for (i = 0; i < n; i++)
-      {
-        /* sample time */
-        tt = (time_t)times[i].tv_sec;
-        msec = (int)(times[i].tv_usec / ONE_THOUSAND);
-        strftime
-          (buf, SDS_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
-           localtime (&tt));
-        j = strlen (buf);
-        buf[j++] = '.';
-        int2str (msec, &buf[j], 3);
-        fprintf (outfile, "%-*s", SDS_DUMP_FIELDWIDTH, buf);
-        
-        /* sampled values */
-        for (j = 0; j < n_curves; j++)
-        {
-          if (cv[j].stat[i] & DATASTAT_PLOTABLE)
-            dbl2str
-              (cv[j].val[i], cv[j].cd->curve->details->precision,
-               buf, SDS_DUMP_NUMWIDTH);
-          else strcpy (buf, SDS_DUMP_BADVALUESTR);
-          fprintf (outfile, "%*s", SDS_DUMP_FIELDWIDTH, buf);
-        }
-        
-        /* finally, the end-line */
-        fprintf (outfile, "\n");
-      }
-    }
-    
-    fflush (outfile);
-  }
+         sds->buffers[i].curve->details->name);
+  fprintf (outfile, "\n");
   
-  return ret_val;
-#endif
+  /* (b) */
+  for (i = sds->idx_t0; i != sds->idx_t1; i = (i+1) % sds->buf_size)
+  {
+    /* (b-1) */
+    tt = (time_t)sds->times[i].tv_sec;
+    msec = (int)(sds->times[i].tv_usec / ONE_THOUSAND);
+    strftime
+      (buf, SDS_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
+       localtime (&tt));
+    j = strlen (buf);
+    buf[j++] = '.';
+    int2str (msec, &buf[j], 3);
+    fprintf (outfile, "%-*s", SDS_DUMP_FIELDWIDTH, buf);
+
+    /* (b-2) */
+    for (j = 0; j < STRIP_MAX_CURVES; j++)
+      if (sds->buffers[j].curve)
+      {
+        if (sds->buffers[j].stat[i] & DATASTAT_PLOTABLE)
+          dbl2str
+            (sds->buffers[j].val[i], sds->buffers[j].curve->details->precision,
+             buf, SDS_DUMP_NUMWIDTH);
+        else strcpy (buf, SDS_DUMP_BADVALUESTR);
+        fprintf (outfile, "%*s", SDS_DUMP_FIELDWIDTH, buf);
+      }
+    
+    /* finally, the end-line */
+    fprintf (outfile, "\n");
+  }
+    
+  fflush (outfile);
+  return 1;
 }
 
 

@@ -1052,20 +1052,8 @@ int     StripGraph_removecurve  (StripGraph the_sgi, StripCurve curve)
 int     StripGraph_dumpdata     (StripGraph the_sgi, FILE *f)
 {
   StripGraphInfo        *sgi = (StripGraphInfo *)the_sgi;
-  int                   i, n;
-  StripCurve            curves[STRIP_MAX_CURVES+1];
-
-  for (i = 0, n = 0; i < STRIP_MAX_CURVES; i++)
-  {
-    if (sgi->curves[i] == NULL)
-      continue;
-    else if (sgi->curves[i]->details->plotstat != STRIPCURVE_PLOTTED)
-      continue;
-    else curves[n++] = (StripCurve)sgi->curves[i];
-  }
-  curves[n] = (StripCurve)0;
-
-  return StripDataSource_dump (sgi->data, curves, &sgi->t0, &sgi->t1, f);
+  
+  return StripDataSource_dump (sgi->data, f);
 }
 
 

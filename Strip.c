@@ -420,7 +420,7 @@ Strip   Strip_init      (int    *argc,
     /* hook window manager delete message so we can shut down gracefully */
     WM_DELETE_WINDOW = XmInternAtom (si->display, "WM_DELETE_WINDOW", False);
     XmAddWMProtocolCallback (si->shell, WM_DELETE_WINDOW, callback, si);
-    
+#if 0
     width = (Dimension)
       (((double)DisplayWidth (si->display, DefaultScreen (si->display)) /
         (double)DisplayWidthMM (si->display, DefaultScreen (si->display)))
@@ -434,6 +434,7 @@ Strip   Strip_init      (int    *argc,
        XmNwidth,        width,
        XmNheight,       height,
        NULL);
+#endif
     XtRealizeWidget (si->shell);
     
     form = XtVaCreateManagedWidget
@@ -2151,6 +2152,7 @@ typedef enum
   POPUPMENU_PRINTER_SETUP,
   POPUPMENU_PRINT,
   POPUPMENU_SNAPSHOT,
+  POPUPMENU_DUMP,
   POPUPMENU_DISMISS,
   POPUPMENU_QUIT,
   POPUPMENU_ITEMCOUNT
@@ -2164,6 +2166,7 @@ char    *PopupMenuItemStr[POPUPMENU_ITEMCOUNT] =
   "Printer Setup...",
   "Print...",
   "Snapshot...",
+  "Dump Data...",
   "Dismiss",
   "Quit"
 };
@@ -2175,6 +2178,7 @@ char    PopupMenuItemMnemonic[POPUPMENU_ITEMCOUNT] =
   'r',
   'P',
   'S',
+  'D',
   'm',
   'Q'
 };
@@ -2187,11 +2191,13 @@ char    *PopupMenuItemAccelerator[POPUPMENU_ITEMCOUNT] =
   " ",
   " ",
   " ",
+  " ",
   "Ctrl<Key>c"
 };
 
 char    *PopupMenuItemAccelStr[POPUPMENU_ITEMCOUNT] =
 {
+  " ",
   " ",
   " ",
   " ",
@@ -2354,6 +2360,10 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
           execl ("/bin/sh", "sh", "-c", cmd_buf, 0);
           exit (0);
         }
+        break;
+        
+      case POPUPMENU_DUMP:
+        fsdlg_popup ((Strip)si, (fsdlg_functype)Strip_dumpdata);
         break;
         
       case POPUPMENU_DISMISS:

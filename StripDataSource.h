@@ -165,15 +165,9 @@ size_t  StripDataSource_render  (StripDataSource,
 /*
  * StripDataSource_dump
  *
- *      Causes all data for the specified curves, on the given time range,
- *      to be dumped out to the specified file.  If the curves array is
- *      NULL, all curves are assumed.  If begin and/or end times are NULL,
- *      then all available data are dumped.
+ *      Causes all ring buffer data for the current range to be dumped out to
+ *      the specified file.
  */
-int     StripDataSource_dump            (StripDataSource,
-                                         StripCurve[],
-                                         struct timeval *,      /* begin */
-                                         struct timeval *,      /* end */
-                                         FILE *);
+int     StripDataSource_dump            (StripDataSource, FILE *);
 
 #endif

@@ -48,7 +48,7 @@ StripGridVisibility;
 /* ======= Default Values ======= */
 #define STRIPDEF_TITLE                  untitled_
 #define STRIPDEF_TIME_TIMESPAN          STRIP_DEFAULT_TIMESPAN
-#define STRIPDEF_TIME_NUM_SAMPLES       600
+#define STRIPDEF_TIME_NUM_SAMPLES       7200
 #define STRIPDEF_TIME_SAMPLE_INTERVAL   1
 #define STRIPDEF_TIME_REFRESH_INTERVAL  1
 #define STRIPDEF_COLOR_BACKGROUND_STR   "White"
