@@ -1,6 +1,6 @@
 # Makefile.Host
 TOP = ../../..
-include $(TOP)/config/CONFIG_APP
+include $(TOP)/config/CONFIG_EXTENSIONS
 
 # ==========================================================================
 # Options
