@@ -39,6 +39,21 @@
 /*
  * Declaration of methods
  */
+static void Initialize(Widget wrequest, Widget wnew,
+  ArgList args, Cardinal *num_args);
+static Boolean SetValues(Widget wcur, Widget wreq,
+  Widget wnew, ArgList args, Cardinal *nargs);
+static void GetValuesHook(Widget widget, ArgList args, Cardinal *num_args);
+static XtGeometryResult QueryGeometry(Widget widget,
+  XtWidgetGeometry *proposed, XtWidgetGeometry *desired);
+static void Destroy(Widget widget);
+static void Resize(Widget widget);
+static void ComputeSize(Widget widget, int *width, int *height);
+static void RedrawPixmap(Widget widget);
+static void Redisplay(Widget widget, XEvent *event, Region region);
+static XFontStruct *GetFontStruct(XmFontList font_list);
+
+#if 0
 static void             Initialize();
 static Boolean          SetValues();
 static void             GetValuesHook();
@@ -50,7 +65,7 @@ static void             RedrawPixmap();
 static void             Redisplay();
 static void             Realize();
 static XFontStruct      *GetFontStruct();
-
+#endif
 
 
 static XtResource resources[] = {
@@ -174,9 +189,11 @@ WidgetClass xgFastLabelWidgetClass = (WidgetClass) &xgFastLabelClassRec;
  *
  * ---PHDR--- */
 
-static void Initialize(request, new)
-XgFastLabelWidget	request, new;
+static void Initialize(Widget wrequest, Widget wnew,
+  ArgList args, Cardinal *num_args)
 {
+  XgFastLabelWidget request = (XgFastLabelWidget)wrequest;
+  XgFastLabelWidget new = (XgFastLabelWidget)wnew;
   XGCValues	values;
   XtGCMask	mask;
   int		width, height;
@@ -201,7 +218,7 @@ XgFastLabelWidget	request, new;
   /*
    * Set some realistic values for the size of the widget
    */
-  ComputeSize(new, &width, &height);
+  ComputeSize(wnew, &width, &height);
   if ( request->core.width == 0 )
     new->core.width = width;
 
@@ -225,7 +242,7 @@ XgFastLabelWidget	request, new;
    * Recompute the size of the widget
    */
   new->fastlabel.pix = None;
-  Resize(new);
+  Resize(wnew);
 }
 
 
@@ -246,12 +263,9 @@ XgFastLabelWidget	request, new;
  *
  * ---PHDR--- */
 
-static void
-ComputeSize(w, width, height)
-XgFastLabelWidget	w;
-int			*width;
-int			*height;
+static void ComputeSize(Widget widget, int *width, int *height)
 {
+  XgFastLabelWidget w = (XgFastLabelWidget)widget;
   int		text_width, text_height, extra_width, extra_height;
   XFontStruct     *font = w->fastlabel.font;
 
@@ -301,17 +315,16 @@ int			*height;
  *
  * ---PHDR--- */
 
-static void
-Resize(w)
-XgFastLabelWidget	w;
+static void Resize(Widget widget)
 {
+  XgFastLabelWidget w = (XgFastLabelWidget)widget;
   int	height, width;
 
 
   /*
-   * Compute the deisired size
+   * Compute the desired size
    */
-  ComputeSize(w, &width, &height);
+  ComputeSize(widget, &width, &height);
 
 
   /*
@@ -362,15 +375,14 @@ XgFastLabelWidget	w;
  *
  * ---PHDR--- */
 
-static XtGeometryResult
-QueryGeometry(w, proposed, desired)
-XgFastLabelWidget w;
-XtWidgetGeometry *proposed, *desired;
+static XtGeometryResult QueryGeometry(Widget widget,
+  XtWidgetGeometry *proposed, XtWidgetGeometry *desired)
 {
+  XgFastLabelWidget w = (XgFastLabelWidget)widget;
   int	width, height;
 #define IsBitSet(bit) (proposed->request_mode & bit)
 
-  ComputeSize(w, &width, &height);
+  ComputeSize(widget, &width, &height);
 
   desired->width = width;
   desired->height = height;
@@ -408,13 +420,10 @@ XtWidgetGeometry *proposed, *desired;
  *
  * ---PHDR--- */
 
-static void
-GetValuesHook(w, args, num_args)
-XgFastLabelWidget	w;
-ArgList 		args;
-Cardinal 		*num_args;
+static void GetValuesHook(Widget widget, ArgList args, Cardinal *num_args)
 {
-  int	i;
+  XgFastLabelWidget w = (XgFastLabelWidget)widget;
+  Cardinal	i;
 
   /*
    * We don't save a copy of the label_string or font_list.
@@ -447,10 +456,13 @@ Cardinal 		*num_args;
  *
  * ---PHDR--- */
 
-static Boolean SetValues(cur, req, new)
-XgFastLabelWidget cur, req, new;
+static Boolean SetValues(Widget wcur, Widget wreq,
+  Widget wnew, ArgList args, Cardinal *nargs)
 {
-  Boolean			redraw = False, do_resize = False;
+  XgFastLabelWidget cur = (XgFastLabelWidget)wcur;
+  XgFastLabelWidget req = (XgFastLabelWidget)wreq;
+  XgFastLabelWidget new = (XgFastLabelWidget)wnew;
+  Boolean redraw = False, do_resize = False;
 
 #define NOT_EQUAL(field)       (cur->field != new->field)
 
@@ -539,12 +551,12 @@ XgFastLabelWidget cur, req, new;
     redraw = do_resize = True;
 
   if ( do_resize == True )
-    Resize(new);
+    Resize(wnew);
 
   if ( redraw == True && XtIsRealized((Widget)new) )
   {
-    RedrawPixmap (new);
-    Redisplay(new, NULL);
+    RedrawPixmap (wnew);
+    Redisplay(wnew, NULL, NULL);
   }
 
   /* don't want Xt to call Redisplay! */
@@ -569,10 +581,10 @@ XgFastLabelWidget cur, req, new;
  *
  * ---PHDR--- */
 
-static void 
-Destroy(w)
-XgFastLabelWidget	w;
+static void Destroy(Widget widget)
 {
+  XgFastLabelWidget w = (XgFastLabelWidget)widget;
+
   if ( w->fastlabel.my_string != NULL )
     XtFree(w->fastlabel.my_string);
 
@@ -598,17 +610,14 @@ XgFastLabelWidget	w;
  *
  * ---PHDR--- */
 
-static void
-Redisplay(w, event)
-XgFastLabelWidget	w;
-XExposeEvent		*event;
+static void Redisplay(Widget widget, XEvent *xevent, Region region)
 {
-  int		x, y, width, height;
+  XgFastLabelWidget w = (XgFastLabelWidget)widget;
+  XExposeEvent *event = ( XExposeEvent *)xevent;
+  int		x, y;
   Display		*display = XtDisplay((Widget)w);
   Window		win = XtWindow((Widget)w);
   XFontStruct	*font = w->fastlabel.font;
-  XGCValues	values;
-  XtGCMask	mask;
 
   /*
    * No widget window then get outa here
@@ -716,10 +725,9 @@ XExposeEvent		*event;
  *
  * ---PHDR--- */
 
-static void
-RedrawPixmap(w)
-XgFastLabelWidget	w;
+static void RedrawPixmap(Widget widget)
 {
+  XgFastLabelWidget w = (XgFastLabelWidget)widget;
   Display		*display = XtDisplay((Widget)w);
   XFontStruct	*font = w->fastlabel.font;
 
@@ -766,12 +774,7 @@ XgFastLabelWidget	w;
 
 
 
-Widget
-XgCreateFastLabel(parent, name, al, ac)
-Widget parent;
-char *name;
-ArgList al;
-Cardinal ac;
+Widget XgCreateFastLabel(Widget parent, char *name, ArgList al, Cardinal ac)
 {
   return XtCreateWidget(name, xgFastLabelWidgetClass, parent, al, ac);
 }
@@ -797,9 +800,7 @@ Cardinal ac;
  *
  * ---PHDR--- */
 
-static XFontStruct *
-GetFontStruct(font_list)
-XmFontList	font_list;
+static XFontStruct *GetFontStruct(XmFontList font_list)
 {
 #if (XmVERSION == 1 && XmREVISION > 0) || XmVERSION > 1
   XmFontContext		context;
@@ -825,4 +826,14 @@ XmFontList	font_list;
 #endif
 }
 
-
+/* **************************** Emacs Editing Sequences ***************** */
+/* Local Variables: */
+/* tab-width: 6 */
+/* c-basic-offset: 2 */
+/* c-comment-only-line-offset: 0 */
+/* c-indent-comments-syntactically-p: t */
+/* c-label-minimum-indentation: 1 */
+/* c-file-offsets: ((substatement-open . 0) (label . 2) */
+/* (brace-entry-open . 0) (label .2) (arglist-intro . +) */
+/* (arglist-cont-nonempty . c-lineup-arglist) ) */
+/* End: */

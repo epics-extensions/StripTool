@@ -120,7 +120,7 @@ char *description=NULL; /* Albert */
 	getDescriptionRecord(
 	 (char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME),
 	 description);
-	StripCurve_setattr (curve, STRIPCURVE_COMMENT,description, 0);
+	StripCurve_setattr (curve, STRIPCURVE_COMMENT, description, 0);
 	free(description);
 #endif
   ca_flush_io();
@@ -360,7 +360,6 @@ static void     data_callback           (struct event_handler_args args)
   StripCurve                    curve;
   struct _ChannelData           *cd;
   struct dbr_sts_double         *sts;
-  int                           status;
 
   curve = (StripCurve)ca_puser (args.chid);
   cd = (struct _ChannelData *)StripCurve_getattr_val
@@ -401,7 +400,7 @@ static double   get_value       (void *data)
 
   return cd->value;
 }
-static void getDescriptionRecord(char *name,char *description)
+static void getDescriptionRecord(char *name, char *description)
 {
   int status;
   chid id;
@@ -410,6 +409,15 @@ static void getDescriptionRecord(char *name,char *description)
   strcpy(desc_name,name);
   strcat(desc_name,".DESC");
 
+  /* Check validity and initialize to blank */
+  if(!description) {
+#ifdef PRINT_DESC_ERRORS      
+    fprintf(stderr,"Description array is NULL\n");
+    return;
+#endif    
+  }
+  *description='\0';
+  
   status = ca_search(desc_name, &id);
   if (status != ECA_NORMAL) {
 #ifdef PRINT_DESC_ERRORS      
@@ -454,3 +462,15 @@ static void getDescriptionRecord(char *name,char *description)
     }
 
 }
+
+/* **************************** Emacs Editing Sequences ***************** */
+/* Local Variables: */
+/* tab-width: 6 */
+/* c-basic-offset: 2 */
+/* c-comment-only-line-offset: 0 */
+/* c-indent-comments-syntactically-p: t */
+/* c-label-minimum-indentation: 1 */
+/* c-file-offsets: ((substatement-open . 0) (label . 2) */
+/* (brace-entry-open . 0) (label .2) (arglist-intro . +) */
+/* (arglist-cont-nonempty . c-lineup-arglist) ) */
+/* End: */

@@ -17,8 +17,13 @@
 
 #include <stdlib.h>
 #include <stdarg.h>
-#include <time.h>
+#ifdef WIN32
+/* In MSVC timeval is in winsock.h, winsock2.h, ws2spi.h, nowhere else */
+#include <X11/Xwinsock.h>
+#else
 #include <sys/time.h>
+#include <time.h>
+#endif
 
 #ifndef NO_X11_HERE /* Albert */
 #include <X11/Xlib.h>

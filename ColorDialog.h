@@ -29,7 +29,7 @@ void            ColorDialog_delete      (ColorDialog);
 void            ColorDialog_popup       (ColorDialog,
                                          char *,
                                          cColor *,
-                                         CDcallback, /* called on Ok, Apply */
+                                         CDcallback, /* called on OK, Apply */
                                          void *);    /* callback data */
 void            ColorDialog_popdown     (ColorDialog);
 

@@ -19,9 +19,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef WIN32
 /* This is not an ANSI function and may not be included from stdlib.h.
    Include it here explicitly */
 extern char *ecvt(double, int, int *, int *);
+#endif
 
 #define MAX_PRE         32
 #define MAX_LEN         64
@@ -357,7 +359,12 @@ void    MessageBox_popup        (Widget         parent,
   if (*message_box == (Widget)0)
     *message_box = XmCreateMessageDialog (parent, "Oops", NULL, 0);
   
+#if 0
   xstr_msg = XmStringCreateLocalized (buf);
+#else
+  /* Use XmStringGetLtoR because it handles multiple lines */
+   xstr_msg = XmStringCreateLtoR(buf, XmFONTLIST_DEFAULT_TAG);
+#endif  
   xstr_btn = XmStringCreateLocalized (btn_txt);
   xstr_title = XmStringCreateLocalized (title);
 
@@ -509,6 +516,18 @@ char *timeStamp(void)
   strftime(timeStampStr,20,"%b %d %H:%M:%S",tblock);
   
   return timeStampStr;
+}
+
+/* Function to convert / to \ to avoid inconsistencies in WIN32 */
+void convertDirDelimiterToWIN32(char *pathName)
+{
+    char *ptr;
+    
+    ptr=strchr(pathName,'/');
+    while(ptr) {
+	*ptr='\\';
+	ptr=strchr(ptr,'/');
+    }
 }
 
 /* **************************** Emacs Editing Sequences ***************** */

@@ -508,10 +508,9 @@ FreePixmap      (LegendWidget cw)
 
 void LegendRefresh(LegendWidget cw)
 {
-  char buf[256];
   register int                  mask, m;
   register LegendItemInfo       *item;
-  register int                  i, x, y;
+  register int                  x, y;
   register char                 *s, *p;
   XPoint                        dims;
   XRectangle                    rect;
@@ -602,7 +601,7 @@ Draw            (LegendWidget cw, Drawable canvas)
 {
   register int                  mask, m;
   register LegendItemInfo       *item;
-  register int                  i, x, y;
+  register int                  x, y;
   register char                 *s, *p;
   XPoint                        dims;
   XRectangle                    rect;

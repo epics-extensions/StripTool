@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <float.h>
 #include <math.h>
-
+#include <time.h>
 
 #define offset(field) XtOffsetOf(AxisRec, field)
 
@@ -1313,7 +1313,7 @@ ComputeTimeTics         (AxisWidget cw)
   double        m_minor, m_major;               /* best divisor */
   int           n_minor, n_major;               /* num tics for best div. */
   double        q;
-  double        r, s;
+  double        r;
   double        a, b;
   double        delta;
   time_t        tt;
@@ -1458,7 +1458,6 @@ ComputeNormalTics       (AxisWidget cw)
 {
   double        m_minor, m_major;               /* best divisor */
   int           n_minor, n_major;               /* num tics for best div. */
-  double        delta;                          /* interval length */
   double        p, q;                           /* exponent, magnitude */
   double        a, b;
   double        r, s;

@@ -150,7 +150,8 @@ static char listTranslations[] =
      <Key>osfPageDown:      ComboBox-Manager(page-down)         ";
 
 
-static void CBoxManager();
+static void CBoxManager(Widget w, XEvent *event, String *params,
+  Cardinal *num_params);
 
 static XtActionsRec actions[] = {
     { "ComboBox-Manager", CBoxManager },
@@ -475,7 +476,7 @@ ClassInitialize(void)
 static void Initialize(Widget wrequest, Widget wnew,
   ArgList args, Cardinal *num_args)
 {
-Dimension       textWidth, textHeight, width, height;
+Dimension       textWidth, textHeight;
 Position        arrowX, arrowY;
 Boolean         editable, cursorPositionVisible;
 XgComboBoxWidget        request=(XgComboBoxWidget)wrequest;
@@ -875,7 +876,7 @@ XgComboBoxWidget        w;
 ArgList                 args;
 Cardinal                *num_args;
 {
-int     i;
+Cardinal     i;
 Arg     xtarg;
 
         /*
@@ -1523,7 +1524,6 @@ char                    *text, *list_string;
 int                     i, s, found, len, listCount;
 XmStringTable           items;
 XgComboBoxWidget        comboBox = (XgComboBoxWidget)XtParent(widget);
-Boolean                 bellOn;
 XgComboBoxCallbackStruct        cbs;
 XmAnyCallbackStruct     *cb = (XmAnyCallbackStruct *)call;
 
@@ -1729,10 +1729,9 @@ XmAnyCallbackStruct     *cb = (XmAnyCallbackStruct *)call;
 
 static void comboArrowCB(Widget arrow, XtPointer client, XtPointer call)
 {
-int                     ac, visible, itemCount;
+int                     itemCount;
 Position                x, y, px, py;
 Dimension               height, width, hThickness;
-Arg                     al[8];
 static Cursor           cursor;
 XgComboBoxWidget        w = (XgComboBoxWidget)XtParent(arrow);
 XmAnyCallbackStruct     *cbd = (XmAnyCallbackStruct *)call;
@@ -2642,11 +2641,8 @@ XgComboBoxWidget comboBox = (XgComboBoxWidget)w;
 }
 
 
-static void CBoxManager(w, event, params, num_params)
-Widget w;
-XEvent *event;
-String *params;
-Cardinal *num_params;
+static void CBoxManager(Widget w, XEvent *event, String *params,
+  Cardinal *num_params)
 {
 XgComboBoxWidget cbw;
 Widget           list;

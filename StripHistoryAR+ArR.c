@@ -92,7 +92,6 @@ FetchStatus     StripHistory_fetch      (StripHistory           the_shi,
   short  *status=NULL;
   double *data=NULL;
   u_long count=0;
-  int i;
   time_t a=begin->tv_sec;
   time_t b=  end->tv_sec;
   

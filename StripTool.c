@@ -18,6 +18,10 @@
 #include "StripMisc.h"
 #include "StripDAQ.h"
 
+#ifdef WIN32
+# include <direct.h> /* for getcwd (usually in sys/parm.h or unistd.h) */
+#endif
+
 #define CPU_CURVE_NAME          "CPU_Usage"
 #define CPU_CURVE_EGU           "%"
 #define CPU_CURVE_PRECISION     2
@@ -59,6 +63,11 @@ int StripTool_main (int argc, char *argv[])
   print("STRIPCURVE_COMMENT=%d\n",STRIPCURVE_COMMENT);
   print("STRIPCURVE_COMMENT_SET=%d\n",STRIPCURVE_COMMENT_SET);
 #endif  
+
+#ifdef WIN32
+  /* Hummingbird Exceed XDK initialization for WIN32 */
+    HCLXmInit();
+#endif
 
     /* create and initialize the Strip structure */
   if (!(strip = Strip_init (&argc, argv, tmpfile())))
@@ -290,7 +299,7 @@ static FILE *StripTool_open_file (char *file_name, char *path_used,
   FILE *filePtr;
   int startPos;
   char fullPathName[PATH_MAX], dirName[PATH_MAX];
-  char *dir, *ptr;
+  char *dir;
   
 #ifdef WIN32
   convertDirDelimiterToWIN32(file_name);

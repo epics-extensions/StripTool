@@ -37,17 +37,17 @@ SDWindowMenuItem;
 typedef enum
 {
   STRIPDIALOG_SHELL_WIDGET = 1, /* (Widget)                             r- */
-  STRIPDIALOG_CONNECT_FUNC,     /* (SDCallback)                         rw */
+  STRIPDIALOG_CONNECT_FUNC,     /* (SDcallback)                         rw */
   STRIPDIALOG_CONNECT_DATA,     /* (void *)                             rw */
-  STRIPDIALOG_SHOW_FUNC,        /* (SDCallback)                         rw */
+  STRIPDIALOG_SHOW_FUNC,        /* (SDcallback)                         rw */
   STRIPDIALOG_SHOW_DATA,        /* (void *)                             rw */
-  STRIPDIALOG_CLEAR_FUNC,       /* (SDCallback)                         rw */
+  STRIPDIALOG_CLEAR_FUNC,       /* (SDcallback)                         rw */
   STRIPDIALOG_CLEAR_DATA,       /* (void *)                             rw */
-  STRIPDIALOG_DELETE_FUNC,      /* (SDCallback)                         rw */
+  STRIPDIALOG_DELETE_FUNC,      /* (SDcallback)                         rw */
   STRIPDIALOG_DELETE_DATA,      /* (void *)                             rw */
-  STRIPDIALOG_DISMISS_FUNC,     /* (SDCallback)                         rw */
+  STRIPDIALOG_DISMISS_FUNC,     /* (SDcallback)                         rw */
   STRIPDIALOG_DISMISS_DATA,     /* (void *)                             rw */
-  STRIPDIALOG_QUIT_FUNC,        /* (SDCallback)                         rw */
+  STRIPDIALOG_QUIT_FUNC,        /* (SDcallback)                         rw */
   STRIPDIALOG_QUIT_DATA,        /* (void *)                             rw */
   STRIPDIALOG_WINDOW_MENU,      /* (SDWindowMenuItem[])                 r-
                                  * --> must be followed by (int) count

@@ -556,7 +556,6 @@ Cardinal *num_params;
 {
 Dimension width, slant, height;
 int old_tab, i, current_tab = -1, righttabs = RIGHT_TABS(tabw);
-Dimension text_height;
 XgTabsCallbackStruct cbs;
 
 
@@ -839,8 +838,7 @@ XgTabsWidget    w;
 ArgList         args;
 Cardinal        *num_args;
 {
-int     i;
-Arg     xtarg;
+Cardinal     i;
 
         /*
          *
@@ -3086,7 +3084,6 @@ cvtStringToStringArray(display, args, num_args, from, to, converter_data)
     XtPointer *converter_data;
 #endif
 {
-int                i;
 char                *a, *b, *string;
 static String        *items;        
 static int        item_count = 0;
@@ -3114,7 +3111,7 @@ static int        item_count = 0;
       
       a = string;
       while (a < (string + len))
-        for ( a = b = string; a < string + len; i++ )
+        for ( a = b = string; a < string + len; )
         {
           /* find string delimiter, and null-terminate */
           for (b = a; *b && (*b != ','); b++);

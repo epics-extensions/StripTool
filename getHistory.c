@@ -21,7 +21,6 @@ u_long getHistory(StripHistory     the_shi,
 		  double**         data,
 		  u_long *         count)
 {
-  u_long err;
   struct timeval right_endpoint;   /* right end for AAPI request */
   u_long commonCount=0;
   int i;
@@ -140,7 +139,7 @@ if(DEBUG1) printf("history req is here\n");
 
       }
       /* ATTENTION: Strip status is no CA status! */
-      for(i=0;i<commonCount;i++) (*status)[i] |= DATASTAT_PLOTABLE;
+      for(i=0;i<(int)commonCount;i++) (*status)[i] |= DATASTAT_PLOTABLE;
 
     }
 
@@ -148,7 +147,7 @@ if(DEBUG1) printf("history req is here\n");
     printf("commonCount=%ld\n",commonCount);
     printf("COM FROM=%s",ctime(&(begin->tv_sec)));
     printf("COM TO  =%s",ctime(&(end->tv_sec)));    
-    if(DEBUG2) for(i=0;i<commonCount;i++)  
+    if(DEBUG2) for(i=0;i<(int)commonCount;i++)  
       printf("TIME=%s",ctime(&((*times)[i].tv_sec)));
   }
   

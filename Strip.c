@@ -16,7 +16,7 @@
 #define SMALL_ZOOM_FACTOR 1.071773462536293 /* 2^(.1) */
 #define LARGE_PAN_FACTOR  0.5
 #define SMALL_PAN_FACTOR  0.05
-#define ROFF 1.0e-10
+#define ROFF              1.0e-10
 
 #include "Strip.h"
 #include "StripDialog.h"
@@ -50,6 +50,11 @@
 #include "AAPI.h"
 #endif /* USE_AAPI */
 
+#ifdef WIN32
+/* There is no pwd.h on WIN32 */
+#else
+ # include <pwd.h>
+#endif
 
 #ifdef USE_XPM
 #  include <X11/xpm.h>          
@@ -91,6 +96,7 @@
 
 #if defined(HP_UX) || defined(SOLARIS) || defined(linux)
 #  include <unistd.h>
+#elif defined(WIN32)
 #else
 #  include <vfork.h>
 #endif
@@ -402,7 +408,9 @@ Strip   Strip_init      (int    *argc,
                          FILE   *logfile)
 {
   StripInfo             *si;
+#if 0
   Dimension             width, height;
+#endif
   XSetWindowAttributes  xswa;
   XVisualInfo           xvi;
   Widget                form, rowcol, hintshell, w;
@@ -414,16 +422,16 @@ Strip   Strip_init      (int    *argc,
   Arg                   args[10];
   Atom                  import_list[10];
   int                   stat = 1;
-  double                tmp_dbl;
   StripConfigMask       scfg_mask;
   Atom                  WM_DELETE_WINDOW;
   XrmDatabase           db, db_fall, db_site, db_user;
   char                  *env;
   char                  path[MAX_PATH];
   char                  **pstr;
+#ifndef WIN32
   struct passwd         user;
   char                  *a, *b;
-  XmString              xstr;
+#endif
 #ifdef USE_RIGHT_CLICK_ON_BUTTONS
   String                rightBtnTranslations =
     "~Ctrl<Btn3Down>: Arm() \n\
@@ -476,6 +484,11 @@ Strip   Strip_init      (int    *argc,
     /* build user default resource database
      */
     
+#ifdef WIN32
+    /* not sure where this file should be located in windows.  assume
+       "\" for now. */
+    strcpy(path,"\\");
+#else
     /* first, get path of user's home directory and append the
      * resource file name to that */
     memcpy (&user, getpwuid (getuid()), sizeof (struct passwd));
@@ -486,6 +499,7 @@ Strip   Strip_init      (int    *argc,
     a = STRIP_USER_DEFAULTS_FILE;
     while (*a) *b++ = *a++;
     *b = 0;
+#endif
     
     /* build the database */
     db_user = XrmGetFileDatabase (path);
@@ -505,7 +519,8 @@ Strip   Strip_init      (int    *argc,
 #ifdef USE_XMU
     /* editres support */
     XtAddEventHandler
-      (si->toplevel, (EventMask)0, True, _XEditResCheckMessages, 0);
+      (si->toplevel, (EventMask)0, True,
+	  (XtEventHandler)_XEditResCheckMessages, 0);
 #endif
     
     /* replace default error handler so that we don't exit on
@@ -548,7 +563,10 @@ Strip   Strip_init      (int    *argc,
       return NULL;
     }
     si->config->logfile = logfile;
+#if 0
+  /* KE: Not used, not available on WIN32 */
     si->config->user = user;
+#endif    
     
 #ifdef USE_RIGHT_CLICK_ON_BUTTONS
     /* parse the translation table */
@@ -578,7 +596,8 @@ Strip   Strip_init      (int    *argc,
 #ifdef USE_XMU
     /* editres support */
     XtAddEventHandler
-      (si->shell, (EventMask)0, True, _XEditResCheckMessages, 0);
+      (si->shell, (EventMask)0, True,
+	  (XtEventHandler)_XEditResCheckMessages, 0);
 #endif
     
     
@@ -1039,6 +1058,9 @@ Strip   Strip_init      (int    *argc,
     /* load the icon pixmap */
     StripDialog_getattr (si->dialog, STRIPDIALOG_SHELL_WIDGET, &w, 0);
     
+#ifndef WIN32
+    /* KE: These are trashed when used on WIN32.  Use the Exceed
+       default, which is an X icon. */
 #ifdef USE_XPM
     /* graph icon */
     if (XpmSuccess == XpmCreatePixmapFromData 
@@ -1069,6 +1091,7 @@ Strip   Strip_init      (int    *argc,
        fg, bg, xvi.depth);
     if (pixmap)
       XtVaSetValues(w, XtNiconPixmap, pixmap, NULL);
+#endif
 #endif
       
 
@@ -1216,7 +1239,11 @@ int     Strip_addfd     (Strip                  the_strip,
   if (i < STRIP_MAX_FDS)
   {
     si->fdinfo[i].id = XtAppAddInput
+#ifdef WIN32
+      (si->app, fd, (XtPointer)XtInputReadWinsock, func, data);
+#else
       (si->app, fd, (XtPointer)XtInputReadMask, func, data);
+#endif	
     si->fdinfo[i].fd = fd;
   }
 
@@ -1396,7 +1423,6 @@ int     Strip_connectcurve      (Strip the_strip, StripCurve the_curve)
 {
   StripInfo             *si = (StripInfo *)the_strip;
   StripCurveInfo        *sci = (StripCurveInfo *)the_curve;
-  StripCurve            curve[2];
   int                   ret_val;
 
 #if DEBUG_CONNECTING
@@ -1438,7 +1464,6 @@ void    Strip_setconnected      (Strip the_strip, StripCurve the_curve)
 {
   StripInfo             *si = (StripInfo *)the_strip;
   StripCurveInfo        *sci = (StripCurveInfo *)the_curve;
-  StripCurve            curve[2];
 
 #if DEBUG_CONNECTING
   print("%s Strip_setconnected\"  %s\n",
@@ -1478,7 +1503,6 @@ void    Strip_setwaiting        (Strip the_strip, StripCurve the_curve)
 {
   StripInfo             *si = (StripInfo *)the_strip;
   StripCurveInfo        *sci = (StripCurveInfo *)the_curve;
-  StripCurve            curve[2];
 
 #if DEBUG_CONNECTING
   print("%s Strip_setwaiting\"  %s\n",
@@ -1642,13 +1666,13 @@ int     Strip_dumpdata  (Strip the_strip, char *fname)
       ret_val = StripGraph_dumpdata (si->graph, f);
     if (!ret_val)
       MessageBox_popup
-        (si->shell, &si->message_box, XmDIALOG_ERROR, "File I/O", "Ok",
+        (si->shell, &si->message_box, XmDIALOG_ERROR, "File I/O", "OK",
 	    "Unable to dump data");
     fclose (f);
   }
   else
     MessageBox_popup
-      (si->shell, &si->message_box, XmDIALOG_ERROR, "File I/O", "Ok",
+      (si->shell, &si->message_box, XmDIALOG_ERROR, "File I/O", "OK",
 	  "Unable to open file for writing.\nname: %s\nerror: %s",
 	  fname, strerror (errno));
   return ret_val;
@@ -1741,7 +1765,8 @@ static void     Strip_graphdrop_handle  (Widget         w,
   Atom                          *export_targets;
   Atom                          COMPOUND_TEXT;
   Arg                           args[10];
-  int                           n, i;
+  Cardinal                      i;
+  int                           n;
   Boolean                       ok;
 
   dpy = XtDisplay (w);
@@ -1842,7 +1867,6 @@ static void     Strip_config_callback   (StripConfigMask mask, void *data)
   
   unsigned      comp_mask = 0;
   int           i, j;
-  double        tmp_dbl;
 
 
   if (StripConfigMask_stat (&mask, SCFGMASK_TITLE))
@@ -2411,7 +2435,9 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
   XmDrawingAreaCallbackStruct   *cbs;
   XEvent                        *event;
   StripInfo                     *si;
+#if 0
   StripConfigMask               scfg_mask;
+#endif
   struct timeval                t, tb, t0, t1;
 
 
@@ -2557,7 +2583,7 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
            divide the range by the factor */
 	  dbl2time (&t, si->config->Time.timespan * (.5 * (1. - 1. / factor)));
 	  subtract_times (&t1, &t, &tb);
-	  t_new = si->config->Time.timespan / factor;
+	  t_new = (unsigned int)(si->config->Time.timespan / factor);
 	}
 	else
 	{
@@ -2565,7 +2591,7 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
            the range by the factor */
 	  dbl2time (&t, si->config->Time.timespan * (.5 * (factor - 1.)));
 	  add_times (&t1, &t, &tb);
-	  t_new = si->config->Time.timespan * factor;
+	  t_new = (unsigned int)(si->config->Time.timespan * factor);
 	}
 	
 	StripGraph_setattr (si->graph, STRIPGRAPH_END_TIME, &t1, 0);
@@ -2877,6 +2903,15 @@ static int      X_error_handler         (Display *display, XErrorEvent *error)
   char  msg[128];
 
   XGetErrorText (display, error->error_code, msg, 128);
+#ifdef WIN32
+  fprintf
+    (stderr,
+	"==== StripTool X Error Handler ====\n"
+	"error:         %s\n"
+	"major opcode:  %d\n"
+	"serial:        %d\n",
+	msg, error->request_code, error->serial);
+#else
   fprintf
     (stderr,
 	"==== StripTool X Error Handler ====\n"
@@ -2885,7 +2920,8 @@ static int      X_error_handler         (Display *display, XErrorEvent *error)
 	"serial:        %d\n"
 	"process ID:    %d\n",
 	msg, error->request_code, error->serial, getpid());
-
+#endif
+  
   /* remember error */
   Strip_x_error_code = error->error_code;
   
@@ -2950,14 +2986,16 @@ static void     dlgrequest_dismiss      (void *client, void *BOGUS(1))
 {
   StripInfo     *si = (StripInfo *)client;
   Widget        tmp_w;
-
+  
   if (window_ismapped (si->display, XtWindow (si->shell)))
+  {
     StripDialog_popdown (si->dialog);
+  }  
   else
   {
     StripDialog_getattr (si->dialog, STRIPDIALOG_SHELL_WIDGET, &tmp_w, 0);
     MessageBox_popup
-      (tmp_w, &si->message_box, XmDIALOG_ERROR, "Oops", "Ok",
+      (tmp_w, &si->message_box, XmDIALOG_ERROR, "Oops", "OK",
 	  "You can't dismiss all your windows");
   }
 }
@@ -3153,8 +3191,10 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
 {
   PopupMenuItem item = (PopupMenuItem)client;
   StripInfo     *si;
+#ifndef WIN32
   char          cmd_buf[256];
   pid_t         pid;
+#endif  
 
   XtVaGetValues (XtParent(w), XmNuserData, &si, NULL);
 
@@ -3200,9 +3240,25 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
 	  si->print_info.device,
 	  si->print_info.printer);
     /*printf(" cmd_buf=%s\n",cmd_buf );*/
+    if (pid = fork ())
+    {
+	execl ("/bin/sh", "sh", "-c", cmd_buf, 0);
+	exit (0);
+    }
+#elif defined(WIN32) /* DESY_PRINT */
+    /* KE: This could be made to work on WIN32 by using the routines
+     * in MEDM rather than using xwd.  For now just ding.  Note that
+     * Alt-PrintScreen dumps the window to the clipboard, where a
+     * graphics routine such as Paint can retrieve and print it.  */
+    XBell (si->display,50); XBell (si->display,50); XBell (si->display,50);
+    MessageBox_popup
+	(si->shell, &si->message_box, XmDIALOG_INFORMATION, "Print", "OK",
+	  "Printing is not available on WIN32.\n\n"
+	  "Alt+PrintSceen will put the window in the clipboard\n"
+	  "where you can use Paint or another program to\n"
+	  "display or print it.");
 #else /* DESY_PRINT */
-
-#if defined(SOLARIS)
+# if defined(SOLARIS)
     if (strcmp (si->print_info.device, "ps") == 0)
 	sprintf
 	  (cmd_buf,
@@ -3210,24 +3266,32 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
 	    XtWindow (si->graph_form),
 	    si->print_info.printer);
     else
-#endif
+# endif
 	sprintf
 	  (cmd_buf,
 	    "xwd -id %d | xpr -device %s | lp -d%s -onb",
 	    XtWindow (si->graph_form),
 	    si->print_info.device,
 	    si->print_info.printer);
-#endif /* DESY_PRINT */               
-        
     if (pid = fork ())
     {
 	execl ("/bin/sh", "sh", "-c", cmd_buf, 0);
 	exit (0);
     }
+#endif /* DESY_PRINT */               
     break;
         
   case POPUPMENU_SNAPSHOT:
     window_map (si->display, XtWindow(si->shell));
+#ifdef WIN32
+    XBell (si->display,50); XBell (si->display,50); XBell (si->display,50);
+    MessageBox_popup
+	(si->shell, &si->message_box, XmDIALOG_INFORMATION, "Snapshot", "OK",
+	  "Snapshot is not available on WIN32.\n\n"
+	  "Alt+PrintSceen will put the window in the clipboard\n"
+	  "where you can use Paint or another program to\n"
+	  "display or print it.");
+#else    
     sprintf
 	(cmd_buf,
 	  "xwd -id %d | xwud -raw",
@@ -3237,6 +3301,7 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
 	execl ("/bin/sh", "sh", "-c", cmd_buf, 0);
 	exit (0);
     }
+#endif
     break;
         
   case POPUPMENU_DUMP:
@@ -3247,7 +3312,7 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
     if (StripDialog_ismapped (si->dialog))
 	window_unmap (si->display, XtWindow (si->shell));
     else MessageBox_popup
-	     (si->shell, &si->message_box, XmDIALOG_ERROR, "Oops", "Ok",
+	     (si->shell, &si->message_box, XmDIALOG_ERROR, "Oops", "OK",
 		 "You can't dismiss all your windows");
     break;
         
@@ -3300,6 +3365,15 @@ static PrinterDialog    *PrinterDialog_build    (Widget parent)
 
 static void     PrinterDialog_popup     (PrinterDialog *pd, StripInfo *si)
 {
+#ifdef WIN32
+    XBell (si->display,50); XBell (si->display,50); XBell (si->display,50);
+    MessageBox_popup
+	(si->shell, &si->message_box, XmDIALOG_INFORMATION, "Snapshot", "OK",
+	  "Printing is not available on WIN32.\n\n"
+	  "Alt+PrintSceen will put the window in the clipboard\n"
+	  "where you can use Paint or another program to\n"
+	  "display or print it.");
+#else    
   Window                root, child;
   Dimension             width, height;
   int                   root_x, root_y;
@@ -3330,6 +3404,7 @@ static void     PrinterDialog_popup     (PrinterDialog *pd, StripInfo *si)
 
   /* pop it up! */
   XtManageChild (pd->msgbox);
+#endif
 }
 
 
@@ -3709,7 +3784,7 @@ static void fromToGo(wdgt, gData , call_data)
   if (from_epoch <= 0) {  
     MessageBox_popup
       (fromToShell,(Widget *)XmCreateMessageDialog(fromToShell,"Oops",NULL,0), 
-	  XmDIALOG_WARNING, "TIME PROBLEM", "Ok","From-Time Error\n");
+	  XmDIALOG_WARNING, "TIME PROBLEM", "OK","From-Time Error\n");
     return;
   }
   
@@ -3726,14 +3801,14 @@ static void fromToGo(wdgt, gData , call_data)
   if (to_epoch <= 0)  {
     MessageBox_popup
       (fromToShell,(Widget *)XmCreateMessageDialog(fromToShell,"Oops",NULL,0), 
-	  XmDIALOG_WARNING, "TIME PROBLEM", "Ok","To-Time Error\n");
+	  XmDIALOG_WARNING, "TIME PROBLEM", "OK","To-Time Error\n");
     return;
   }
   
   if(from_epoch >= to_epoch) {
     MessageBox_popup
       (fromToShell,(Widget *)XmCreateMessageDialog(fromToShell,"Oops",NULL,0), 
-	  XmDIALOG_WARNING, "TIME PROBLEM", "Ok","From > TO!!! \n");
+	  XmDIALOG_WARNING, "TIME PROBLEM", "OK","From > TO!!! \n");
     return;
   } 
   t_from.tv_sec=from_epoch; t_from.tv_usec=0;
@@ -3859,7 +3934,7 @@ static void radioHelp(widget, unused , call_data)
     (Widget *) XmCreateMessageDialog(history_topShell,"Help",NULL,0),
     XmDIALOG_INFORMATION, 
     "ArchiveMethods", 
-    "Ok",
+    "OK",
     "You can \n"
     " 1) choose   History   Reduction   Algorithm:\n"
     "     (available only in AAPI version)\n"

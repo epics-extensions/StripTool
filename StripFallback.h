@@ -28,7 +28,7 @@ String  fallback_resources[] =
   SA "*hintShell.fontSet: *-helvetica-medium-r-normal--12-*",
 
   SA "*PrinterDialog_popup.title: Printer Selector",
-  SA "*PrinterDialog*okLabelString: Ok",
+  SA "*PrinterDialog*okLabelString: OK",
   SA "*PrinterDialog*cancelLabelString: Cancel",
   SA "*PrinterDialog*nameLabel.labelString: Printer:",
   SA "*PrinterDialog*deviceLabel.labelString: Device:",

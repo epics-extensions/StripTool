@@ -13,15 +13,26 @@
 #define _StripMisc
 
 #ifndef NO_X11_HERE /* Albert */
+
+#include <math.h>
+#include <time.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <stdio.h>
+
 #include <X11/Intrinsic.h>
 #include <X11/Xlib.h>
 #include <float.h>
 #endif  /* Albert */
 
-#include <math.h>
-#include <time.h>
-#include <sys/time.h>
-#include <stdarg.h>
+#ifdef WIN32
+/* Hummingbird extra functions including lprintf */
+# include <X11/XlibXtra.h>
+/* In MSVC timeval is in winsock.h, winsock2.h, ws2spi.h, nowhere else */
+# include <X11/Xwinsock.h>
+#else
+# include <sys/time.h>
+#endif
 
 /*
  * this is some serious brain-damage
@@ -123,7 +134,7 @@ char            *time2str       (struct timeval *);
 #define dbl2time(t,d) \
 (void) \
 ((t)->tv_sec = (unsigned long)(d), \
- (t)->tv_usec = ((d) - (t)->tv_sec) * (long)ONE_MILLION)
+ (t)->tv_usec = (unsigned long)(((d) - (t)->tv_sec) * (long)ONE_MILLION))
 
 /* time2dbl
  */
@@ -146,7 +157,7 @@ char            *time2str       (struct timeval *);
   ( ((b)->tv_sec > (a)->tv_sec) \
     ? ((s)->tv_sec = 0, (s)->tv_usec = 0) \
     : ((((s)->tv_usec < (b)->tv_usec) \
-        ? ((s)->tv_usec += ONE_MILLION, (s)->tv_sec--) \
+        ? ((s)->tv_usec += (unsigned long)ONE_MILLION, (s)->tv_sec--) \
         : 0), \
        ( ((s)->tv_sec < (b)->tv_sec) \
          ? ((s)->tv_sec = 0, (s)->tv_usec = 0) \
@@ -216,6 +227,9 @@ void print(const char *fmt, ...);
  * The calling program should copy it to a safe place
  *   e.g. strcpy(savetime,timestamp()); */
 char *timeStamp(void);
+
+/* Function to convert / to \ to avoid inconsistencies in WIN32 */
+void convertDirDelimiterToWIN32(char *pathName);
 
 #endif
 

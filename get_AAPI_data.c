@@ -51,7 +51,7 @@ static char buf[SERVER_ERROR_BUF_SIZE];
 	  AAPI_connection_establish = 0;
 	  History_MessageBox_popup
 	    ( "AAPI_SERVER PROBLEM", 
-	     "Ok",
+	     "OK",
 	     "AAPI-server problem. \ncould be you need restart it.\n");
 	}
      return (err);
@@ -66,7 +66,7 @@ static char buf[SERVER_ERROR_BUF_SIZE];
     if(serverErrorString) 
       sprintf(buf,"which means %s\n",serverErrorString); 
     else sprintf(buf,"-undefine error\n"); 
-    History_MessageBox_popup("BIG REQUEST", "Ok",buf);
+    History_MessageBox_popup("BIG REQUEST", "OK",buf);
     tryFreeData(ans_data,serverErrorString);
     return (-1);
   }
@@ -101,7 +101,7 @@ static char buf[SERVER_ERROR_BUF_SIZE];
     {
       *count = historySize-1; /* show rest of big buffer */
       fprintf(stderr,"Server count data=%ld is big no goodData\n",*count);
-      History_MessageBox_popup("BIG REQUEST", "Ok",
+      History_MessageBox_popup("BIG REQUEST", "OK",
              "So many Data from Archiver\nPlease, decrease interval or increase # historyPoints.\n");	
       
     }

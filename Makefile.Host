@@ -36,7 +36,11 @@ STRIP_HISTORY      = StripHistoryAR+ArR.c
 ARCHIVER_CALL      = NONE
 USE_ARCHIVE_RECORD = NO
 
+ifdef WIN32
+HAVE_XPM        = NO
+else
 HAVE_XPM	= YES
+endif
 HAVE_XMU	= YES
 
 #PURIFY = YES
@@ -48,7 +52,7 @@ CMPLR 		= STRICT
 ifdef WIN32
  #HOST_OPT = NO
 else
- HOST_OPT = NO
+ #HOST_OPT = NO
 endif
 ifeq ($(HOST_OPT),NO)
   ifeq ($(ANSI),ACC)
@@ -57,6 +61,11 @@ ifeq ($(HOST_OPT),NO)
     endif
   endif
 endif
+
+#Temporary
+#ifdef WIN32
+#USR_CFLAGS += -P
+#endif
 
 STRIP_DAQ	= StripCA.c
 #STRIP_HISTORY	= StripHistoryNULL.c
@@ -75,12 +84,19 @@ endif
 # Library locations
 # Use these definitions and implement them in the appropriate
 # CONFIG_SITE.xxx rather than hard-coding them here.
-X11_INC	:= $(X11_INC)
-MOTIF_INC := $(MOTIF_INC)
-X11_LIB	:= $(X11_LIB)
-MOTIF_LIB := $(MOTIF_LIB)
-XMU_INC	:= $(X11_LIB)
-XMU_LIB	:= $(X11_LIB)
+Xm_DIR = $(MOTIF_LIB)
+Xt_DIR = $(X11_LIB)
+X11_DIR = $(X11_LIB)
+Xmu_DIR = $(X11_LIB)
+Xp_DIR = $(X11_LIB)
+Xext_DIR = $(X11_LIB)
+
+# WIN32
+WIN32_RUNTIME=MD
+USR_CFLAGS_WIN32 += /DWIN32 /D_WINDOWS
+USR_LDFLAGS_WIN32 += /SUBSYSTEM:WINDOWS
+USR_LIBS_WIN32 += $(EXCEED_XLIBS)
+USR_CFLAGS_WIN32 += $(EXCEED_CFLAGS)
 
 # ==========================================================================
 # Sources
@@ -140,8 +156,6 @@ ifeq ($(STRIP_HISTORY), StripHistoryAR+ArR.c)
   ifeq ($(ARCHIVER_CALL), NONE)
 	USR_CFLAGS	+= -DNO_ARCHIVER_CALL
   endif		
-  USR_CPPFLAGS          += -I$(EPICS)/extensions/include
-  USR_LDFLAGS           += -L$(EPICS)/extensions/lib/$(T_A)
 endif
 
 # ==========================================================================
@@ -198,51 +212,54 @@ endif
 # Libraries
 # ==========================================================================
 ifeq ($(HISTORY_API), CAR)
-#  PROD_LIBS	+= ChanArchIO Tools
-  USR_LIBS	+=    ChanArchIO Tools ca Com pthread posix4
-  USR_LDFLAGS   +=  -L$(EPICS)/extensions/lib/$(T_A)
+#  PROD_LIBS += ChanArchIO Tools
+  USR_LIBS_DEFAULT += ChanArchIO Tools ca Com pthread posix4
+#  USR_LDFLAGS += -L$(EPICS)/extensions/lib/$(T_A)
 endif
 
 ifeq ($(HAVE_XMU), YES)
-#  PROD_LIBS	+= Xmu
-  USR_LIBS	+= Xmu
-  USR_LDFLAGS   +=  -L$(XMU_LIB)
+#  PROD_LIBS += Xmu
+  USR_LIBS_DEFAULT += Xmu
+#  USR_LDFLAGS += -L$(XMU_LIB)
 endif
 
 ifeq ($(HAVE_XPM), YES)
-#  PROD_LIBS	+= Xpm
-  USR_LIBS	+= Xpm
-  USR_LDFLAGS   +=  -L$(XPM_LIB)
+#  PROD_LIBS += Xpm
+  USR_LIBS_DEFAULT += Xpm
+#  USR_LDFLAGS += -L$(XPM_LIB)
 endif
 
-#PROD_LIBS	+= Xm Xt X11
-USR_LIBS	+= Xm Xt X11
+#PROD_LIBS += Xm Xt X11
+USR_LIBS_DEFAULT += Xm Xt X11
 ifeq ($(MOTIF_VERSION),2)
-  PROD_LIBS	+= Xext Xp
+  USR_LIBS += Xext Xp
 endif
 
 ifeq ($(USE_CDEV), YES)
-  PROD_LIBS	+= cdev
+  USR_LIBS += cdev
 endif
 
 ifeq ($(USE_SDDS), YES)
-  SYS_PROD_LIBS_solaris	+= sunmath
-  PROD_LIBS	+= SDDS1 namelist rpnlib mdblib $(ZLIB_PROD_LIB)
+  SYS_PROD_LIBS_solaris += sunmath
+  USR_LIBS += SDDS1 namelist rpnlib mdblib $(ZLIB_PROD_LIB)
   SDDS1_DIR = $(EPICS_EXTENSIONS_LIB)
   namelist_DIR = $(EPICS_EXTENSIONS_LIB)
   rpnlib_DIR = $(EPICS_EXTENSIONS_LIB)
   mdblib_DIR = $(EPICS_EXTENSIONS_LIB)
 endif
 
-PROD_LIBS	+= ca Com
-PROD_LIBS	+= $(THREAD_LIB)
+USR_LIBS += ca Com
+USR_LIBS += $(THREAD_LIB)
 
+# ==========================================================================
+# WIN32 Resources
+# ==========================================================================
+RCS_WIN32 += StripTool.rc
 
 # ==========================================================================
 # Product
 # ==========================================================================
-PROD		:= StripTool
-
+PROD := StripTool
 
 # ==========================================================================
 # Rules
@@ -252,6 +269,8 @@ include $(TOP)/config/RULES.Host
 
 ../main_+.cc: main_c.c
 	$(CP) $< $@
+
+StripTool.res:../StripTool.ico
 
 # ==========================================================================
 # Debugging (Do gnumake xxxx in O.whatever directory)

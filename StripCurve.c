@@ -234,28 +234,30 @@ void    *StripCurve_getattr_val (StripCurve the_sc, StripCurveAttribute attrib)
   
   switch (attrib)
   {
-      case STRIPCURVE_NAME:
-        return (void *)sc->details->name;
-      case STRIPCURVE_EGU:
-        return (void *)sc->details->egu;
-      case STRIPCURVE_COMMENT:
-        return (void *)sc->details->comment;
-      case STRIPCURVE_PRECISION:
-        return (void *)&sc->details->precision;
-      case STRIPCURVE_MIN:
-        return (void *)&sc->details->min;
-      case STRIPCURVE_MAX:
-        return (void *)&sc->details->max;
-      case STRIPCURVE_SCALE:
-        return (void *)&sc->details->scale;
-      case STRIPCURVE_PLOTSTAT:
-        return (void *)&sc->details->plotstat;
-      case STRIPCURVE_COLOR:
-        return (void *)sc->details->color;
-      case STRIPCURVE_FUNCDATA:
-        return (void *)sc->func_data;
-      case STRIPCURVE_SAMPLEFUNC:
-        return (void *)sc->get_value;
+  case STRIPCURVE_NAME:
+    return (void *)sc->details->name;
+  case STRIPCURVE_EGU:
+    return (void *)sc->details->egu;
+  case STRIPCURVE_COMMENT:
+    return (void *)sc->details->comment;
+  case STRIPCURVE_PRECISION:
+    return (void *)&sc->details->precision;
+  case STRIPCURVE_MIN:
+    return (void *)&sc->details->min;
+  case STRIPCURVE_MAX:
+    return (void *)&sc->details->max;
+  case STRIPCURVE_SCALE:
+    return (void *)&sc->details->scale;
+  case STRIPCURVE_PLOTSTAT:
+    return (void *)&sc->details->plotstat;
+  case STRIPCURVE_COLOR:
+    return (void *)sc->details->color;
+  case STRIPCURVE_FUNCDATA:
+    return (void *)sc->func_data;
+  case STRIPCURVE_SAMPLEFUNC:
+    return (void *)sc->get_value;
+  default:
+    return NULL;
   }
 }
 

@@ -25,8 +25,11 @@
 #include <float.h>
 #endif /* Albert */ 
 
-#include <unistd.h>
-#include <pwd.h>
+#ifdef WIN32
+ /* WIN32 does not have unistd.h */
+#else
+# include <unistd.h>
+#endif
 
 #include "StripDefines.h"
 #include "StripMisc.h"
@@ -333,8 +336,10 @@ typedef struct _StripConfig
   char                          *title;
   char                          *filename;
   FILE                          *logfile;
+#if 0
+/* KE: Not used, not available on WIN32 */
   struct passwd                 user;
-  
+#endif
   struct _Time {
     unsigned                    timespan;
     int                         num_samples;

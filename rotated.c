@@ -195,7 +195,6 @@ XRotMagnifyImage                (Display *, XImage *);
 static char *
 my_strdup       (register char *str)
 {
-  register int  n;
   register char *s, *p;
   
   if(!str) return 0;
@@ -469,7 +468,7 @@ XRotPaintAlignedString  (Display        *dpy,
     
     while (angle >= 360) angle -= 360;
     
-    angle *= M_PI/180;
+    angle *= (float)(M_PI/180);
     
     /* horizontal text made easy */
     if(angle==0. && style.magnify==1.) 
@@ -508,8 +507,8 @@ XRotPaintAlignedString  (Display        *dpy,
         hot_x=(float)item->max_width/2*style.magnify;
     
     /* pre-calculate sin and cos */
-    sin_angle=sin(angle);
-    cos_angle=cos(angle);
+    sin_angle=(float)sin(angle);
+    cos_angle=(float)cos(angle);
     
     /* rotate hot_x and hot_y around bitmap centre */
     hot_xp= hot_x*cos_angle - hot_y*sin_angle;
@@ -528,10 +527,10 @@ XRotPaintAlignedString  (Display        *dpy,
         
         /* rotate corner positions */
         for(i=0; i<4*item->nl; i++) {
-            xpoints[i].x=(float)x + ( (item->corners_x[i]-hot_x)*cos_angle + 
-                                      (item->corners_y[i]+hot_y)*sin_angle);
-            xpoints[i].y=(float)y + (-(item->corners_x[i]-hot_x)*sin_angle + 
-                                      (item->corners_y[i]+hot_y)*cos_angle);
+            xpoints[i].x=(short)((float)x + ( (item->corners_x[i]-hot_x)*cos_angle + 
+                                      (item->corners_y[i]+hot_y)*sin_angle));
+            xpoints[i].y=(short)((float)y + (-(item->corners_x[i]-hot_x)*sin_angle + 
+                                      (item->corners_y[i]+hot_y)*cos_angle));
         }
         
         /* we want to swap foreground and background colors here;
@@ -556,8 +555,8 @@ XRotPaintAlignedString  (Display        *dpy,
     }
     
     /* where should top left corner of bitmap go ? */
-    xp=(float)x-((float)item->cols_out/2 +hot_xp);
-    yp=(float)y-((float)item->rows_out/2 -hot_yp);
+    xp=(int)((float)x-((float)item->cols_out/2 +hot_xp));
+    yp=(int)((float)y-((float)item->rows_out/2 -hot_yp));
     
     /* by default we draw the rotated bitmap, solid */
     bitmap_to_paint=item->bitmap;
@@ -689,7 +688,7 @@ XRotDrawHorizontalString        (Display        *dpy,
 {
     GC my_gc;
     char *p;
-    int nl, i;
+    int nl;
     int height;
     int xp, yp;
     char *str1, *str2, *str3;
@@ -1022,8 +1021,8 @@ XRotCreateTextItem      (Display        *dpy,
     XSetForeground(dpy, font_gc, 1);
     
     /* pre-calculate sin and cos */
-    sin_angle=sin(angle);
-    cos_angle=cos(angle);
+    sin_angle=(float)sin(angle);
+    cos_angle=(float)cos(angle);
     
     /* text background will be drawn using XFillPolygon */
     item->corners_x=
@@ -1103,16 +1102,16 @@ XRotCreateTextItem      (Display        *dpy,
 
         old_cols_in=item->cols_in;
         old_rows_in=item->rows_in;
-        item->cols_in=(float)item->cols_in*style.magnify;
-        item->rows_in=(float)item->rows_in*style.magnify;
+        item->cols_in=(int)((float)item->cols_in*style.magnify);
+        item->rows_in=(int)((float)item->rows_in*style.magnify);
     }
 
     /* how big will rotated text be ? */
-    item->cols_out=fabs((float)item->rows_in*sin_angle) +
-        fabs((float)item->cols_in*cos_angle) +0.99999 +2;
+    item->cols_out=(int)(fabs((float)item->rows_in*sin_angle) +
+        fabs((float)item->cols_in*cos_angle) +0.99999 +2);
 
-    item->rows_out=fabs((float)item->rows_in*cos_angle) +
-        fabs((float)item->cols_in*sin_angle) +0.99999 +2;
+    item->rows_out=(int)(fabs((float)item->rows_in*cos_angle) +
+        fabs((float)item->cols_in*sin_angle) +0.99999 +2);
 
     if(item->cols_out%2==0)
         item->cols_out++;
@@ -1132,7 +1131,7 @@ XRotCreateTextItem      (Display        *dpy,
        a bit over-the-top */
     
     /* vertical distance from centre */
-    dj=0.5-(float)item->rows_out/2;
+    dj=(float)(0.5-(float)item->rows_out/2);
 
     /* where abouts does text actually lie in rotated image? */
     if(angle==0 || angle==M_PI/2 || 
@@ -1142,30 +1141,30 @@ XRotCreateTextItem      (Display        *dpy,
         xinc=0;
     }
     else if(angle<M_PI) {
-        xl=(float)item->cols_out/2+
+        xl=(float)((float)item->cols_out/2+
             (dj-(float)item->rows_in/(2*cos_angle))/
-                tan(angle)-2;
-        xr=(float)item->cols_out/2+
+                tan(angle)-2);
+        xr=(float)((float)item->cols_out/2+
             (dj+(float)item->rows_in/(2*cos_angle))/
-                tan(angle)+2;
-        xinc=1./tan(angle);
+                tan(angle)+2);
+        xinc=(float)(1./tan(angle));
     }
     else {
-        xl=(float)item->cols_out/2+
+        xl=(float)((float)item->cols_out/2+
             (dj+(float)item->rows_in/(2*cos_angle))/
-                tan(angle)-2;
-        xr=(float)item->cols_out/2+
+                tan(angle)-2);
+        xr=(float)((float)item->cols_out/2+
             (dj-(float)item->rows_in/(2*cos_angle))/
-                tan(angle)+2;
+                tan(angle)+2);
         
-        xinc=1./tan(angle);
+        xinc=(float)(1./tan(angle));
     }
 
     /* loop through all relevent bits in rotated image */
     for(j=0; j<item->rows_out; j++) {
         
         /* no point re-calculating these every pass */
-        di=(float)((xl<0)?0:(int)xl)+0.5-(float)item->cols_out/2;
+        di=(float)((float)((xl<0)?0:(int)xl)+0.5-(float)item->cols_out/2);
         byte_out=(item->rows_out-j-1)*byte_w_out;
         
         /* loop through meaningful columns */
@@ -1173,8 +1172,8 @@ XRotCreateTextItem      (Display        *dpy,
             i<((xr>=item->cols_out)?item->cols_out:(int)xr); i++) {
             
             /* rotate coordinates */
-            it=(float)item->cols_in/2 + ( di*cos_angle + dj*sin_angle);
-            jt=(float)item->rows_in/2 - (-di*sin_angle + dj*cos_angle);
+            it=(int)((float)item->cols_in/2 + ( di*cos_angle + dj*sin_angle));
+            jt=(int)((float)item->rows_in/2 - (-di*sin_angle + dj*cos_angle));
             
             /* set pixel if required */
             if(it>=0 && it<item->cols_in && jt>=0 && jt<item->rows_in)
@@ -1380,8 +1379,8 @@ XRotMagnifyImage        (Display *dpy, XImage *ximage)
     rows_in=ximage->height;
 
     /* size of final image */
-    cols_out=(float)cols_in*style.magnify;
-    rows_out=(float)rows_in*style.magnify;
+    cols_out=(int)((float)cols_in*style.magnify);
+    rows_out=(int)((float)rows_in*style.magnify);
 
     /* this will hold final image */
     I_out=MakeXImage(dpy, cols_out, rows_out);
@@ -1393,17 +1392,17 @@ XRotMagnifyImage        (Display *dpy, XImage *ximage)
     byte_width_out=(cols_out-1)/8+1;
 
     /* for speed */
-    mag_inv=1./style.magnify;
+    mag_inv=(float)(1./style.magnify);
 
     y=0.;
 
     /* loop over magnified image */
     for(j2=0; j2<rows_out; j2++) {
         x=0;
-        j=y;
+        j=(int)y;
 
         for(i2=0; i2<cols_out; i2++) {
-            i=x;
+            i=(int)x;
 
             /* bilinear interpolation - where are we on bitmap ? */
             /* right edge */
@@ -1411,9 +1410,10 @@ XRotMagnifyImage        (Display *dpy, XImage *ximage)
                 t=0;
                 u=y-(float)j;
 
-                z1=(ximage->data[j*byte_width_in+i/8] & 128>>(i%8))>0;
+                z1=(float)((ximage->data[j*byte_width_in+i/8] & 128>>(i%8))>0);
                 z2=z1;
-                z3=(ximage->data[(j+1)*byte_width_in+i/8] & 128>>(i%8))>0;
+                z3=(float)((ximage->data[(j+1)*byte_width_in+i/8] &
+			     128>>(i%8))>0);
                 z4=z3;
             }
             /* top edge */
@@ -1421,8 +1421,9 @@ XRotMagnifyImage        (Display *dpy, XImage *ximage)
                 t=x-(float)i;
                 u=0;
 
-                z1=(ximage->data[j*byte_width_in+i/8] & 128>>(i%8))>0;
-                z2=(ximage->data[j*byte_width_in+(i+1)/8] & 128>>((i+1)%8))>0;
+                z1=(float)((ximage->data[j*byte_width_in+i/8] & 128>>(i%8))>0);
+                z2=(float)((ximage->data[j*byte_width_in+(i+1)/8] &
+			     128>>((i+1)%8))>0);
                 z3=z2;
                 z4=z1;
             }
@@ -1431,7 +1432,7 @@ XRotMagnifyImage        (Display *dpy, XImage *ximage)
                 u=0;
                 t=0;
 
-                z1=(ximage->data[j*byte_width_in+i/8] & 128>>(i%8))>0;
+                z1=(float)((ximage->data[j*byte_width_in+i/8] & 128>>(i%8))>0);
                 z2=z1;
                 z3=z1;
                 z4=z1;
@@ -1441,11 +1442,13 @@ XRotMagnifyImage        (Display *dpy, XImage *ximage)
                 t=x-(float)i;
                 u=y-(float)j;
 
-                z1=(ximage->data[j*byte_width_in+i/8] & 128>>(i%8))>0;
-                z2=(ximage->data[j*byte_width_in+(i+1)/8] & 128>>((i+1)%8))>0;
-                z3=(ximage->data[(j+1)*byte_width_in+(i+1)/8] &
-                    128>>((i+1)%8))>0;
-                z4=(ximage->data[(j+1)*byte_width_in+i/8] & 128>>(i%8))>0;
+                z1=(float)((ximage->data[j*byte_width_in+i/8] & 128>>(i%8))>0);
+                z2=(float)((ximage->data[j*byte_width_in+(i+1)/8] &
+		    128>>((i+1)%8))>0);
+                z3=(float)((ximage->data[(j+1)*byte_width_in+(i+1)/8] &
+                    128>>((i+1)%8))>0);
+                z4=(float)((ximage->data[(j+1)*byte_width_in+i/8] &
+		    128>>(i%8))>0);
             }
 
             /* if interpolated value is greater than 0.5, set bit */
@@ -1503,7 +1506,7 @@ XRotTextExtents (Display        *dpy,
     while(angle>360)
         angle-=360;
     
-    angle*=M_PI/180;
+    angle*=(float)(M_PI/180);
     
     /* count number of sections in string */
     nl=1;
@@ -1558,8 +1561,8 @@ XRotTextExtents (Display        *dpy,
 #endif
     
     /* pre-calculate sin and cos */
-    sin_angle=sin(angle);
-    cos_angle=cos(angle);
+    sin_angle=(float)sin(angle);
+    cos_angle=(float)cos(angle);
     
     /* y position */
     if(align==TLEFT || align==TCENTRE || align==TRIGHT)
@@ -1589,23 +1592,23 @@ XRotTextExtents (Display        *dpy,
         return NULL;
 
     /* bounding box when horizontal, relative to bitmap centre */
-    xp_in[0].x=-(float)cols_in*style.magnify/2-style.bbx_pad;
-    xp_in[0].y= (float)rows_in*style.magnify/2+style.bbx_pad;
-    xp_in[1].x= (float)cols_in*style.magnify/2+style.bbx_pad;
-    xp_in[1].y= (float)rows_in*style.magnify/2+style.bbx_pad;
-    xp_in[2].x= (float)cols_in*style.magnify/2+style.bbx_pad;
-    xp_in[2].y=-(float)rows_in*style.magnify/2-style.bbx_pad;
-    xp_in[3].x=-(float)cols_in*style.magnify/2-style.bbx_pad;
-    xp_in[3].y=-(float)rows_in*style.magnify/2-style.bbx_pad;
+    xp_in[0].x=-(short)((float)cols_in*style.magnify/2-style.bbx_pad);
+    xp_in[0].y= (short)((float)rows_in*style.magnify/2+style.bbx_pad);
+    xp_in[1].x= (short)((float)cols_in*style.magnify/2+style.bbx_pad);
+    xp_in[1].y= (short)((float)rows_in*style.magnify/2+style.bbx_pad);
+    xp_in[2].x= (short)((float)cols_in*style.magnify/2+style.bbx_pad);
+    xp_in[2].y=-(short)((float)rows_in*style.magnify/2-style.bbx_pad);
+    xp_in[3].x=-(short)((float)cols_in*style.magnify/2-style.bbx_pad);
+    xp_in[3].y=-(short)((float)rows_in*style.magnify/2-style.bbx_pad);
     xp_in[4].x=xp_in[0].x;
     xp_in[4].y=xp_in[0].y;
         
     /* rotate and translate bounding box */
     for(i=0; i<5; i++) {
-        xp_out[i].x=(float)x + ( ((float)xp_in[i].x-hot_x)*cos_angle +
-                                 ((float)xp_in[i].y+hot_y)*sin_angle);
-        xp_out[i].y=(float)y + (-((float)xp_in[i].x-hot_x)*sin_angle +
-                                 ((float)xp_in[i].y+hot_y)*cos_angle);
+        xp_out[i].x=(short)((float)x + ( ((float)xp_in[i].x-hot_x)*cos_angle +
+                                 ((float)xp_in[i].y+hot_y)*sin_angle));
+        xp_out[i].y=(short)((float)y + (-((float)xp_in[i].x-hot_x)*sin_angle +
+                                 ((float)xp_in[i].y+hot_y)*cos_angle));
     }
 
     free((char *)xp_in);

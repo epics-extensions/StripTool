@@ -746,7 +746,7 @@ int	cColorManager_build_palette	(cColorManager the_scm,
        * pix	ranges from smaller to larger pixel values for visual
        */
       pix = 0; i = 0; j = 0;
-      while ((j < n_xcolors) && (pix < n_cells))
+      while ((j < n_xcolors) && ((int)pix < n_cells))
       {
         /* since pix and cells[i] increase in the same direction */
         while (i < n_writable)
@@ -1094,19 +1094,19 @@ int	cColorManager_make_color	(cColorManager	the_scm,
       if (scmi->palette_size > 0)
       {
         r0 = sc->xcolor.red; g0 = sc->xcolor.green; b0 = sc->xcolor.blue;
-        r = scmi->palette[0].red - r0;
-        g = scmi->palette[0].green - g0;
-        b = scmi->palette[0].blue - b0;
+        r = (float)(scmi->palette[0].red - r0);
+        g = (float)(scmi->palette[0].green - g0);
+        b = (float)(scmi->palette[0].blue - b0);
 
-        dist_min = sqrt (r*r + g*g + b*b);
+        dist_min = (float)(sqrt (r*r + g*g + b*b));
         idx_min = 0;
 
         for (i = 1; (i < scmi->palette_size) && (dist_min != 0); i++)
         {
-          r = scmi->palette[i].red - r0;
-          g = scmi->palette[i].green - g0;
-          b = scmi->palette[i].blue - b0;
-          dist = sqrt (r*r + g*g + b*b);
+          r = (float)(scmi->palette[i].red - r0);
+          g = (float)(scmi->palette[i].green - g0);
+          b = (float)(scmi->palette[i].blue - b0);
+          dist = (float)(sqrt (r*r + g*g + b*b));
 
           if (dist < dist_min)
           {
@@ -1127,14 +1127,14 @@ int	cColorManager_make_color	(cColorManager	the_scm,
         XQueryColor (scmi->display, scmi->cmap, &black);
         XQueryColor (scmi->display, scmi->cmap, &white);
 
-        r = black.red - sc->xcolor.red;
-        g = black.green - sc->xcolor.green;
-        b = black.blue - sc->xcolor.blue;
-        dist = sqrt ((double)r*r + g*g + b*b);
+        r = (float)(black.red - sc->xcolor.red);
+        g = (float)(black.green - sc->xcolor.green);
+        b = (float)(black.blue - sc->xcolor.blue);
+        dist = (float)(sqrt ((double)r*r + g*g + b*b));
 
-        r = white.red - sc->xcolor.red;
-        g = white.green - sc->xcolor.green;
-        b = white.blue - sc->xcolor.blue;
+        r = (float)(white.red - sc->xcolor.red);
+        g = (float)(white.green - sc->xcolor.green);
+        b = (float)(white.blue - sc->xcolor.blue);
 
         if (sqrt (r*r + g*g + b*b) < dist)
           sc->xcolor = white;

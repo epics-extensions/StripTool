@@ -168,14 +168,14 @@ static void     display_color   (ColorDialogInfo *cd, XColor *xcolor)
   XtVaSetValues (cd->cell_lbl, XmNbackground, xcolor->pixel, 0);
   XtVaSetValues (cd->lbl, XmNbackground, xcolor->pixel, 0);
 
-  r = cd->white.xcolor.red - xcolor->red;
-  g = cd->white.xcolor.green - xcolor->green;
-  b = cd->white.xcolor.blue - xcolor->blue;
+  r = (float)(cd->white.xcolor.red - xcolor->red);
+  g = (float)(cd->white.xcolor.green - xcolor->green);
+  b = (float)(cd->white.xcolor.blue - xcolor->blue);
   x = (r*r) + (g*g) + (b*b);
   
-  r = cd->black.xcolor.red - xcolor->red;
-  g = cd->black.xcolor.green - xcolor->green;
-  b = cd->black.xcolor.blue - xcolor->blue;
+  r = (float)(cd->black.xcolor.red - xcolor->red);
+  g = (float)(cd->black.xcolor.green - xcolor->green);
+  b = (float)(cd->black.xcolor.blue - xcolor->blue);
   y = (r*r) + (g*g) + (b*b);
 
   pixel = (x > y? cd->white.xcolor.pixel : cd->black.xcolor.pixel);
@@ -348,7 +348,7 @@ ColorDialog     ColorDialog_init        (Widget                 parent,
        0);
 
     cd->btn_ok = XtVaCreateManagedWidget
-      ("Ok", xmPushButtonWidgetClass, rowcol, 0);
+      ("OK", xmPushButtonWidgetClass, rowcol, 0);
     XtAddCallback (cd->btn_ok, XmNactivateCallback, ctrlbtn_event, cd);
 
     cd->btn_apply = XtVaCreateManagedWidget
@@ -696,9 +696,9 @@ void            ColorDialog_popup       (ColorDialog    the_cd,
     {
       /* formula for RGB -> HSI requires normalized rgb
        * (see pg. 230, "Digital Image Processing", Gonzales & Woods) */
-      r = cd->palette.colors[i].red / (double)cd->white.xcolor.red;
-      g = cd->palette.colors[i].green / (double)cd->white.xcolor.green;
-      b = cd->palette.colors[i].blue / (double)cd->white.xcolor.blue;
+      r = (float)(cd->palette.colors[i].red / (double)cd->white.xcolor.red);
+      g = (float)(cd->palette.colors[i].green / (double)cd->white.xcolor.green);
+      b = (float)(cd->palette.colors[i].blue / (double)cd->white.xcolor.blue);
 
       /* Intensity */
       hsi[i].I = (r + g + b) / 3;
@@ -714,12 +714,12 @@ void            ColorDialog_popup       (ColorDialog    the_cd,
       if (hsi[i].S > FLT_EPSILON)
       {
         /* Hue, normalized to [0,1] */
-        hsi[i].H = (0.5) * ((r - g) + (r - b));
-        hsi[i].H /= sqrt (((r - g)*(r - g)) + ((r - b)*(g - b)));
-        hsi[i].H = acos (hsi[i].H);
+        hsi[i].H = (float)((0.5) * ((r - g) + (r - b)));
+        hsi[i].H /= (float)(sqrt (((r - g)*(r - g)) + ((r - b)*(g - b))));
+        hsi[i].H = (float)(acos (hsi[i].H));
         if ((b / hsi[i].I) > (g / hsi[i].I))
-          hsi[i].H = (2*PI) - hsi[i].H;
-        hsi[i].H /= (2*PI);
+          hsi[i].H = (float)((2*PI) - hsi[i].H);
+        hsi[i].H /= (float)(2*PI);
       }
 
       hsi[i].xcolor = cd->palette.colors[i];

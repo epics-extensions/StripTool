@@ -23,9 +23,13 @@ extern int algorithmLength;
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/time.h>
-#include <sys/times.h>
+#ifdef WIN32
+/* WIN32 does not have unistd.h */
+/* In MSVC timeval is in winsock.h, winsock2.h, ws2spi.h, nowhere else */
+#else
 #include <unistd.h>
+#include <sys/time.h>
+#endif
 
 #include "FastLabel.h"
 #include "jlAxis.h"
@@ -162,7 +166,6 @@ StripGraph StripGraph_init (Widget      parent,
                             StripConfig *cfg)
 {
   StripGraphInfo        *sgi;
-  XWindowAttributes     win_attrib;
   int                   i;
 
   if ((sgi = (StripGraphInfo *)malloc (sizeof(StripGraphInfo))) != NULL)
@@ -341,9 +344,7 @@ int     StripGraph_setattr      (StripGraph the_sgi, ...)
   StripGraphInfo        *sgi = (StripGraphInfo *)the_sgi;
   int                   attrib;
   int                   ret_val = 1;
-  int                   tmp_int;
   XmString              xstr;
-char tmp[256], *tmpPt; /* Albert */
   
   va_start (ap, the_sgi);
   for (attrib = va_arg (ap, StripGraphAttribute);
@@ -453,8 +454,6 @@ int     StripGraph_getattr      (StripGraph the_sgi, ...)
 static void StripGraph_manage_geometry (StripGraphInfo *sgi)
 {
   AxisEndpointPosition  minpos, maxpos;
-  double                pixels_per_mm;
-  double                num_pixels;
   Dimension             w, h;
   Position              x, y, xx, yy;
 
@@ -553,11 +552,8 @@ void StripGraph_draw    (StripGraph     the_graph,
 {
   StripGraphInfo        *sgi = (StripGraphInfo *)the_graph;
   Pixel                 text_color;
-  int                   i, n, w, pos;
-  int                   do_it;
+  int                   i, n, pos;
   int                   update_loc_lbl = 0;
-  Region                clip_region;
-  XFontStruct           *font;
   double                dbl_min, dbl_max;
   double                log_epsilon;
   AxisTransform         transform;
@@ -801,7 +797,6 @@ static void StripGraph_plotdata (StripGraphInfo *sgi)
 {
   StripCurveInfo        *curve;
   XSegment              *segs;
-  register XSegment     *pseg;
   struct timeval        dt_new, dt_cur; /* interval width (time) */
   double                dl_new, dl_cur; /* interval width (real) */
   double                db;             /* bin width (real) */
@@ -1180,7 +1175,6 @@ static void     StripGraph_update_loc_lbl (StripGraphInfo *sgi)
   time_t    tt;
   char      buf[256];
   char      *p;
-  XmString  xstr;
   
   /* Need to translate (x,y) raster location into (time, value). */
   XjAxisUntransformRasterizedValues (sgi->x_axis, &x, &x, 1);
@@ -1199,10 +1193,8 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
 {
   static Region                 expose_region = (Region)0;
 
-  XmDrawingAreaCallbackStruct   *cbs;
   XEvent                        *event;
   StripGraphInfo                *sgi;
-  Dimension                     width, height;
   XRectangle                    r;
   int                           i;
 
@@ -1328,7 +1320,6 @@ static void     y_transform     (void                   *arg,
   StripGraphInfo        *sgi = data->sgi;
   StripCurveInfo        *cv = data->curve;
   register double       height = sgi->window_rect.height;
-  register double       delta;
 
   /* transform the points, then translate to graph coordinates */
   jlaTransformValuesRasterized (data->xform, in, out, n);

@@ -68,7 +68,12 @@ a help popdown occurs in which the normal waitPeriod is suspended
 for the next popup
 $log
 */
-#include <unistd.h>
+#ifdef WIN32
+ /* WIN32 does not have unistd.h */
+# include <process.h>
+#else
+# include <unistd.h>
+#endif
 #include <signal.h>
 /* #include <Xm/XmP.h> */
 #include <X11/IntrinsicP.h> 
@@ -78,9 +83,11 @@ $log
 
 #include <stdio.h>
 
+#if !defined(WIN32)
 /* This is not an ANSI function and may not be included from signal.h.
    Include it here explicitly */
 extern int kill(pid_t, int);
+#endif
 
 #if defined(__cplusplus) || defined(C_plusplus)
 #  define BOGUS(x)
@@ -317,10 +324,20 @@ when a public routine is called with the wrong class of widget
 */
 static void wrong_widget(char * routine)
 {
+#ifdef WIN32
+#else    
         pid_t mypid = getpid(); 
+#endif
         fprintf(stderr, "Wrong class of widget passed to %s\n", routine);
         fflush(stderr); 
-        kill(mypid, SIGABRT); 
+#ifdef WIN32
+      /* KE: kill() does not exist on WIN32.  There are no core dumps,
+       * anyway.  Note that aborting is not a good practice in a GUI
+       * program. */
+	abort();
+#else	
+        kill(mypid, SIGABRT);
+#endif	
 }
 
 /*
@@ -493,8 +510,13 @@ static void Enter_event(Widget w, XtPointer client_data, XEvent * xevent, Boolea
            help for next watched widget
         */
         if ((event->time -  cw->liteClue.HelpPopDownTime) > 
-                        cw->liteClue.cancelWaitPeriod ) 
+                        (Time)cw->liteClue.cancelWaitPeriod )
+#if 0	  
+	/* KE: This probably a typo.  timeout_event is a function. */
                 current_waitPeriod = cw->liteClue.waitPeriod,timeout_event;
+#else
+                current_waitPeriod = cw->liteClue.waitPeriod;
+#endif
         else
                 current_waitPeriod = 0;
 

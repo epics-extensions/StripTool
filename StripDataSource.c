@@ -176,7 +176,6 @@ StripDataSource
 StripDataSource_init    (StripHistory history)
 {
   StripDataSourceInfo   *sds;
-  int                   i;
 
   /* allocate and zero the DataSource structure */
   if (sds = (StripDataSourceInfo *)malloc (sizeof(StripDataSourceInfo)))
@@ -403,8 +402,6 @@ StripDataSource_min_max (StripDataSourceInfo *sds,struct timeval h0, struct time
 
   double width;
   double alpha;
-
-  XSetWindowAttributes attrs;  /* Albert */
 
   int local_precision;
 
@@ -669,7 +666,6 @@ StripDataSource_init_range      (StripDataSource        the_sds,
   long                  r0, r1;
   int                   have_data = 0;
   int                   i;
-  XSetWindowAttributes attrs;  /* Albert */
 
   long deltaHistoryTime;
 
@@ -857,8 +853,6 @@ StripDataSource_render  (StripDataSource        the_sds,
   StripDataSourceInfo   *sds = (StripDataSourceInfo *)the_sds;
   CurveData             *cd = CURVE_DATA(curve);
   int                   max_points;
-  int                   do_it;
-  struct timeval        t_stop;
   DataPoint             ring_first, hist_first, ring_last, hist_last;
   TimeBuffer            ring_times, hist_times;
   ValueBuffer           ring_values, hist_values;
@@ -1543,10 +1537,7 @@ StripDataSource_dump    (StripDataSource        the_sds,
 {
   StripDataSourceInfo   *sds = (StripDataSourceInfo *)the_sds;
   char                  buf[SDS_DUMP_FIELDWIDTH+1];
-  time_t                tt;
-  int                   msec;
   int                   i, j;
-   XSetWindowAttributes attrs;  /* Albert */
   struct timeval Start,End;
   struct timeval StartCopy,EndCopy;
   CurveData *cd;

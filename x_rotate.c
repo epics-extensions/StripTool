@@ -135,7 +135,6 @@ XgDrawRotatedText(dpy, drawable, gc, x, y, alignment, degrees, text, len)
 XImage          *text_image;
 Pixmap          bitmap;
 int             direction, font_height, font_descent, font_ascent;
-unsigned long   black_pixel;
 int             text_len;
 int             w, h, width, height;
 int             image_x, image_y;

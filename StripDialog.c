@@ -393,7 +393,6 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
   StripConfigMask       scfg_mask;
   Atom                  WM_DELETE_WINDOW;
   Arg                   args[5];
-  XtCallbackRec         cbrec;
 
   if ((sd = (StripDialogInfo *)malloc (sizeof (StripDialogInfo))) != NULL)
   {
@@ -446,7 +445,7 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
 #ifdef USE_XMU
     /* editres support */
     XtAddEventHandler
-      (sd->shell, (EventMask)0, True, _XEditResCheckMessages, 0);
+      (sd->shell, (EventMask)0, True, (XtEventHandler)_XEditResCheckMessages, 0);
 #endif
     
     /* hook window manager delete message in order to perform delete instead */
@@ -3311,14 +3310,14 @@ static void     save_config     (StripDialogInfo        *sd,
     }
     else
       MessageBox_popup
-        (sd->shell, &sd->message_box, XmDIALOG_ERROR, "File I/O", "Ok",
+        (sd->shell, &sd->message_box, XmDIALOG_ERROR, "File I/O", "OK",
          "Unable to save configuration");
 
     fclose (f);
   }
   else
     MessageBox_popup
-      (sd->shell, &sd->message_box, XmDIALOG_ERROR, "File I/O", "Ok",
+      (sd->shell, &sd->message_box, XmDIALOG_ERROR, "File I/O", "OK",
        "Unable to open file for writing.\nname: %s\nerror: %s",
        fname, strerror (errno));
 }
@@ -3342,14 +3341,14 @@ static void     load_config     (StripDialogInfo        *sd,
     }
     else
       MessageBox_popup
-        (sd->shell, &sd->message_box, XmDIALOG_ERROR, "File I/O", "Ok",
+        (sd->shell, &sd->message_box, XmDIALOG_ERROR, "File I/O", "OK",
          "Unable to load configuration");
 
     fclose (f);
   }
   else
     MessageBox_popup
-      (sd->shell, &sd->message_box, XmDIALOG_ERROR, "File I/O", "Ok",
+      (sd->shell, &sd->message_box, XmDIALOG_ERROR, "File I/O", "OK",
        "Unable to open file for reading.\nname: %s\nerror: %s",
        fname, strerror (errno));
 }

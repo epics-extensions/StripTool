@@ -16,9 +16,11 @@
 #include <X11/Xlib.h>
 #include <X11/Intrinsic.h>
 
+#ifndef WIN32
 /* This is not an ANSI function and may not be included from string.h.
    Include it here explicitly */
 extern char *strdup(const char *);
+#endif
 
 /* ====== Configuration File Stuff ====== */
 #define STRIPCONFIG_MAJOR_VERSION       1
