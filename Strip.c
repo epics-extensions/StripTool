@@ -422,7 +422,7 @@ Strip   Strip_init      (int    *argc,
   Atom                  WM_DELETE_WINDOW;
   XrmDatabase           db, db_fall, db_site, db_user;
   char                  *env;
-  char                  path[PATH_MAX];
+  char                  path[STRIP_PATH_MAX];
   char                  **pstr;
 #ifndef WIN32
   struct passwd         user;
@@ -573,11 +573,11 @@ Strip   Strip_init      (int    *argc,
       /* Help URL */
     envHelpPath = getenv("STRIP_HELP_PATH");
     if(envHelpPath != NULL) {
-	strncpy(stripHelpPath, envHelpPath, PATH_MAX);
+	strncpy(stripHelpPath, envHelpPath, STRIP_PATH_MAX);
     } else {
-	strncpy(stripHelpPath, STRIP_HELP_PATH, PATH_MAX);
+	strncpy(stripHelpPath, STRIP_HELP_PATH, STRIP_PATH_MAX);
     }
-    stripHelpPath[PATH_MAX-1] = '\0';
+    stripHelpPath[STRIP_PATH_MAX-1] = '\0';
 
 #ifdef USE_RIGHT_CLICK_ON_BUTTONS
     /* parse the translation table */

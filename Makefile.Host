@@ -32,16 +32,25 @@ include $(TOP)/config/CONFIG_EXTENSIONS
 # Options
 # ==========================================================================
 
-STRIP_HISTORY      = StripHistoryAR+ArR.c
-ARCHIVER_CALL      = NONE
-USE_ARCHIVE_RECORD = NO
+STRIP_HISTORY      ?= StripHistoryAR+ArR.c
+ARCHIVER_CALL      ?= NONE
+USE_ARCHIVE_RECORD ?= NO
 
 ifdef WIN32
 HAVE_XPM        = NO
 else
-HAVE_XPM	= YES
+HAVE_XPM	?= YES
 endif
-HAVE_XMU	= YES
+HAVE_XMU	?= YES
+
+
+# these libraries don't reside in the X11 directories in HP-UX, so they are
+# only set here if not defined via an included file.
+XMU_INC		?= $(X11_INC)
+XMU_LIB		?= $(X11_LIB)
+XPM_INC		?= $(X11_INC)
+XPM_LIB		?= $(X11_LIB)
+
 
 #PURIFY = YES
 PURIFY_FLAGS = -first-only -chain-length=26
@@ -69,8 +78,8 @@ endif
 
 STRIP_DAQ	= StripCA.c
 #STRIP_HISTORY	= StripHistoryNULL.c
-USE_CLUES	= YES
-USE_SDDS	= YES
+USE_CLUES	?= YES
+USE_SDDS	?= YES
 
 ifeq ($(STRIP_DAQ),StripCDEV.cc)
   USE_CDEV	= YES
@@ -156,7 +165,7 @@ ifeq ($(STRIP_HISTORY), StripHistoryAR+ArR.c)
   endif		
 endif
 
-USR_INCLUDES = -I$(MOTIF_INC) -I$(X11_INC)
+USR_INCLUDES = -I$(MOTIF_INC) -I$(X11_INC) -I$(XMU_INC) -I$(XPM_INC)
 
 # ==========================================================================
 # Preprocessor Flags
@@ -219,7 +228,7 @@ ifeq ($(HAVE_XMU), YES)
 #  PROD_LIBS += Xmu
   USR_LIBS_DEFAULT += Xmu
 #  USR_LDFLAGS += -L$(XMU_LIB)
-  Xmu_DIR = $(X11_LIB)
+  Xmu_DIR = $(XMU_LIB)
 endif
 
 ifeq ($(HAVE_XPM), YES)

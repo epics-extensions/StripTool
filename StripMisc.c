@@ -40,7 +40,7 @@ unsigned char   Strip_x_error_code = Success;
 
 float   vertical_pixels_per_mm;
 float   horizontal_pixels_per_mm;
-char    stripHelpPath[PATH_MAX];
+char    stripHelpPath[STRIP_PATH_MAX];
 
 /*
  * StripMisc_init

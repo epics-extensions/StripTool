@@ -137,3 +137,10 @@ Fri Nov 22, 2002 - StripTool-2-5-2-8 - evans
 	get X errors on File_Close and doesn't crash after entering a pv
 	afterwards.  Required removing the call to
 	StripDataSource_removecurveall, which doesn't seem to be necessary.
+
+Tue, Dec 3, 2002 - StripTool-2-5-2-9 - larrieu
+	Replaced PATH_MAX with STRIP_PATH_MAX.  Added (XPM/XMU)_(LIB/INC)
+	variables to Makefile.Host, since on HP-UX these libraries do not
+	reside in the standard X11 or Motif areas.  Changed several assignment
+	operators in Makefile.Host from "=" to "?=" so that variables can be
+	initialized via CONFIG_EXTENSIONS without being overridden.

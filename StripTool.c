@@ -114,7 +114,7 @@ int StripTool_main (int argc, char *argv[])
 		 "StripTool: Can't open %s; using default config.\n",
 		 argv[1]);
 #else
-    char path_used[PATH_MAX];
+    char path_used[STRIP_PATH_MAX];
     f = StripTool_open_file (argv[1], path_used, sizeof(path_used));
     
     if (f)
@@ -302,7 +302,7 @@ static FILE *StripTool_open_file (char *file_name, char *path_used,
 {
   FILE *filePtr;
   int startPos;
-  char fullPathName[PATH_MAX], dirName[PATH_MAX];
+  char fullPathName[STRIP_PATH_MAX], dirName[STRIP_PATH_MAX];
   char *dir;
   
 #ifdef WIN32
@@ -343,8 +343,8 @@ static FILE *StripTool_open_file (char *file_name, char *path_used,
     startPos = 0;
     while(filePtr == NULL &&
 	extractStringBetweenColons(dir,dirName,startPos,&startPos)) {
-	strncpy(fullPathName, dirName, PATH_MAX);
-	fullPathName[PATH_MAX-1] = '\0';
+	strncpy(fullPathName, dirName, STRIP_PATH_MAX);
+	fullPathName[STRIP_PATH_MAX-1] = '\0';
 #ifdef WIN32
 	convertDirDelimiterToWIN32(fullPathName);
 #endif
@@ -436,11 +436,11 @@ static int convertNameToFullPath(const char *name, char *pathName, int nChars)
     strncpy(pathName, name, nChars);
     pathName[nChars-1] = '\0';
   } else {
-    char currentDirectoryName[PATH_MAX];
+    char currentDirectoryName[STRIP_PATH_MAX];
     
     /* Insert the path before the file name */
     currentDirectoryName[0] = '\0';
-    getcwd(currentDirectoryName, PATH_MAX);
+    getcwd(currentDirectoryName, STRIP_PATH_MAX);
     
     if(strlen(currentDirectoryName) + strlen(name) <
 	(size_t)(nChars - 1)) {

@@ -32,7 +32,7 @@
 /* In MSVC timeval is in winsock.h, winsock2.h, ws2spi.h, nowhere else */
 # include <X11/Xwinsock.h>
 /* _MAX_PATH in stdlib.h for WIN32 */
-# define PATH_MAX _MAX_PATH
+# define STRIP_PATH_MAX _MAX_PATH
 /* Path delimiter is different */
 # define STRIP_PATH_DELIMITER ';'
 # define STRIP_DIR_DELIMITER_CHAR '\\'
@@ -41,7 +41,9 @@
 # include <sys/time.h>
 /* PATH_MAX may be in limits.h.  Kludge it if not */
 # ifndef PATH_MAX
-# define PATH_MAX 1024
+#   define STRIP_PATH_MAX 1024
+# else
+#   define STRIP_PATH_MAX PATH_MAX
 # endif
 /* Path delimiter is different */
 # define STRIP_PATH_DELIMITER ':'
@@ -86,7 +88,7 @@
 /* ====== Various useful constants initialized by StripMisc_init() ====== */
 extern float            vertical_pixels_per_mm;
 extern float            horizontal_pixels_per_mm;
-extern char             stripHelpPath[PATH_MAX];
+extern char             stripHelpPath[STRIP_PATH_MAX];
 
 /* Strip_x_error_code
  *
