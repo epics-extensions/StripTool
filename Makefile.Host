@@ -2,7 +2,7 @@
 # STRIP_HISTORY is StripHistoryAR+ArR.c StripHistoryLANL.cc StripHistoryNULL.c 
 # ARCHIVER_CALL (CAR,AAPI,NONE)
 # USE_ARCHIVE_RECORD
-#       if IOCs support Archive record (History cashe at IOC)
+#       if IOCs support Archive record (History cache at IOC)
 #	more recent archive data coming from IOC more older data
 #	comming from Unix Archiver
 # 
@@ -14,15 +14,21 @@
 #Second 2 variables working only with StripHistoryAR+ArR.c
 # ARCHIVER_CALL 2 nontrivial situations:
 # a) CAR -- local request for all history data without any reductions
-#           good enough but please note that data for one hour can have 1000000 points!
+#           good enough but please note that data for one hour can have 1000000
+#           points!
 # b) AAPI -- network request with data reductions (average, sharp,raw,splines) 
 #         -- better than local, but need to start AAPI-server. 
 # c) NONE no history if noUSE_ARCHIVE_RECORD , short history otherwise
 #
-# USE_ARCHIVE_RECORD if you choose YES more recent archive data will comming from 
-#                    IOC-cashe.
+# USE_ARCHIVE_RECORD
+#     if you choose YES more recent archive data will be coming from 
+#     IOC-cache.
 # 
 
+TOP = ../../..
+include $(TOP)/config/CONFIG_EXTENSIONS
+
+# StripTool Options
 STRIP_HISTORY      = StripHistoryAR+ArR.c
 ARCHIVER_CALL      = NONE
 USE_ARCHIVE_RECORD = NO
@@ -30,19 +36,20 @@ USE_ARCHIVE_RECORD = NO
 # Makefile.Host
 #TOP = ../../..
 #include $(TOP)/config/CONFIG_APP
-EPICS 	= ../../../..
-TOP 	= $(EPICS)/base
-include $(TOP)/config/CONFIG_BASE
+#EPICS 	= ../../../..
+#TOP 	= $(EPICS)/base
+#include $(TOP)/config/CONFIG_BASE
+
 HAVE_XPM	= YES
 HAVE_XMU	= YES
 
 
-X11_INC	:= /usr/X11R6/include
-MOTIF_INC	:= /usr/X11R6/include
-X11_LIB	:= /usr/X11R6/lib
-MOTIF_LIB	:= /usr/X11R6/lib
-XMU_INC	:= /usr/include/X11  
-XMU_LIB	:= /usr/X11R6/lib
+X11_INC	:= $(X11_INC)
+MOTIF_INC := $(MOTIF_INC)
+X11_LIB	:= $(X11_LIB)
+MOTIF_LIB := $(MOTIF_LIB)
+XMU_INC	:= $(X11_LIB)
+XMU_LIB	:= $(X11_LIB)
 
 # ==========================================================================
 # Options
@@ -218,3 +225,7 @@ include $(TOP)/config/RULES.Host
 ../main_+.cc: main_c.c
 	$(CP) $< $@
 
+# **************************** Emacs Editing Sequences *****************
+# Local Variables:
+# mode: makefile
+# End:

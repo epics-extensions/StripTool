@@ -24,7 +24,9 @@
 #define EXP_DIGITS      3       /* digits in exp numerical portion */
 #define EXP_LEN         (2+EXP_DIGITS)  /* length of exponent string */
 
+#if 0
 static char             *StripVersion   = "2.4.3";
+#endif
 unsigned char   Strip_x_error_code = Success;
 
 float   vertical_pixels_per_mm;
@@ -47,6 +49,7 @@ void    StripMisc_init  (Display *display, int screen)
 }
 
 
+#if 0
 /* strip_version
  */
 char    *strip_name  (void)
@@ -54,7 +57,7 @@ char    *strip_name  (void)
 #if defined (USE_CDEV)
   return "StripTool (CDEV)";
 #else
-  return "StripTool (CA)";
+  return "StripTool (EPICS)";
 #endif
 }
 
@@ -81,7 +84,7 @@ char    *strip_lib_version  (void)
 #endif
   return buf;
 }
-
+#endif
 
 /*
  * load_fonts

@@ -80,6 +80,7 @@ extern unsigned char    Strip_x_error_code;
 void    StripMisc_init  (Display *, int);       /* display, screen */
 #endif /* Albert */
 
+#if 0
 /* strip_name
  *
  *      Returns a string describing the application.
@@ -99,6 +100,7 @@ char    *strip_version  (void);
  *      Returns a string describing the linked version of system libraries
  */
 char    *strip_lib_version  (void);
+#endif
 
 
 /* ====== Various Time Functions ====== */

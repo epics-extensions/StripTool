@@ -11,9 +11,11 @@
 
 #include "StripDialog.h"
 #include "ColorDialog.h"
+#include "Tabs.h"
 #include "StripConfig.h"
 #include "StripMisc.h"
-#include "Tabs.h"
+#include "StripVersion.h"
+#include <epicsVersion.h>
 
 #include <stdlib.h>
 #include <errno.h>
@@ -2931,19 +2933,30 @@ static void     windowmenu_cb   (Widget w, XtPointer data, XtPointer BOGUS(1))
 }
 
 
-static void     helpmenu_cb     (Widget w, XtPointer data, XtPointer BOGUS(1))
+static void helpmenu_cb (Widget w, XtPointer data, XtPointer BOGUS(1))
 {
-  StripDialogInfo       *sd;
-
-  XtVaGetValues (w, XmNuserData, &sd, NULL);
-  MessageBox_popup
-    (sd->shell, &sd->message_box, XmDIALOG_INFORMATION, "About", "Ok",
-     "%s v%s\n"
-     "linked with: %s\n"
-     "Author: Christopher Larrieu, Jefferson Lab\n"
-     "based on work by Janet Anderson, APS\n",
-     "support at DESY Albert Kagarmanov DESY_AAPIvers=1.35(10Jun2002)\n",
-     strip_name(), strip_version(), strip_lib_version());
+	StripDialogInfo       *sd;
+	
+	XtVaGetValues (w, XmNuserData, &sd, NULL);
+	MessageBox_popup (sd->shell, &sd->message_box, XmDIALOG_INFORMATION,
+		"About", "OK",
+		"%s\n"
+		"%s"
+		"%s\n"
+		"\nBuilt: %s %s\n"
+		"\nAuthors:\n"
+		"  Christopher Larrieu, JLAB\n"
+		"  Albert Kagarmanov DESY\n"
+		"  Janet Anderson, APS\n"
+		"  Kenneth Evans, Jr., APS\n",
+		STRIPTOOL_VERSION_STRING,
+		EPICS_VERSION_STRING,
+#if defined (USE_CDEV)
+		"CDEV: "CDEV_VERSION_STRING"\n",
+#else
+		"",
+#endif
+		__DATE__,__TIME__);
 }
 
 
@@ -3021,10 +3034,10 @@ static void     fsdlg_cb        (Widget w, XtPointer data, XtPointer call)
         /* do save or load */
         if (sd->fs.state == FSDLG_LOAD)
 	  {
-sd->callback[SDCALLBACK_CLEAR].func(sd->callback[SDCALLBACK_CLEAR].data,NULL);
-          load_config (sd, fname, sd->fs.mask);
-Strip_refresh(sd->callback[SDCALLBACK_CLEAR].data); /* perror Albert */
-/*GraphLoadRefresh(sd->callback[SDCALLBACK_CLEAR].data);*/
+			sd->callback[SDCALLBACK_CLEAR].func(sd->callback[SDCALLBACK_CLEAR].data,NULL);
+			load_config (sd, fname, sd->fs.mask);
+			Strip_refresh(sd->callback[SDCALLBACK_CLEAR].data); /* perror Albert */
+			/*GraphLoadRefresh(sd->callback[SDCALLBACK_CLEAR].data);*/
 	  }
         else
 	  {
@@ -3262,4 +3275,9 @@ StripDialogInfo *sd = (StripDialogInfo *)the_dialog;
 return(sd->sdcurve_count);
 }
 
-
+/* **************************** Emacs Editing Sequences ***************** */
+/* Local Variables: */
+/* tab-width: 2 */
+/* c-basic-offset: 2 */
+/* c-file-offsets: ((substatement-open . 0) (label . 0)) */
+/* End: */
