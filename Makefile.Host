@@ -192,7 +192,7 @@ endif
 ifeq ($(HAVE_XMU), YES)
 #  PROD_LIBS	+= Xmu
   USR_LIBS	+= Xmu
-USR_LDFLAGS   +=  -L$(XMU_LIB)
+  USR_LDFLAGS   +=  -L$(XMU_LIB)
 endif
 
 ifeq ($(HAVE_XPM), YES)
