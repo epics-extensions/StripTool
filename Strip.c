@@ -2006,12 +2006,10 @@ static void     Strip_config_callback   (StripConfigMask mask, void *data)
           if (StripConfigMask_stat
               (&si->curves[i].details->update_mask, SCFGMASK_CURVE_PLOTSTAT))
           {
-            for (j = 0, shift = 0; j < STRIP_MAX_CURVES; j++)
-              if (si->config->Curves.plot_order[j] == i)
-                shift = 1;
-              else if (shift)
-                si->config->Curves.plot_order[j-1] =
-                  si->config->Curves.plot_order[j];
+            for (j = 0, shift = 0; j < STRIP_MAX_CURVES; j++) {
+              if (j == i) shift = 1;
+                si->config->Curves.plot_order[j] = j + shift;
+            } 
             si->config->Curves.plot_order[STRIP_MAX_CURVES-1] = i;
             break;
           }
@@ -3593,6 +3591,7 @@ static void fromToGo(wdgt, gData , call_data)
 	  StripGraph_setattr (si->graph, STRIPGRAPH_END_TIME, &t_to, 0);
           StripGraph_setattr (si->graph, STRIPGRAPH_BEGIN_TIME, &t_from, 0);
           si->status |= STRIPSTAT_BROWSE_MODE;
+          XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_panning, 0);
 	  StripGraph_draw(si->graph,SGCOMPMASK_DATA|SGCOMPMASK_XAXIS,(Region *)0);
 
 	  if(DEBUG) printf("to_epoch - from_epoch =%ld",to_epoch - from_epoch);
