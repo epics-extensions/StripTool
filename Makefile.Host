@@ -43,7 +43,6 @@ HAVE_XPM	?= YES
 endif
 HAVE_XMU	?= YES
 
-
 # these libraries don't reside in the X11 directories in HP-UX, so they are
 # only set here if not defined via an included file.
 XMU_INC		?= $(X11_INC)
@@ -51,10 +50,17 @@ XMU_LIB		?= $(X11_LIB)
 XPM_INC		?= $(X11_INC)
 XPM_LIB		?= $(X11_LIB)
 
-
 #PURIFY = YES
 #PURIFY_FLAGS = -first-only -chain-length=26
-PURIFY_FLAGS = -first-only -chain-length=26 -enable-new-cache-scheme
+#PURIFY_FLAGS = -first-only -chain-length=26 -enable-new-cache-scheme
+#PURIFY_FLAGS = -first-only -chain-length=26 -always-use-cache-dir -cache-dir=/tmp/purifycache
+PURIFY_FLAGS = -first-only -chain-length=26 -enable-new-cache-scheme -always-use-cache-dir -cache-dir=/tmp/purifycache
+
+# libXm.so.4 Purify debugging for Sun
+# Change directory before enabling
+#ifeq ($(PURIFY),YES)
+#USR_LDFLAGS += -R/home/phoebus/EVANS/scratch/MotifMLKProblem080603
+#endif
 
 CMPLR 		= STRICT
 
@@ -227,6 +233,21 @@ ifeq ($(HISTORY_API), CAR)
 #  USR_LDFLAGS += -L$(EPICS)/extensions/lib/$(T_A)
 endif
 
+# Note order is important
+
+# Default Motif library location
+USR_LIBS_DEFAULT += Xm
+Xm_DIR = $(MOTIF_LIB)
+ifeq ($(MOTIF_VERSION),2)
+  USR_LIBS += Xext Xp
+  Xp_DIR = $(X11_LIB)
+  Xext_DIR = $(X11_LIB)
+endif
+
+# Default Xt library locations
+USR_LIBS_DEFAULT += Xt
+Xt_DIR = $(X11_LIB)
+
 ifeq ($(HAVE_XMU), YES)
 #  PROD_LIBS += Xmu
   USR_LIBS_DEFAULT += Xmu
@@ -241,19 +262,9 @@ ifeq ($(HAVE_XPM), YES)
   Xpm_DIR = $(XPM_LIB)
 endif
 
-# Default library locations
-# Use these definitions and implement them in the appropriate
-# CONFIG_SITE.xxx rather than hard-coding them here.
-#PROD_LIBS += Xm Xt X11
-USR_LIBS_DEFAULT += Xm Xt X11
-Xm_DIR = $(MOTIF_LIB)
-Xt_DIR = $(X11_LIB)
+# Default X library location
+USR_LIBS_DEFAULT += X11
 X11_DIR = $(X11_LIB)
-ifeq ($(MOTIF_VERSION),2)
-  USR_LIBS += Xext Xp
-  Xp_DIR = $(X11_LIB)
-  Xext_DIR = $(X11_LIB)
-endif
 
 ifeq ($(USE_CDEV), YES)
   USR_LIBS += cdev
@@ -296,6 +307,8 @@ StripTool.res:../StripTool.ico
 # Debugging (Do gnumake xxxx in O.whatever directory)
 # ==========================================================================
 xxxx:
+	@echo USR_LDFLAGS: $(USR_LDFLAGS)
+	@echo LDFLAGS: $(LDFLAGS)
 	@echo STRIP_CONFIGFILE_DIR: $(STRIP_CONFIGFILE_DIR)
 	@echo EPICS_EXTENSIONS_LIB: $(EPICS_EXTENSIONS_LIB)
 	@echo EPICS_EXTENSIONS_INCLUDE: $(EPICS_EXTENSIONS_INCLUDE)
