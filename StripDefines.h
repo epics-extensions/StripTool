@@ -107,4 +107,6 @@
 #define STRIP_PRINTER_NAME              "mcc104c"
 #endif
 
+#define STRIP_DUMP_TYPE_DEFAULT_ENV         "STRIP_DUMP_TYPE_DEFAULT"
+
 #endif

@@ -59,6 +59,7 @@ HOST_OPT	= YES
 STRIP_DAQ	= StripCA.c
 #STRIP_HISTORY	= StripHistoryNULL.c
 USE_CLUES	= YES
+USE_SDDS	= YES
 
 ifeq ($(STRIP_DAQ),StripCDEV.cc)
   USE_CDEV	= YES
@@ -175,6 +176,9 @@ ifeq ($(USE_CDEV), YES)
   USR_CPPFLAGS		+= -DUSE_CDEV
 endif
 
+ifeq ($(USE_SDDS), YES)
+  USR_CPPFLAGS		+= -DUSE_SDDS
+endif
 
 # ==========================================================================
 # Libraries
@@ -194,6 +198,7 @@ endif
 ifeq ($(HAVE_XPM), YES)
 #  PROD_LIBS	+= Xpm
   USR_LIBS	+= Xpm
+  USR_LDFLAGS   +=  -L$(XPM_LIB)
 endif
 
 #PROD_LIBS	+= Xm Xt X11
@@ -204,6 +209,15 @@ endif
 
 ifeq ($(USE_CDEV), YES)
   PROD_LIBS	+= cdev
+endif
+
+ifeq ($(USE_SDDS), YES)
+  SYS_PROD_LIBS_solaris	+= sunmath
+  PROD_LIBS	+= SDDS1 namelist rpnlib mdblib $(ZLIB_PROD_LIB)
+  SDDS1_DIR = $(EPICS_EXTENSIONS_LIB)
+  namelist_DIR = $(EPICS_EXTENSIONS_LIB)
+  rpnlib_DIR = $(EPICS_EXTENSIONS_LIB)
+  mdblib_DIR = $(EPICS_EXTENSIONS_LIB)
 endif
 
 PROD_LIBS	+= ca Com

@@ -2266,7 +2266,7 @@ static void     setwidgetval_tm_numsamples      (StripDialogInfo *sd, int val)
 static void     setwidgetval_tm_ds      (StripDialogInfo        *sd,
                                          double                 val)
 {
-  gcvt (val, 3, char_buf);
+  sprintf(char_buf, "%.3g", val);
   xstr = XmStringCreateLocalized (char_buf);
   XmTextSetString (sd->time_info.ds_txt, char_buf);
   XtVaSetValues
@@ -2280,7 +2280,7 @@ static void     setwidgetval_tm_ds      (StripDialogInfo        *sd,
 static void     setwidgetval_tm_gr      (StripDialogInfo        *sd,
                                          double                 val)
 {
-  gcvt (val, 3, char_buf);
+  sprintf(char_buf, "%.3g", val);
   xstr = XmStringCreateLocalized (char_buf);
   XmTextSetString (sd->time_info.gr_txt, char_buf);
   XtVaSetValues
