@@ -1264,6 +1264,7 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
         }
         StripGraph_draw
           (sgi, SGCOMPMASK_YAXIS | SGCOMPMASK_GRID, (Region *)0);
+		StripGraph_setstat (sgi, SGSTAT_GRAPH_REFRESH);
         break;
       }
   }
