@@ -31,11 +31,12 @@
  * its own resource merging, so these will both override
  * .Xdefaults files and command-line parameters.
  */
+/* define this in Makefile.Host if you want site-specific values */
 #define STRIP_USER_DEFAULTS_FILE        ".StripToolrc"
 
 #define STRIP_SITE_DEFAULTS_FILE_ENV    "STRIP_SITE_DEFAULTS"
 #ifndef STRIP_SITE_DEFAULTS_FILE
-#  define STRIP_SITE_DEFAULTS_FILE      "/cs/op/lib/stripTool/.StripToolrc"
+#  define STRIP_SITE_DEFAULTS_FILE      "./StripToolrc"
 #endif
 
 /* Strip Tool help uses Netscape to display help.  Define a default
@@ -117,8 +118,8 @@
 
 #define STRIP_PRINTER_DEVICE_FALLBACK           "ps"
 
-/* hard-coded printer info --fallback fallback 
-* KE: Define these in Makefile.Host if you want site-specific values */
+/* hard-coded printer info --fallback fallback */
+/* define these in Makefile.Host if you want site-specific values */
 #ifndef STRIP_PRINTER_DEVICE
 #define STRIP_PRINTER_DEVICE            "ps"
 #endif
