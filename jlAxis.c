@@ -204,7 +204,7 @@ static char                   buf[BUF_SIZE+1];
 
 /* method prototypes
  */
-static void           ClassInitialize   (void);
+static void     ClassInitialize   (void);
 
 static void     Initialize            (Widget,  /* request */
                                      Widget,    /* new */
@@ -1073,15 +1073,15 @@ Draw            (AxisWidget cw, Drawable canvas)
   XSegment      segs[2*AXIS_MAX_TICS+1];
   XPoint        *box;
   int           n_segs;
-  short x_mult_tics, y_mult_tics;
-  short x_mult_line, y_mult_line;
+  short         x_mult_tics, y_mult_tics;
+  short         x_mult_line, y_mult_line;
   int           x_text_units, y_text_units;
   int           x_text_labels, y_text_labels;
   int           x_adjust, y_adjust;
   int           x_min, x_max;
   int           y_min, y_max;
   int           align_labels, align_units;
-  float angle_units;
+  float         angle_units;
   int           i, j;
   int           z;
   int           length;
@@ -2680,5 +2680,14 @@ untransform_normalized_values (AxisTransform          transform,
     }
 }
 
-
-
+/* **************************** Emacs Editing Sequences ***************** */
+/* Local Variables: */
+/* tab-width: 6 */
+/* c-basic-offset: 2 */
+/* c-comment-only-line-offset: 0 */
+/* c-indent-comments-syntactically-p: t */
+/* c-label-minimum-indentation: 1 */
+/* c-file-offsets: ((substatement-open . 0) (label . 2) */
+/* (brace-entry-open . 0) (label .2) (arglist-intro . +) */
+/* (arglist-cont-nonempty . c-lineup-arglist) ) */
+/* End: */

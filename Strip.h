@@ -174,6 +174,17 @@ int     Strip_connectcurve      (Strip, StripCurve);
 void    Strip_setconnected      (Strip, StripCurve);
 
 
+#ifndef PEND_DESCRIPTION
+/*
+ * Strip_setdescconnected
+ *
+ *      Informs the Strip object that description for the specified curve
+ *      is ready for plotting.
+ *
+ */
+void    Strip_setdescconnected      (Strip, StripCurve);
+#endif
+
 /*
  * Strip_setwating
  *

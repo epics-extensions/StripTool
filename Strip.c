@@ -1488,6 +1488,17 @@ void    Strip_setconnected      (Strip the_strip, StripCurve the_curve)
   {
     StripDataSource_addcurve (si->data, the_curve);
     StripGraph_addcurve (si->graph, the_curve);
+    /* KE: This causes a problem with CDE if you are in another
+	 workspace when it occurs.  The si->shell window is unmapped
+	 (why you don't see it) even if it is mapped when you are in the
+	 StripTool workspace.  This call causes it to be mapped in the
+	 present workspace, which is a nuisance.  Strip_setconnected
+	 gets called on both connection and on reconnection.  By putting
+	 this logic here, the popup occurs on conection when you are
+	 likely still in the Strip Tool workspace and doesn't occur on
+	 reconnection when you are likely to be in another workspace.  */
+    if (!window_ismapped (si->display, XtWindow (si->shell)))
+	window_map (si->display, XtWindow (si->shell));
   }
   StripCurve_clearstat
     (the_curve, STRIPCURVE_WAITING | STRIPCURVE_CHECK_CONNECT);
@@ -1495,23 +1506,36 @@ void    Strip_setconnected      (Strip the_strip, StripCurve the_curve)
   
   Strip_watchevent (si, STRIPEVENTMASK_SAMPLE | STRIPEVENTMASK_REFRESH);
   
-#ifdef RAISE_GRAPH_ON_CONNECTION
-  /* KE: This causes a problem with CDE.  If you are in another
-     workspace the si->shell window in its workspace is unmapped (why
-     you don't see it).  This call causes it to be mapped in the
-     present workspace when a reconnection occurs.  This is annoying.
-     The popup feature is probably not wanted in most other cases, as
-     well. */
-  if (!window_ismapped (si->display, XtWindow (si->shell)))
-    window_map (si->display, XtWindow (si->shell));
-#endif
-  
   StripGraph_draw
     (si->graph,
 	SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS,
 	(Region *)0);
 
   StripDialog_update_curvestat (si->dialog, the_curve);
+}
+
+
+/*
+ * Strip_setdescconnected
+ */
+void    Strip_setdescconnected      (Strip the_strip, StripCurve the_curve)
+{
+  StripInfo             *si = (StripInfo *)the_strip;
+  StripCurveInfo        *sci = (StripCurveInfo *)the_curve;
+
+#if DEBUG_CONNECTING
+  print("%s Strip_setdescconnected\"  %s\n",
+    timeStamp(), sci->details->name);
+#endif	
+
+ /* don't do anything unless it is already connected */
+  if (StripCurve_getstat (the_curve, STRIPCURVE_CONNECTED))
+  {
+    StripGraph_draw
+	(si->graph,
+	  SGCOMPMASK_LEGEND,
+	  (Region *)0);
+  }
 }
 
 
@@ -1567,7 +1591,12 @@ void    Strip_clear     (Strip the_strip)
 
   curves[j] = (StripCurve)0;
   Strip_freesomecurves ((Strip)si, curves);
+#if 0
+  /* KE: This causes a segmentation fault when the first new pv is
+     added after a File|Clear.  It doesn't seem to be necessary.  This
+     is the only place it is used. */
   StripDataSource_removecurveAll(si->data); /* Albert */
+#endif  
 
   StripConfig_setattr (si->config, STRIPCONFIG_TITLE, 0, 0);
   StripConfig_setattr (si->config, STRIPCONFIG_FILENAME, 0, 0);
@@ -2661,8 +2690,14 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
 	for (i = 0; i < STRIP_MAX_CURVES; i++)
 	{
 	  if (!si->curves[i].details) continue;
+#if 0
+	  /* KE: This means the scale will not change as the plot zooms
+           if the selected curve is not plotted.  This is not what you
+           want.  The max and min should change, but the curve should
+           not be drawn is what you want. */
 	  if (si->curves[i].details->plotstat != STRIPCURVE_PLOTTED) 
 	    continue;
+#endif
 	  width = si->curves[i].details->max - si->curves[i].details->min;
 	  if (event->xany.type == ButtonRelease &&
 	    ((XButtonEvent *)event)->button == Button3)
@@ -2856,7 +2891,7 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
 #endif /* STRIP_HISTORY */
     
     /*
-     * Reset the screen
+     * Reset the screen to values in the StripDialog
      */
     else if (w == si->btn[STRIPBTN_RESET])
     {
@@ -2869,8 +2904,14 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
      */
     else if (w == si->btn[STRIPBTN_REFRESH])
     {
+#if 1
+	Strip_refresh(si);	
+#else
+	/* KE: This only refreshes the data.  It doesn't fix legend
+         problems, etc. */
 	StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
 	StripGraph_draw (si->graph, SGCOMPMASK_DATA, (Region *)0);
+#endif	
     }
 
     /*

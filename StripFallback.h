@@ -125,6 +125,8 @@ String  fallback_resources[] =
   SA "*StripDialog*curvePageForm*colorPushButton.labelString: \\ \\ ",
   SA "*StripDialog*curvePageForm*plotToggle.labelString: ",
   SA "*StripDialog*curvePageForm*scaleToggle.labelString: ",
+  SA "*StripDialog*curvePageForm*plotToggle.indicatorSize: 15",
+  SA "*StripDialog*curvePageForm*scaleToggle.indicatorSize: 15",
   SA "*StripDialog*curvePageForm*precisionLabel.alignment: XmALIGNMENT_END",
   SA "*StripDialog*curvePageForm*precisionText.columns: 2",
   SA "*StripDialog*curvePageForm*minLabel.alignment: XmALIGNMENT_END",
@@ -201,6 +203,7 @@ String  fallback_resources[] =
   SA "*StripGraph*locationLabel.alignment: XmALIGNMENT_BEGINNING",
   
   SA "*StripGraph*legend.font: *helvetica-bold-r-normal--12*",
+  SA "*StripGraph*legend.usePixmap: True",
   
   SA "*StripGraph*titleLabel.fontList: *helvetica-bold-r-normal--12*",
   SA "*StripGraph*titleLabel.labelString: untitled",  

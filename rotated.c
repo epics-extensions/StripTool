@@ -22,6 +22,25 @@
 
 /* ********************************************************************** */
 
+/* KE 11-2002: This package was not handling text rotated to 90 deg
+   well owing to roundoff.  The results were alo different on
+   different platforms.  The algorithms have been changed and should
+   be an improvement.  They have not been tested on other angles than
+   90 deg, however.  Casts have been added to eliminate compiler
+   warnings.  The results of the calculations (that were not changed)
+   should be the same as before, but the implicit casts make it
+   apparent the formulas could be written more cleanly.  It might be
+   well to replace float with double as most of the calculations are
+   actually done in double anyway, then converted to lesser accuracy. */
+   
+/* ********************************************************************** */
+
+
+/* KE */
+#define DEBUG_ROT 0
+
+#define ROUND(x) ((float)floor((double)(x)+.5))
+#define ROFF 1.e-4
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -509,6 +528,14 @@ XRotPaintAlignedString  (Display        *dpy,
     /* pre-calculate sin and cos */
     sin_angle=(float)sin(angle);
     cos_angle=(float)cos(angle);
+#if 1
+    /* KE: */
+    if(angle==0 || fabs(angle-M_PI/2) < ROFF || 
+	fabs(angle-M_PI) < ROFF || fabs(angle-3*M_PI/2) < ROFF) {
+	  cos_angle=ROUND(cos_angle);
+	  sin_angle=ROUND(sin_angle);
+    }
+#endif    
     
     /* rotate hot_x and hot_y around bitmap centre */
     hot_xp= hot_x*cos_angle - hot_y*sin_angle;
@@ -952,6 +979,9 @@ XRotCreateTextItem      (Display        *dpy,
     int dir, asc, desc;
     XCharStruct overall;
     int old_cols_in=0, old_rows_in=0;
+#if DEBUG_ROT
+    static int ifirst=1;
+#endif    
     
     /* allocate memory */
     item=(RotatedTextItem *)malloc((unsigned)sizeof(RotatedTextItem));
@@ -1023,6 +1053,14 @@ XRotCreateTextItem      (Display        *dpy,
     /* pre-calculate sin and cos */
     sin_angle=(float)sin(angle);
     cos_angle=(float)cos(angle);
+#if 1
+    /* KE: */
+    if(angle==0 || fabs(angle-M_PI/2) < ROFF || 
+	fabs(angle-M_PI) < ROFF || fabs(angle-3*M_PI/2) < ROFF) {
+	  cos_angle=ROUND(cos_angle);
+	  sin_angle=ROUND(sin_angle);
+    }
+#endif    
     
     /* text background will be drawn using XFillPolygon */
     item->corners_x=
@@ -1107,12 +1145,14 @@ XRotCreateTextItem      (Display        *dpy,
     }
 
     /* how big will rotated text be ? */
+    /* KE: Why 2 here? */
     item->cols_out=(int)(fabs((float)item->rows_in*sin_angle) +
         fabs((float)item->cols_in*cos_angle) +0.99999 +2);
 
     item->rows_out=(int)(fabs((float)item->rows_in*cos_angle) +
         fabs((float)item->cols_in*sin_angle) +0.99999 +2);
 
+  /* make them an odd number */
     if(item->cols_out%2==0)
         item->cols_out++;
     
@@ -1134,12 +1174,22 @@ XRotCreateTextItem      (Display        *dpy,
     dj=(float)(0.5-(float)item->rows_out/2);
 
     /* where abouts does text actually lie in rotated image? */
+#if 0
+    /* KE: 90 deg is not passing this test owing to roundoff */
     if(angle==0 || angle==M_PI/2 || 
-       angle==M_PI || angle==3*M_PI/2) {
-        xl=0;
-        xr=(float)item->cols_out;
-        xinc=0;
+	angle==M_PI || angle==3*M_PI/2) {
+	  xl=0;
+	  xr=(float)item->cols_out;
+	  xinc=0;
     }
+#else
+    if(angle==0 || fabs(angle-M_PI/2) < ROFF || 
+	fabs(angle-M_PI) < ROFF || fabs(angle-3*M_PI/2) < ROFF) {
+	  xl=0;
+	  xr=(float)item->cols_out;
+	  xinc=0;
+    }
+#endif    
     else if(angle<M_PI) {
         xl=(float)((float)item->cols_out/2+
             (dj-(float)item->rows_in/(2*cos_angle))/
@@ -1162,6 +1212,9 @@ XRotCreateTextItem      (Display        *dpy,
 
     /* loop through all relevent bits in rotated image */
     for(j=0; j<item->rows_out; j++) {
+#if 1
+	  float fit, fjt;
+#endif	  
         
         /* no point re-calculating these every pass */
         di=(float)((float)((xl<0)?0:(int)xl)+0.5-(float)item->cols_out/2);
@@ -1171,14 +1224,32 @@ XRotCreateTextItem      (Display        *dpy,
         for(i=((xl<0)?0:(int)xl); 
             i<((xr>=item->cols_out)?item->cols_out:(int)xr); i++) {
             
-            /* rotate coordinates */
+		/* rotate coordinates */
+#if 0
             it=(int)((float)item->cols_in/2 + ( di*cos_angle + dj*sin_angle));
             jt=(int)((float)item->rows_in/2 - (-di*sin_angle + dj*cos_angle));
+#else
+		/* KE: Above is sensitive to roundoff, and probably isn't
+               what you want anyway. This seems to fix 90 deg.  It
+               fixes it w/o fixing cos_angle and sin_angle.  Just
+               fixing cos_angle and sin_angle might be sufficient,
+               however.  */
+            fit=(float)item->cols_in/2 + ( di*cos_angle + dj*sin_angle);
+            fjt=(float)item->rows_in/2 - (-di*sin_angle + dj*cos_angle);
+            it=(int)ROUND(fit);
+            jt=(int)ROUND(fjt);
+#endif		
             
             /* set pixel if required */
             if(it>=0 && it<item->cols_in && jt>=0 && jt<item->rows_in)
                 if((I_in->data[jt*byte_w_in+it/8] & 128>>(it%8))>0)
                     item->ximage->data[byte_out+i/8]|=128>>i%8;
+#if DEBUG_ROT
+		if(ifirst && fabs(angle-M_PI/2.) < ROFF) {
+		    printf("%2d %2d %2d %2d %10.7f %10.7f %10.7f %10.7f\n",
+			i,j,it,jt,fit,fjt,ROUND(fit),ROUND(fjt));
+		}
+#endif		
             
             di+=1;
         }
@@ -1186,6 +1257,11 @@ XRotCreateTextItem      (Display        *dpy,
         xl+=xinc;
         xr+=xinc;
     }
+#if DEBUG_ROT
+    if(ifirst && fabs(angle-M_PI/2.) < ROFF) {
+	  ifirst=0;
+    }
+#endif	  
     XDestroyImage(I_in);
     
     if(style.magnify!=1.) {
@@ -1616,4 +1692,14 @@ XRotTextExtents (Display        *dpy,
     return xp_out;
 }
 
-
+/* **************************** Emacs Editing Sequences ***************** */
+/* Local Variables: */
+/* tab-width: 6 */
+/* c-basic-offset: 4 */
+/* c-comment-only-line-offset: 0 */
+/* c-indent-comments-syntactically-p: t */
+/* c-label-minimum-indentation: 1 */
+/* c-file-offsets: ((substatement-open . 0) (label . 2) */
+/* (brace-entry-open . 0) (label .2) (arglist-intro . +) */
+/* (arglist-cont-nonempty . c-lineup-arglist) ) */
+/* End: */

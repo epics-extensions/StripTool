@@ -514,20 +514,31 @@ void LegendRefresh(LegendWidget cw)
   register char                 *s, *p;
   XPoint                        dims;
   XRectangle                    rect;
-  Drawable canvas = XtWindow(cw);
-
+  Drawable                      canvas;
+  
+  /* which canvas? */
+  if (cw->legend.use_pixmap)
+  {
+    if (!cw->legend.pixmap) GetPixmap (cw);
+    canvas = cw->legend.pixmap;
+    if (!canvas) canvas = XtWindow(cw);
+  }
+  else {
+    canvas = XtWindow(cw);
+  }
+  
   XSetForeground (XtDisplay (cw), cw->legend.gc, cw->core.background_pixel);
   XFillRectangle
     (XtDisplay (cw), canvas, cw->legend.gc,
-     0, 0, cw->core.width + 1, cw->core.height + 1);
-
+	0, 0, cw->core.width + 1, cw->core.height + 1);
+  
   /* which elements to draw? */
   mask = BestMaskForHeight (cw, LGITEM_MASK_ALL, cw->core.height);
   GetDimsForMask (cw, mask, &dims);
-
+  
   /* make the width equal to the widget with */
   dims.x = cw->core.width;
-
+  
   /* for each legend item */
   x = y = 0;
   for (item = cw->legend.items; item; item = item->next)
@@ -588,7 +599,16 @@ void LegendRefresh(LegendWidget cw)
     item->box.width = dims.x;
     item->box.height = y - item->box.y;
   }
-return;
+
+  /* copy the pixmap if used */
+  if (canvas != XtWindow(cw))
+  {
+    XCopyArea
+	(XtDisplay (cw), cw->legend.pixmap, XtWindow (cw), cw->legend.gc,
+	  0, 0, cw->core.width, cw->core.height, 0, 0);
+  }
+  
+  return;
 }
 
 
@@ -1034,8 +1054,21 @@ XjLegendResize  (Widget w)
   GetDimsForMask (cw, LGITEM_MASK_ALL, &dims);
 
   w_req = MAX (dims.x, cw->legend.min_width);
-  h_req = dims.y;
+  /* insure it doesn't request an invalid value for the height */
+  h_req = MAX (dims.y, ITEM_INFO_PAD);
 
   if ((w_req != cw->core.width) || (h_req != cw->core.height))
     XtVaSetValues (w, XmNwidth, w_req, XmNheight, h_req, 0);
 }
+
+/* **************************** Emacs Editing Sequences ***************** */
+/* Local Variables: */
+/* tab-width: 6 */
+/* c-basic-offset: 2 */
+/* c-comment-only-line-offset: 0 */
+/* c-indent-comments-syntactically-p: t */
+/* c-label-minimum-indentation: 1 */
+/* c-file-offsets: ((substatement-open . 0) (label . 2) */
+/* (brace-entry-open . 0) (label .2) (arglist-intro . +) */
+/* (arglist-cont-nonempty . c-lineup-arglist) ) */
+/* End: */

@@ -68,8 +68,11 @@
 /* the smallest fraction of a second which is still accurate */
 #define STRIP_TIMER_ACCURACY            0.001
 
+#if 0
+/* KE: No longer used.  Uses ca_poll instead */
 /* timeout period for handling Channel Access events */
 #define STRIP_CA_PEND_TIMEOUT           0.1 /* Albert 0.001 */
+#endif
 
 /* timeout period for handling cdev events */
 #define STRIP_CDEV_PEND_TIMEOUT         0.005

@@ -315,7 +315,7 @@ StripDataSource_addcurve        (StripDataSource        the_sds,
       
       /* use the id field of the strip curve to reference the buffer */
       ((StripCurveInfo *)the_curve)->id = &sds->buffers[i];
-
+	
       sds->buffers[i].history.fetch_stat = FETCH_IDLE;
       ret = 1;
     }
@@ -377,9 +377,9 @@ void  StripDataSource_refresh (StripDataSource        the_sds)
 StripDataSourceInfo   *sds = (StripDataSourceInfo *)the_sds;
 int i;
 
-  /* Albert */
-for(i=0;i<STRIP_MAX_CURVES;i++)
-      sds->buffers[i].history.fetch_stat = FETCH_IDLE;
+/* Albert */
+ for(i=0;i<STRIP_MAX_CURVES;i++)
+   sds->buffers[i].history.fetch_stat = FETCH_IDLE;
 }
 
 
@@ -503,28 +503,28 @@ StripDataSource_min_max (StripDataSourceInfo *sds,struct timeval h0, struct time
 	}
       else { printf ("min>max:%g>%g or isData=%d\n",min,max,some_data); continue;}
 
-/****Reasonable shift of lim i.e. min=0.123098712345 -> min=0.123 *******/
-local_precision=c->details->precision;
-if (local_precision < 2) local_precision =1;
-for(i=0;i<local_precision;i++)
-  {
-   c->details->min= c->details->min*10.0;
-   c->details->max= c->details->max*10.0;
-  }
-
-c->details->min=floor(c->details->min);
-c->details->max=ceil (c->details->max);
-
-for(i=0;i<local_precision;i++)
-  {
-   c->details->min= c->details->min/10.0;
-   c->details->max= c->details->max/10.0;
-  }
-/* End of Reasonable shift of limits ********************* */
-
+	/****Reasonable shift of lim i.e. min=0.123098712345 -> min=0.123 *******/
+	local_precision=c->details->precision;
+	if (local_precision < 2) local_precision =1;
+	for(i=0;i<local_precision;i++)
+	{
+	  c->details->min= c->details->min*10.0;
+	  c->details->max= c->details->max*10.0;
+	}
+	
+	c->details->min=floor(c->details->min);
+	c->details->max=ceil (c->details->max);
+	
+	for(i=0;i<local_precision;i++)
+	{
+	  c->details->min= c->details->min/10.0;
+	  c->details->max= c->details->max/10.0;
+	}
+	/* End of Reasonable shift of limits ********************* */
+	
     }
   }
-
+  
   return (need_refresh);
 }
 
@@ -556,6 +556,8 @@ StripDataSource_removecurve     (StripDataSource the_sds, StripCurve the_curve)
 /*
  * StripDataSource_removecurveAll
  * for final clean all garbage at data-buffer  Albert
+ * This very much like StripDataSource_init except not everything
+ *   is zeroed
  */
 int
 StripDataSource_removecurveAll(StripDataSource the_sds)
@@ -563,19 +565,19 @@ StripDataSource_removecurveAll(StripDataSource the_sds)
   StripDataSourceInfo   *sds = (StripDataSourceInfo *)the_sds;
   int                   ret_val = 1;
   /*sds->history        = NULL; Albert*/
-    sds->buf_size       = 0;
-    sds->cur_idx        = 0;
-    sds->count          = 0;
-    sds->times          = 0;
-    sds->idx_t0         = 0;
-    sds->idx_t1         = 0;
-    sds->bin_size       = 0;
-    sds->n_bins         = 0;
-
-    /* clear the buffers */
-    memset (sds->buffers, 0, STRIP_MAX_CURVES * sizeof(CurveData));
- 
- return ret_val;
+  sds->buf_size       = 0;
+  sds->cur_idx        = 0;
+  sds->count          = 0;
+  sds->times          = 0;
+  sds->idx_t0         = 0;
+  sds->idx_t1         = 0;
+  sds->bin_size       = 0;
+  sds->n_bins         = 0;
+  
+  /* clear the buffers */
+  memset (sds->buffers, 0, STRIP_MAX_CURVES * sizeof(CurveData));
+  
+  return ret_val;
 }
 
 /*
@@ -590,47 +592,48 @@ StripDataSource_sample  (StripDataSource the_sds, char *sgP)
   int                           i;
   int                           need_time = 1;
   double a; /*Albert*/
-
+  
   for (i = 0; i < STRIP_MAX_CURVES; i++)
   {
-
+    
     if ((c = sds->buffers[i].curve) != NULL)
     {
-    a=c->get_value (c->func_data);
+	a=c->get_value (c->func_data);
       if (need_time)
       {
-	if (a != sds->buffers[i].val[sds->cur_idx])
+	  if (a != sds->buffers[i].val[sds->cur_idx])
 	  {
 	    /*printf("name=%s;old=%f,new=%f\n",
-		   c->details->name,a,
-		   sds->buffers[i].val[sds->cur_idx]);*/
+		c->details->name,a,
+		sds->buffers[i].val[sds->cur_idx]);*/
 	    CurveLegendRefresh(c,sg,a); 
 	  }
-
-      
-
+	  
+	  
+	  
         sds->cur_idx = (sds->cur_idx + 1) % sds->buf_size;
         get_current_time (&sds->times[sds->cur_idx]);
         sds->count = min ((sds->count+1), sds->buf_size);
         need_time = 0;
       }       
       else {
-	if (a != sds->buffers[i].val[sds->cur_idx -1 ])
+	  if (a != sds->buffers[i].val[sds->cur_idx -1 ])
 	  {
 	    CurveLegendRefresh(c,sg,a);
 	  }
       }
-
+	
       if ((c->status & STRIPCURVE_CONNECTED) &&
-          !(c->status & STRIPCURVE_WAITING))
+	  !(c->status & STRIPCURVE_WAITING))
       {
-	sds->buffers[i].val[sds->cur_idx] = a; /*c->get_value (c->func_data); */
+	  sds->buffers[i].val[sds->cur_idx] = a;
+	  /*c->get_value (c->func_data); */
         sds->buffers[i].stat[sds->cur_idx] = DATASTAT_PLOTABLE;
-
+	  
         /* first sample for this curve? */
         if (sds->buffers[i].first == SIZE_MAX)
           sds->buffers[i].first = sds->cur_idx;
-
+	  
         /* otherwise, have we just overwritten what was previously
          * the first data point? If so, then increment the first data
          * point index */
@@ -642,9 +645,9 @@ StripDataSource_sample  (StripDataSource the_sds, char *sgP)
   }
 }
 /*
-Line 844
-some HACK here if delta time for History request < 2% from range interval
-do not send History request!  Albert Kagarmanov 23.11.2000
+  Line 844
+  some HACK here if delta time for History request < 2% from range interval
+  do not send History request!  Albert Kagarmanov 23.11.2000
 */
 
 
@@ -1930,3 +1933,15 @@ static int printData(struct timeval *time, CurveData *cd, char *val)
   if(first) sprintf(val,"%s","N/A");
   return(first);    
 }
+
+/* **************************** Emacs Editing Sequences ***************** */
+/* Local Variables: */
+/* tab-width: 6 */
+/* c-basic-offset: 2 */
+/* c-comment-only-line-offset: 0 */
+/* c-indent-comments-syntactically-p: t */
+/* c-label-minimum-indentation: 1 */
+/* c-file-offsets: ((substatement-open . 0) (label . 2) */
+/* (brace-entry-open . 0) (label .2) (arglist-intro . +) */
+/* (arglist-cont-nonempty . c-lineup-arglist) ) */
+/* End: */

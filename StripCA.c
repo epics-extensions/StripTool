@@ -20,6 +20,9 @@ typedef struct _StripDAQInfo
   {
     chid                        chan_id;
     evid                        event_id;
+#ifndef PEND_DESC
+    chid                        desc_chan_id;
+#endif    
     double                      value;
     struct _StripDAQInfo        *this;
   } chan_data[STRIP_MAX_CURVES];
@@ -34,7 +37,13 @@ static void     connect_callback        (struct connection_handler_args);
 static void     info_callback           (struct event_handler_args);
 static void     data_callback           (struct event_handler_args);
 static double   get_value               (void *);
+#ifdef PEND_DESCRIPTION
 static void     getDescriptionRecord    (char *name,char *description);
+#else
+static void     requestDescRecord       (StripCurve curve);
+static void     desc_connect_callback   (struct connection_handler_args);
+static void     desc_info_callback      (struct event_handler_args args);
+#endif
 
 /*
  * StripDAQ_initialize
@@ -61,8 +70,8 @@ StripDAQ                StripDAQ_initialize     (Strip strip)
       ca_add_fd_registration (addfd_callback, sca);
       for (i = 0; i < STRIP_MAX_CURVES; i++)
       {
-        sca->chan_data[i].this    = sca;
-        sca->chan_data[i].chan_id         = NULL;
+        sca->chan_data[i].this = sca;
+        sca->chan_data[i].chan_id = NULL;
       }
     }
   }
@@ -91,41 +100,52 @@ int     StripDAQ_request_connect        (StripCurve curve, void *the_sca)
   StripDAQInfo  *sca = (StripDAQInfo *)the_sca;
   int           i;
   int           ret_val;
-char *description=NULL; /* Albert */
-
+#ifdef PEND_DESCRIPTION
+  char *description=NULL; /* Albert */
+#endif
+  
   for (i = 0; i < STRIP_MAX_CURVES; i++)
     if (sca->chan_data[i].chan_id == NULL)
       break;
-
+  
   if (ret_val = (i < STRIP_MAX_CURVES))
   {
     StripCurve_setattr (curve, STRIPCURVE_FUNCDATA, &sca->chan_data[i], 0);
+#ifndef PEND_DESCRIPTION
+    /* first search for the description field so it is likely to
+       connect first */
+    requestDescRecord(curve);
+#endif
+    /* search for the process variable */
     ret_val = ca_search_and_connect
       ((char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME),
-       &sca->chan_data[i].chan_id,
-       connect_callback,
-       curve);
+	  &sca->chan_data[i].chan_id,
+	  connect_callback,
+	  curve);
     if (ret_val != ECA_NORMAL)
     {
       SEVCHK (ret_val, "StripDAQ: Channel Access unable to connect\n");
       fprintf
         (stderr, "channel name: %s\n",
-         (char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME));
+	    (char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME));
       ret_val = 0;
     }
     else ret_val = 1;
   }
-#if 1
-	description=malloc(STRIP_MAX_NAME_CHAR); /* Albert */
-	getDescriptionRecord(
-	 (char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME),
-	 description);
-	StripCurve_setattr (curve, STRIPCURVE_COMMENT, description, 0);
-	free(description);
+
+#ifdef PEND_DESCRIPTION
+  /* KE: Should be inside the if above */
+  /* get the description field using ca_pend_io */
+  description=malloc(STRIP_MAX_NAME_CHAR); /* Albert */
+  getDescriptionRecord(
+    (char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME),
+    description);
+  StripCurve_setattr (curve, STRIPCURVE_COMMENT, description, 0);
+  free(description);
 #endif
+
   ca_flush_io();
-
-
+  
   return ret_val;
 }
 
@@ -134,12 +154,13 @@ char *description=NULL; /* Albert */
  * StripDAQ_request_disconnect
  *
  *      Requests disconnection for the specified curve.
+ *      Returns 0 if anything fails, otherwise 1
  */
 int     StripDAQ_request_disconnect     (StripCurve     curve,
                                          void           *the_sca)
 {
   struct _ChannelData   *cd;
-  int                   ret_val;
+  int                   ret_val = 1;
 
   cd = (struct _ChannelData *) StripCurve_getattr_val
     (curve, STRIPCURVE_FUNCDATA);
@@ -158,7 +179,6 @@ int     StripDAQ_request_disconnect     (StripCurve     curve,
     else
     {
       cd->event_id = NULL;
-      ret_val = 1;
     }
   }
   ca_flush_io();
@@ -175,11 +195,26 @@ int     StripDAQ_request_disconnect     (StripCurve     curve,
     else
     {
       cd->chan_id = NULL;
-      ret_val = 1;
     }
   }
-  else ret_val = 1;
 
+#ifndef PEND_DESC
+  if (cd->desc_chan_id != NULL)
+  {
+    /* **** ca_clear_channel() causes info to be printed to stdout **** */
+    if ((ret_val = ca_clear_channel (cd->desc_chan_id)) != ECA_NORMAL)
+    {
+      SEVCHK
+        (ret_val, "StripDAQ_request_disconnect: error in ca_clear_channel");
+      ret_val = 0;
+    }
+    else
+    {
+      cd->desc_chan_id = NULL;
+    }
+  }
+#endif
+  
   ca_flush_io();
   return ret_val;
 }
@@ -210,7 +245,15 @@ static void     work_callback           (XtPointer      BOGUS(1),
                                          int            *BOGUS(2),
                                          XtInputId      *BOGUS(3))
 {
+#if 0
+  /* KE: ca_pend_event will block the program unnecessarily for
+     STRIP_CA_PEND_TIMEOUT, whether there is anything to do or
+     not. ca_poll will do all pending tasks, then exit.  Setting
+     STRIP_CA_PEND_TIMEOUT to 1e-12 is equivalent to using ca_poll. */
   ca_pend_event (STRIP_CA_PEND_TIMEOUT);
+#else
+  ca_poll();
+#endif  
 }
 
 /*
@@ -219,7 +262,15 @@ static void     work_callback           (XtPointer      BOGUS(1),
 static void     timeout_callback        (XtPointer ptr, XtIntervalId *pId)
 {
   Strip strip = (Strip) ptr;
+#if 0
+  /* KE: ca_pend_event will block the program unnecessarily for
+     STRIP_CA_PEND_TIMEOUT, whether there is anything to do or
+     not. ca_poll will do all pending tasks, then exit.  Setting
+     STRIP_CA_PEND_TIMEOUT to 1e-12 is equivalent to using ca_poll. */
   ca_pend_event (STRIP_CA_PEND_TIMEOUT);
+#else
+  ca_poll();
+#endif  
   Strip_addtimeout ( strip, 0.1, timeout_callback, strip );
 }
 
@@ -404,6 +455,14 @@ static double   get_value       (void *data)
 
   return cd->value;
 }
+
+
+#ifdef PEND_DESCRIPTION
+/*
+ * getDescriptionRecord
+ *
+ *      Searches and waits for the description
+ */
 static void getDescriptionRecord(char *name, char *description)
 {
   int status;
@@ -466,6 +525,141 @@ static void getDescriptionRecord(char *name, char *description)
     }
 
 }
+#endif  /* #ifdef PEND_DESCRIPTION */
+
+#ifndef PEND_DESCRIPTION
+/*
+ * getDescriptionRecord
+ *
+ *      Searches for the description with callback
+ */
+static void requestDescRecord(StripCurve curve)
+{
+  int status;
+  static char desc_name[64];
+  char *name = (char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME);
+  struct _ChannelData *cd = (struct _ChannelData *)StripCurve_getattr_val
+    (curve, STRIPCURVE_FUNCDATA);
+
+  /* construct the name */
+  memset(desc_name,0,64);
+  strcpy(desc_name,name);
+  strcat(desc_name,".DESC");
+
+  /* search */
+  cd->desc_chan_id = NULL;
+  status = ca_search_and_connect (desc_name, &cd->desc_chan_id,
+    desc_connect_callback, curve);
+  if (status != ECA_NORMAL) {
+#ifdef PRINT_DESC_ERRORS      
+    SEVCHK(status,"     Search for description field failed\n");
+    fprintf(stderr,"%s: Search for description field failed\n", desc_name);
+#endif    
+  }
+}
+
+/*
+ * desc_connect_callback
+ */
+static void desc_connect_callback (struct connection_handler_args args)
+{
+  StripCurve            curve;
+  struct _ChannelData   *cd;
+  int                   status;
+  
+  curve = (StripCurve)(ca_puser (args.chid));
+  cd = (struct _ChannelData *)StripCurve_getattr_val
+    (curve, STRIPCURVE_FUNCDATA);
+  
+  switch (ca_state (args.chid))
+  {
+  case cs_never_conn:
+#ifdef PRINT_DESC_ERRORS      
+    fprintf (stderr, "StripDAQ desc_connect_callback: ioc not found\n");
+#endif
+    break;
+    
+  case cs_prev_conn:
+#ifdef PRINT_DESC_ERRORS      
+    fprintf
+	(stderr,
+	  "StripDAQ desc_connect_callback: IOC unavailable for %s\n",
+	  ca_name (args.chid));
+#endif
+    break;
+    
+  case cs_conn:
+    /* now connected, so get the desc string  */
+    status = ca_get_callback (DBR_STRING, cd->desc_chan_id,
+	desc_info_callback, curve);
+    if (status != ECA_NORMAL)
+    {
+	SEVCHK (status,
+	  "StripDAQ desc_connect_callback: error in ca_get_callback");
+    }
+    break;
+    
+  case cs_closed:
+#ifdef PRINT_DESC_ERRORS      
+    fprintf (stderr, "StripDAQ desc_connect_callback: invalid chid\n");
+#endif
+    break;
+  }
+  
+  fflush (stderr);
+  
+  ca_flush_io();
+}
+
+/*
+ * info_callback
+ */
+static void desc_info_callback (struct event_handler_args args)
+{
+  StripCurve                    curve;
+  struct _ChannelData           *cd;
+  char                          *desc;
+  int                           status;
+
+  curve = (StripCurve)(ca_puser (args.chid));
+  cd = (struct _ChannelData *)StripCurve_getattr_val
+    (curve, STRIPCURVE_FUNCDATA);
+
+  if (args.status != ECA_NORMAL)
+  {
+    fprintf
+      (stderr,
+	  "StripDAQ desc_info_callback:\n"
+	  "  [%s] get DESC: %s\n",
+	  ca_name(cd->chan_id),
+#if 0
+	  ca_message_text[CA_EXTRACT_MSG_NO(args.status)]);
+#else    
+        ca_message(CA_EXTRACT_MSG_NO(args.status)));
+#endif    
+  }
+  else
+  {
+    /* get the description */
+    desc = (char *)args.dbr;
+    StripCurve_setattr (curve, STRIPCURVE_COMMENT, desc, 0);
+
+    /* set the description to be connected */
+    Strip_setdescconnected (cd->this->strip, curve);
+
+    /* clear the description channel, we are through */
+    if ((status = ca_clear_channel (cd->desc_chan_id)) != ECA_NORMAL)
+    {
+      SEVCHK (status, "desc_info_callback: error in ca_clear_channel");
+    }
+    else
+    {
+      cd->desc_chan_id = NULL;
+    }
+
+  }
+}
+#endif  /* #ifndef PEND_DESCRIPTION */
 
 /* **************************** Emacs Editing Sequences ***************** */
 /* Local Variables: */
