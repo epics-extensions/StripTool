@@ -34,7 +34,8 @@
 #define DEF_WOFFSET		3
 #define COLOR_BTN_STR		"  "
 #define MAX_WINDOW_MENU_ITEMS	10
-#define MAX_REALNUM_LEN		8
+#define MAX_REALNUM_LEN		20
+#define MAX_REALNUM_COLUMN_LEN	10
 
 typedef enum
 {
@@ -223,6 +224,7 @@ typedef struct
   SDTimeInfo		time_info;
   SDGraphInfo		graph_info;
   Widget		shell, curve_form, data_form, graph_form, connect_txt;
+  Widget		msglog_list;
   Widget		message_box;
   SDWindowMenuInfo	window_menu_info;
 
@@ -268,7 +270,7 @@ static void	hide_sdcurve	(StripDialogInfo *, int);
 /* these functions operate on curve rows in the curve control area */
 static void	setwidgetval_name	(StripDialogInfo *, int, char *);
 static void	setwidgetval_status	(StripDialogInfo *, int,
-					 StripCurveStatus);
+					 unsigned);
 static void	setwidgetval_color	(StripDialogInfo *, int, Pixel);
 static void	setwidgetval_penstat	(StripDialogInfo *, int, int);
 static void	setwidgetval_plotstat	(StripDialogInfo *, int, int);
@@ -768,7 +770,7 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	    sd->curve_info[j].min_txt = XtVaCreateManagedWidget
 	    ("text",
 	     xmTextWidgetClass,	form,
-	     XmNcolumns,		MAX_REALNUM_LEN,
+	     XmNcolumns,		MAX_REALNUM_COLUMN_LEN,
 	     XmNmappedWhenManaged,	False,
 	     XmNtopAttachment,		XmATTACH_WIDGET,
 	     XmNtopWidget,		sep,
@@ -795,7 +797,7 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	    sd->curve_info[j].max_txt = XtVaCreateManagedWidget
 	    ("text",
 	     xmTextWidgetClass,		form,
-	     XmNcolumns,		MAX_REALNUM_LEN,
+	     XmNcolumns,		MAX_REALNUM_COLUMN_LEN,
 	     XmNmappedWhenManaged,	False,
 	     XmNtopAttachment,		XmATTACH_WIDGET,
 	     XmNtopWidget,		sep,
@@ -1442,7 +1444,6 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 NULL);
       w = btn;
       
-/* ====== New  ====== */
       sd->graph_info.widgets[SDGROPT_LINEWIDTH] = tmp = XtVaCreateManagedWidget
 	("slider",
 	 xmScaleWidgetClass,		form,
@@ -1468,7 +1469,6 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNbottomWidget,		tmp,
 	 NULL);
       w = tmp;
-/* ====== New  ====== */
 	
       sd->graph_info.ynum_txt = txt = XtVaCreateManagedWidget
 	("text",
@@ -1482,6 +1482,7 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 */
 	 XmNleftAttachment,		XmATTACH_POSITION,
 	 XmNleftPosition,		1,
+         XmNsensitive,			False,
 	 NULL);
       XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
       sd->graph_info.ynum_lbl = XtVaCreateManagedWidget
@@ -1495,6 +1496,7 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNrightWidget,		sd->graph_info.ynum_txt,
 	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
 	 XmNbottomWidget,		sd->graph_info.ynum_txt,
+         XmNsensitive,			False,
 	 NULL);
       sd->graph_info.widgets[SDGROPT_YAXISNUM] = sd->graph_info.ynum_lbl;
       lbl = XtVaCreateManagedWidget
@@ -1505,6 +1507,7 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 XmNleftAttachment,		XmATTACH_FORM,
 	 XmNbottomAttachment,		XmATTACH_OPPOSITE_WIDGET,
 	 XmNbottomWidget,		txt,
+         XmNsensitive,			False,
 	 NULL);
       w = txt;
       
@@ -1656,6 +1659,37 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
       XtAddCallback
 	(btn, XmNactivateCallback, ctrl_btn_cb, (XtPointer)SDCALLBACK_SHOW);
 
+#if 0
+      sep = XtVaCreateManagedWidget
+	("separator",
+	 xmSeparatorWidgetClass,	form,
+	 XmNleftAttachment,		XmATTACH_FORM,
+	 XmNrightAttachment,		XmATTACH_FORM,
+	 XmNbottomAttachment,		XmATTACH_WIDGET,
+	 XmNbottomWidget,		btn,
+	 NULL);
+
+      sd->msglog_list = XmCreateScrolledText
+	(form, "Message Log", NULL, 0);
+      XtVaSetValues
+	(XtParent(sd->msglog_list),
+	 XmNtopAttachment,		XmATTACH_FORM,
+	 XmNleftAttachment,		XmATTACH_FORM,
+	 XmNrightAttachment,		XmATTACH_FORM,
+	 XmNbottomAttachment,		XmATTACH_WIDGET,
+	 XmNbottomWidget,		sep,
+	 XmNverticalScrollBar,		NULL,
+	 NULL);
+      XtVaSetValues
+	(sd->msglog_list,
+	 XmNeditMode,			XmMULTI_LINE_EDIT,
+	 XmNeditable,			False,
+	 XmNcursorPositionVisible,	False,
+	 XmNcolumns,			80,
+	 NULL);
+      XtManageChild (sd->msglog_list);
+#endif
+      
       XtRealizeWidget (sd->shell);
       XUnmapWindow (sd->display, XtWindow (sd->shell));
 
@@ -1882,7 +1916,7 @@ int	StripDialog_addcurve		(StripDialog the_sd, StripCurve curve)
        */
       if (strcmp
 	  (XmTextGetString (sd->connect_txt),
-	   StripCurve_getattr_val (curve, STRIPCURVE_NAME))
+	   (char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME))
 	  == 0)
 	XmTextSetString (sd->connect_txt, "");
     }
@@ -1943,7 +1977,6 @@ int	StripDialog_removesomecurves	(StripDialog	the_sd,
 					 StripCurve	curves[])
 {
   StripDialogInfo	*sd = (StripDialogInfo *)the_sd;
-  int 			ret_val;
   int			i, j, n;
 
   XtUnmapWidget (sd->curve_form);
@@ -1996,7 +2029,13 @@ int	StripDialog_update_curvestat	(StripDialog the_sd, StripCurve curve)
       break;
 
   if ((ret_val = (i < sd->sdcurve_count)))
+  {
     setwidgetval_status	(sd, i, ((StripCurveInfo *)curve)->status);
+    setwidgetval_precision
+      (sd, i, ((StripCurveInfo *)curve)->details->precision);
+    setwidgetval_min (sd, i, ((StripCurveInfo *)curve)->details->min);
+    setwidgetval_max (sd, i, ((StripCurveInfo *)curve)->details->max);
+  }
   return ret_val;
 }
 
@@ -2120,9 +2159,9 @@ static void	setwidgetval_name	(StripDialogInfo 	*sd,
  */
 static void	setwidgetval_status	(StripDialogInfo 	*sd,
 					 int 			which,
-					 StripCurveStatus	stat)
+					 unsigned		stat)
 {
-  int	s = (!(stat & STRIPCURVE_CONNECTED)? 0 : 1);
+  int	s = ((stat & STRIPCURVE_WAITING)? 0 : 1);
   
 #ifdef STRIPDIALOG_SHOW_STATUS
   XtVaSetValues
@@ -2210,9 +2249,11 @@ static void	setwidgetval_min	(StripDialogInfo 	*sd,
 {
   StripCurveInfo 	*sc = (StripCurveInfo *)sd->curve_info[which].curve;
 
-  dbl2str (val, sc->details->precision, char_buf, MAX_REALNUM_LEN);
-  xstr = XmStringCreateLocalized (char_buf);
+  dbl2str (val, sc->details->precision, char_buf, MAX_REALNUM_LEN);  
   XmTextSetString (sd->curve_info[which].min_txt, char_buf);
+
+  dbl2str (val, sc->details->precision, char_buf, MAX_REALNUM_COLUMN_LEN);
+  xstr = XmStringCreateLocalized (char_buf);
   XtVaSetValues
     (sd->curve_info[which].min_lbl,
      XmNlabelString,			xstr,
@@ -2230,9 +2271,11 @@ static void	setwidgetval_max	(StripDialogInfo 	*sd,
 {
   StripCurveInfo 	*sc = (StripCurveInfo *)sd->curve_info[which].curve;
 
-  dbl2str (val, sc->details->precision, char_buf, MAX_REALNUM_LEN);
-  xstr = XmStringCreateLocalized (char_buf);
+  dbl2str (val, sc->details->precision, char_buf, MAX_REALNUM_LEN);  
   XmTextSetString (sd->curve_info[which].max_txt, char_buf);
+
+  dbl2str (val, sc->details->precision, char_buf, MAX_REALNUM_COLUMN_LEN);
+  xstr = XmStringCreateLocalized (char_buf);
   XtVaSetValues
     (sd->curve_info[which].max_lbl,
      XmNlabelString,			xstr,
@@ -2287,14 +2330,18 @@ static char	*getwidgetval_name	(StripDialogInfo *sd, int which)
 /*
  * getwidgetval_status
  */
+#ifdef STRIPDIALOG_SHOW_STATUS
 static char	*getwidgetval_status	(StripDialogInfo *sd, int which)
 {
-#ifdef STRIPDIALOG_SHOW_STATUS
   return XmTextGetString (sd->curve_info[which].widgets[SDCURVE_STATUS]);
-#else
-  return "unknown";
-#endif
 }
+#else
+static char	*getwidgetval_status	(StripDialogInfo	*BOGUS(1),
+                                         int 			BOGUS(2))
+{
+  return "unknown";
+}
+#endif
 
 
 /*
@@ -2509,7 +2556,6 @@ static char	*getwidgetval_tm_ds		(StripDialogInfo	*sd,
 {
   char	*str;
 
-  char *p;
   str = XmTextGetString (sd->time_info.ds_txt);
   *val = atof (str);
   return str;
@@ -2528,26 +2574,26 @@ static char	*getwidgetval_tm_gr		(StripDialogInfo 	*sd,
 
 
 /* graph controls */
-static void	setwidgetval_gr_fg		(StripDialogInfo 	*sd,
-						 Pixel 			val)
+static void	setwidgetval_gr_fg		(StripDialogInfo *BOGUS(1),
+						 Pixel BOGUS(2))
 {
 }
 
 
-static void	setwidgetval_gr_bg		(StripDialogInfo 	*sd,
-						 Pixel 			val)
+static void	setwidgetval_gr_bg		(StripDialogInfo *BOGUS(1),
+						 Pixel BOGUS(2))
 {
 }
 
 
-static void	setwidgetval_gr_gridclr		(StripDialogInfo 	*sd,
-						 Pixel 			val)
+static void	setwidgetval_gr_gridclr		(StripDialogInfo *BOGUS(1),
+						 Pixel BOGUS(2))
 {
 }
 
 
-static void	setwidgetval_gr_lgndclr		(StripDialogInfo 	*sd,
-						 Pixel 			val)
+static void	setwidgetval_gr_lgndclr		(StripDialogInfo *BOGUS(1),
+						 Pixel BOGUS(2))
 {
 }
 
@@ -2645,43 +2691,51 @@ static void	setwidgetval_gr_modify		(StripDialogInfo 	*sd,
 }
 
 
-static Pixel	getwidgetval_gr_fg		(StripDialogInfo *sd)
+static Pixel	getwidgetval_gr_fg		(StripDialogInfo *BOGUS(1))
 {
+  return (Pixel)0;
 }
 
 
-static Pixel	getwidgetval_gr_bg		(StripDialogInfo *sd)
+static Pixel	getwidgetval_gr_bg		(StripDialogInfo *BOGUS(1))
 {
+  return (Pixel)0;
 }
 
 
-static Pixel	getwidgetval_gr_gridclr		(StripDialogInfo *sd)
+static Pixel	getwidgetval_gr_gridclr		(StripDialogInfo *BOGUS(1))
 {
+  return (Pixel)0;
 }
 
 
-static Pixel	getwidgetval_gr_lgndclr		(StripDialogInfo *sd)
+static Pixel	getwidgetval_gr_lgndclr		(StripDialogInfo *BOGUS(1))
 {
+  return (Pixel)0;
 }
 
 
-static int	getwidgetval_gr_linewidth	(StripDialogInfo *sd)
+static int	getwidgetval_gr_linewidth	(StripDialogInfo *BOGUS(1))
 {
+  return (Pixel)0;
 }
 
 
-static int	getwidgetval_gr_gridx		(StripDialogInfo *sd)
+static int	getwidgetval_gr_gridx		(StripDialogInfo *BOGUS(1))
 {
+  return (Pixel)0;
 }
 
 
-static int	getwidgetval_gr_gridy		(StripDialogInfo *sd)
+static int	getwidgetval_gr_gridy		(StripDialogInfo *BOGUS(1))
 {
+  return (Pixel)0;
 }
 
 
-static int	getwidgetval_gr_yaxisclr	(StripDialogInfo *sd)
+static int	getwidgetval_gr_yaxisclr	(StripDialogInfo *BOGUS(1))
 {
+  return (Pixel)0;
 }
 
 
@@ -2710,7 +2764,9 @@ static char	*getwidgetval_gr_xaxisnum	(StripDialogInfo 	*sd,
 
 
 /* ====== Static Callback Function Definitions ====== */
-static void	connect_btn_cb	(Widget w, XtPointer data, XtPointer call)
+static void	connect_btn_cb	(Widget 	BOGUS(1),
+                                 XtPointer	data,
+                                 XtPointer 	call)
 {
   XmAnyCallbackStruct	*cbs = (XmAnyCallbackStruct *)call;
   XEvent		*event = cbs->event;
@@ -2729,7 +2785,7 @@ static void	connect_btn_cb	(Widget w, XtPointer data, XtPointer call)
     (sd->connect_txt, (XmTextPosition)0, (XmTextPosition)strlen(str), when);
 }
 
-static void	color_btn_cb	(Widget w, XtPointer data, XtPointer blah)
+static void	color_btn_cb	(Widget w, XtPointer data, XtPointer BOGUS(1))
 {
   StripDialogInfo	*sd;
   StripCurveInfo	*sc;
@@ -2740,14 +2796,14 @@ static void	color_btn_cb	(Widget w, XtPointer data, XtPointer blah)
   ColorDialog_popup (sd->clrdlg, sc->details->name, sc->details->pixel);
 }
 
-static void	modify_btn_cb	(Widget w, XtPointer data, XtPointer blah)
+static void	modify_btn_cb	(Widget w, XtPointer data, XtPointer BOGUS(1))
 {
   StripDialogInfo	*sd;
   StripCurveInfo	*sc;
   StripConfigMask	mask = 0;
   int			which = (int)data;
   int			ival;
-  double		dval;
+  double		a, b, tmp;
 
 
   XtVaGetValues (w, XmNuserData, &sd, NULL);
@@ -2766,22 +2822,33 @@ static void	modify_btn_cb	(Widget w, XtPointer data, XtPointer blah)
 	  mask |= STRIPCFGMASK_CURVE_PRECISION;
 	}
       else setwidgetval_precision (sd, which, sc->details->precision);
-      
-      getwidgetval_min (sd, which, &dval);
-      if (StripCurve_setattr (sc, STRIPCURVE_MIN, dval, 0))
+
+      /* make sure that max > min */
+      getwidgetval_min (sd, which, &a);
+      getwidgetval_max (sd, which, &b);
+      if (a > b) { tmp = a; a = b; b = tmp; }
+
+      if (a < b)
+      {
+        if (StripCurve_setattr (sc, STRIPCURVE_MIN, a, 0))
 	{
-	  setwidgetval_min (sd, which, dval);
+	  setwidgetval_min (sd, which, a);
 	  mask |= STRIPCFGMASK_CURVE_MIN;
 	}
-      else setwidgetval_min (sd, which, sc->details->min);
-      
-      getwidgetval_max (sd, which, &dval);
-      if (StripCurve_setattr (sc, STRIPCURVE_MAX, dval, 0))
-	{
-	  setwidgetval_max (sd, which, dval);
-	  mask |= STRIPCFGMASK_CURVE_MAX;
-	}
-      else setwidgetval_max (sd, which, sc->details->min);
+        else setwidgetval_min (sd, which, sc->details->min);
+        
+        if (StripCurve_setattr (sc, STRIPCURVE_MAX, b, 0))
+        {
+          setwidgetval_max (sd, which, b);
+          mask |= STRIPCFGMASK_CURVE_MAX;
+        }
+        else setwidgetval_max (sd, which, sc->details->min);
+      }
+      else
+      {
+        setwidgetval_min (sd, which, sc->details->min);
+        setwidgetval_max (sd, which, sc->details->max);
+      }
 
       if (mask) StripConfig_update (sd->config, mask);
     }
@@ -2801,7 +2868,7 @@ static void	penstat_tgl_cb	(Widget w, XtPointer data, XtPointer call)
   int			idx = (int)data;
 
   XtVaGetValues (w, XmNuserData, &sd, NULL);
-  sc = (StripCurve)sd->curve_info[idx].curve;
+  sc = (StripCurve *)sd->curve_info[idx].curve;
   setwidgetval_penstat (sd, idx, cbs->set);
   StripCurve_setattr (sc, STRIPCURVE_PENSTAT, cbs->set, 0);
   StripConfig_update (sd->config, STRIPCFGMASK_CURVE_PENSTAT);
@@ -2815,22 +2882,20 @@ static void	plotstat_tgl_cb	(Widget w, XtPointer data, XtPointer call)
   int			idx = (int)data;
 
   XtVaGetValues (w, XmNuserData, &sd, NULL);
-  sc = (StripCurve)sd->curve_info[idx].curve;
+  sc = (StripCurve *)sd->curve_info[idx].curve;
   setwidgetval_plotstat (sd, idx, cbs->set);
   StripCurve_setattr (sc, STRIPCURVE_PLOTSTAT, cbs->set, 0);
   StripConfig_update (sd->config, STRIPCFGMASK_CURVE_PLOTSTAT);
 }
 
 
-static void	text_focus_cb	(Widget w, XtPointer data, XtPointer call)
+static void	text_focus_cb	(Widget		BOGUS(1),
+                                 XtPointer	BOGUS(2),
+                                 XtPointer	BOGUS(3))
 {
-  /*
-  int	s = strlen (XmTextGetString (w));
-  XmTextSetSelection (w, 0, s, CurrentTime);
-  */
 }
 
-static void	remove_btn_cb	(Widget w, XtPointer data, XtPointer blah)
+static void	remove_btn_cb	(Widget w, XtPointer data, XtPointer BOGUS(1))
 {
   StripDialogInfo	*sd;
   StripCurve		sc;
@@ -2844,7 +2909,9 @@ static void	remove_btn_cb	(Widget w, XtPointer data, XtPointer blah)
       (sd->callback[SDCALLBACK_DELETE].data, sc);
 }
 
-static void	tmmodify_btn_cb	(Widget w, XtPointer data, XtPointer blah)
+static void	tmmodify_btn_cb	(Widget 	BOGUS(1),
+                                 XtPointer 	data,
+                                 XtPointer 	BOGUS(2))
 {
   StripDialogInfo	*sd = (StripDialogInfo *)data;
   StripConfigMask	mask = 0;
@@ -2907,7 +2974,9 @@ static void	tmmodify_btn_cb	(Widget w, XtPointer data, XtPointer blah)
 }
 
 
-static void	tmcancel_btn_cb	(Widget w, XtPointer data, XtPointer blah)
+static void	tmcancel_btn_cb	(Widget		BOGUS(1),
+                                 XtPointer 	data,
+                                 XtPointer	BOGUS(2))
 {
   StripDialogInfo	*sd = (StripDialogInfo *)data;
   int			i;
@@ -2932,11 +3001,12 @@ static void	tmcancel_btn_cb	(Widget w, XtPointer data, XtPointer blah)
 }
 
 
-static void	grmodify_btn_cb	(Widget w, XtPointer data, XtPointer blah)
+static void	grmodify_btn_cb	(Widget		BOGUS(1),
+                                 XtPointer 	data,
+                                 XtPointer	BOGUS(2))
 {
   StripDialogInfo	*sd = (StripDialogInfo *)data;
   StripConfigMask	mask = 0;
-  int			i;
   int			int_val;
 
   XtUnmapWidget (sd->graph_info.widgets[SDGROPT_YAXISNUM]);
@@ -2969,7 +3039,9 @@ static void	grmodify_btn_cb	(Widget w, XtPointer data, XtPointer blah)
 }
 
 
-static void	grcancel_btn_cb	(Widget w, XtPointer data, XtPointer blah)
+static void	grcancel_btn_cb	(Widget		BOGUS(1),
+                                 XtPointer 	data,
+                                 XtPointer	BOGUS(2))
 {
   StripDialogInfo	*sd = (StripDialogInfo *)data;
 
@@ -2987,7 +3059,7 @@ static void	grcancel_btn_cb	(Widget w, XtPointer data, XtPointer blah)
 }
 
 
-static void	grcolor_btn_cb	(Widget w, XtPointer data, XtPointer blah)
+static void	grcolor_btn_cb	(Widget w, XtPointer data, XtPointer BOGUS(1))
 {
   CBInfo		*cbi = (CBInfo *)data;
   StripDialogInfo	*sd = (StripDialogInfo *)cbi->p;
@@ -2998,7 +3070,9 @@ static void	grcolor_btn_cb	(Widget w, XtPointer data, XtPointer blah)
 }
 
 
-static void	gropt_slider_cb	(Widget w, XtPointer data, XtPointer call)
+static void	gropt_slider_cb	(Widget 	BOGUS(1),
+                                 XtPointer 	data,
+                                 XtPointer 	call)
 {
   XmScaleCallbackStruct	*cbs = (XmScaleCallbackStruct *)call;
   StripDialogInfo	*sd = (StripDialogInfo *)data;
@@ -3040,7 +3114,7 @@ static void	gropt_tgl_cb	(Widget w, XtPointer data, XtPointer call)
 }
 
 
-static void	filemenu_cb	(Widget w, XtPointer data, XtPointer blah)
+static void	filemenu_cb	(Widget w, XtPointer data, XtPointer BOGUS(1))
 {
   StripDialogInfo	*sd;
   int			i;
@@ -3056,7 +3130,7 @@ static void	filemenu_cb	(Widget w, XtPointer data, XtPointer blah)
 
 
 
-static void	windowmenu_cb	(Widget w, XtPointer data, XtPointer blah)
+static void	windowmenu_cb	(Widget w, XtPointer data, XtPointer BOGUS(1))
 {
   StripDialogInfo	*sd;
   int			i = (int)data;
@@ -3069,7 +3143,7 @@ static void	windowmenu_cb	(Widget w, XtPointer data, XtPointer blah)
 
 
 
-static void	ctrl_btn_cb	(Widget w, XtPointer data, XtPointer blah)
+static void	ctrl_btn_cb	(Widget w, XtPointer data, XtPointer BOGUS(1))
 {
   StripDialogInfo	*sd;
   StripDialogCallback	which = (StripDialogCallback)data;
@@ -3080,7 +3154,9 @@ static void	ctrl_btn_cb	(Widget w, XtPointer data, XtPointer blah)
 }
 
 
-static void	dismiss_btn_cb	(Widget w, XtPointer data, XtPointer blah)
+static void	dismiss_btn_cb	(Widget 	BOGUS(1),
+                                 XtPointer 	data,
+                                 XtPointer 	BOGUS(2))
 {
   StripDialogInfo	*sd = (StripDialogInfo *)data;
 
@@ -3102,45 +3178,54 @@ static void	fsdlg_cb	(Widget w, XtPointer data, XtPointer call)
   if (mode == FSDLG_OK)
     if (XmStringGetLtoR (cbs->value, XmFONTLIST_DEFAULT_TAG, &fname))
       if (fname != NULL)
-	{
-	  XtVaGetValues (w, XmNuserData, &sd, NULL);
-	  if (f = fopen (fname, sd->fs.state == FSDLG_SAVE? "w" : "r"))
-	    {
-	      sd->fs.mask = 0;
-	      for (i = 0; i < FSDLG_TGL_COUNT; i++)
-		if (XmToggleButtonGetState (sd->fs.tgl[i]))
-		  sd->fs.mask |= FsDlgTglVal[i];
-	      if (sd->fs.state == FSDLG_SAVE)
-		{
-		  if (!StripConfig_write (sd->config, f, sd->fs.mask))
-		    MessageBox_popup
-		      (sd->shell, &sd->message_box,
-		       "Unable to write file", "Ok");
-		}
-	      else
-		{
-		  if (StripConfig_load (sd->config, f, sd->fs.mask))
-		    {
-		      StripConfig_setattr
-			(sd->config, STRIPCONFIG_TITLE, fname, 0);
-		      StripConfig_update
-			(sd->config, sd->fs.mask | STRIPCFGMASK_TITLE);
-		    }
-		  else
-		    {
-		      MessageBox_popup
-			(sd->shell, &sd->message_box,
-			 "Unable to load file", "Ok");
-		    }
-		}
-	      fclose (f);
-	    }
-	  else
-	    {
-	      MessageBox_popup
-		(sd->shell, &sd->message_box, "Unable to open file", "Ok");
-	    }
-	}
+      {
+        XtVaGetValues (w, XmNuserData, &sd, NULL);
+        if (f = fopen (fname, sd->fs.state == FSDLG_SAVE? "w" : "r"))
+        {
+          sd->fs.mask = 0;
+          for (i = 0; i < FSDLG_TGL_COUNT; i++)
+            if (XmToggleButtonGetState (sd->fs.tgl[i]))
+              sd->fs.mask |= FsDlgTglVal[i];
+          if (sd->fs.state == FSDLG_SAVE)
+          {
+            if (!StripConfig_write (sd->config, f, sd->fs.mask))
+              MessageBox_popup
+                (sd->shell, &sd->message_box,
+                 "Unable to write file", "Ok");
+          }
+          else
+          {
+            if (StripConfig_load (sd->config, f, sd->fs.mask))
+            {
+              /* let's use just the base name of the file, without
+               * the path */
+              char	*p;
+              
+              /* find end of string */
+              for (p = fname; *p; p++);
+              
+              /* move backwards, looking for '/' character, or
+               * beginning of string --whichever comes first. */
+              while ((p > fname) && (*p != '/')) p--;
+              if (*p == '/') p++;
+              
+              StripConfig_setattr (sd->config, STRIPCONFIG_TITLE, p, 0);
+              StripConfig_update (sd->config, sd->fs.mask | STRIPCFGMASK_TITLE);
+            }
+            else
+            {
+              MessageBox_popup
+                (sd->shell, &sd->message_box, "Unable to load file", "Ok");
+            }
+          }
+          fclose (f);
+        }
+        else
+        {
+          MessageBox_popup
+            (sd->shell, &sd->message_box, "Unable to open file", "Ok");
+        }
+      }
 }
 
 

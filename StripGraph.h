@@ -13,7 +13,7 @@
 #define _StripGraph
 
 #include "StripConfig.h"
-#include "StripDataBuffer.h"
+#include "StripDataSource.h"
 
 
 
@@ -56,11 +56,11 @@ SGComponentMask;
 /* ======= Status bits ======= */
 typedef enum
 {
-  SGSTAT_GRIDX_RECALC	= (1 << 0),	/* x-grid lines need recalculating */
-  SGSTAT_GRIDY_RECALC	= (1 << 1),	/* y-grid lines need recalculating */
-  SGSTAT_GRAPH_REFRESH	= (1 << 2),	/* do not scroll graph: repolot */
-  SGSTAT_LEGEND_REFRESH	= (1 << 3),	/* recalculate the legend */
-  SGSTAT_MANAGE_GEOMETRY= (1 << 4),	/* recalculate component lay-out */
+  SGSTAT_GRAPH_REFRESH	= (1 << 0),	/* do not scroll graph: repolot */
+  SGSTAT_LEGEND_REFRESH	= (1 << 1),	/* recalculate the legend */
+  SGSTAT_MANAGE_GEOMETRY= (1 << 2),	/* recalculate component lay-out */
+  SGSTAT_GRIDX_RECALC	= (1 << 3),
+  SGSTAT_GRIDY_RECALC	= (1 << 4)
 } StripGraphStatus;
 
 /* ======= Attributes ======= */
@@ -72,7 +72,7 @@ typedef enum
   STRIPGRAPH_WIDTH,		/* (int)     graph width in window	rw */
   STRIPGRAPH_HEIGHT,		/* (int)     graph height in window	rw */
   STRIPGRAPH_TITLE,		/* (char *)  graph title		rw */
-  STRIPGRAPH_DATA_BUFFER,	/* (StripDataBuffer)			rw */
+  STRIPGRAPH_DATA_SOURCE,	/* (StripDataSource)			rw */
   STRIPGRAPH_BEGIN_TIME,	/* (struct timeval *)			rw */
   STRIPGRAPH_END_TIME,		/* (struct timeval *)			rw */
   STRIPGRAPH_USER_DATA,		/* (void *)  miscellaneous client data	rw */
@@ -89,7 +89,10 @@ typedef enum
  *	Creates a new StripGraph data structure, setting all
  *	values to defaults.
  */
-StripGraph 	StripGraph_init		(Display *, Window, StripConfig *);
+StripGraph 	StripGraph_init		(Display *, 
+					 Window, 
+					 StripConfig *, 
+					 Widget); /* VTR */
 
 
 /*
@@ -132,7 +135,9 @@ int	StripGraph_removecurve	(StripGraph, StripCurve);
  *	the region is non-null, then output is restricted to that region
  *	of the window.
  */
-void 	StripGraph_draw		(StripGraph, SGComponentMask, Region *);
+void 	StripGraph_draw		(StripGraph,
+                                 unsigned,	/* mask */
+                                 Region *);
 
 
 /*
@@ -170,8 +175,8 @@ void	StripGraph_inputevent	(StripGraph, XEvent *);
  *	Get: 	returns true iff the specified status bit is high.
  *	Clear: 	sets the specified status bit low.
  */
-StripGraphStatus	StripGraph_setstat	(StripGraph, StripGraphStatus);
-StripGraphStatus	StripGraph_getstat	(StripGraph, StripGraphStatus);
-StripGraphStatus	StripGraph_clearstat	(StripGraph, StripGraphStatus);
+unsigned	StripGraph_setstat	(StripGraph, unsigned);
+unsigned	StripGraph_getstat	(StripGraph, unsigned);
+unsigned	StripGraph_clearstat	(StripGraph, unsigned);
  
 #endif

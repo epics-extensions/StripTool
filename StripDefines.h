@@ -18,6 +18,10 @@
  */
 #define STRIP_MAX_CURVES	10
 
+
+/* maximum number of bytes to use for caching sampled data */
+#define STRIP_MAX_CACHE_BYTES		(8L*1024L*1024L)	/* 8 megs */
+
 /* the maximum number of characters in a curve's name string */
 #define STRIP_MAX_NAME_CHAR		64
 

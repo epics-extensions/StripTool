@@ -8,8 +8,12 @@
  *-----------------------------------------------------------------------------
  */
 
-
 #include "StripConfig.h"
+
+#include <stdlib.h>
+#include <ctype.h>
+#include <X11/Xlib.h>
+#include <X11/Intrinsic.h>
 
 #define STRIPCFGMASK_FIRST_BIT	0
 #define STRIPCFGMASK_LAST_BIT	31
@@ -191,7 +195,7 @@ StripConfig	*StripConfig_init	(Display 		*dpy,
   if ((scfg->private_data = (void *)malloc (sizeof (StripCfgColorInfo)))
       != NULL)
     {
-      clr = scfg->private_data;
+      clr = (StripCfgColorInfo *)scfg->private_data;
       clr->display = dpy;
       clr->cmap = DefaultColormapOfScreen (screen);
       
@@ -217,6 +221,27 @@ StripConfig	*StripConfig_init	(Display 		*dpy,
 	  for (i = 0; i < pxv->colormap_size; i++)
 	    color_defs[i].pixel = (Pixel)i;
 	  XQueryColors (dpy, clr->cmap, color_defs, pxv->colormap_size);
+
+          /* VTR */
+#if defined(__cplusplus) || defined(C_plusplus)
+          if ((pxv->c_class == StaticColor) ||
+              (pxv->c_class == StaticGray) ||
+              (pxv->c_class == TrueColor))
+#else
+          if ((pxv->class == StaticColor) ||
+              (pxv->class == StaticGray) ||
+              (pxv->class == TrueColor))
+#endif
+          {
+            fprintf
+              (stderr,
+               "\n\n\tWarning!!\n"
+               "\tThis version does not work with\n"
+               "\tStaticColor, StaticGray, or TrueColor visuals.\n"
+               "\tFor instance;PC-Xware X server has only TrueColor visual.\n\n");
+	      return 0;
+          }
+          
 	  clr->cmap = XCreateColormap (dpy, w, pxv->visual, AllocAll);
 	  XStoreColors (dpy, clr->cmap, color_defs, pxv->colormap_size);
 	  
@@ -305,6 +330,8 @@ StripConfig	*StripConfig_init	(Display 		*dpy,
 	    scfg->Curves.Detail[i]->id		= STRIPDEF_CURVE_ID;
 	    scfg->Curves.Detail[i]->update_mask = 0;
 	    scfg->Curves.Detail[i]->set_mask = 0;
+
+            scfg->Curves.plot_order[i] = i;
 	  }
 
 	scfg->UpdateInfo.callback_count = 0;
@@ -366,7 +393,8 @@ int	StripConfig_setattr (StripConfig *scfg, ...)
 	  case STRIPCONFIG_TITLE:
 	    tmp.str = va_arg (ap, char *);
 	    if (scfg->title) free (scfg->title);
-	    scfg->title = strdup (tmp.str);
+	    if (tmp.str) scfg->title = strdup (tmp.str);
+	    else scfg->title = STRIPDEF_TITLE;
 	    scfg->UpdateInfo.update_mask |= STRIPCFGMASK_TITLE;
 	    break;
 	  case STRIPCONFIG_TIME_TIMESPAN:
@@ -767,6 +795,11 @@ int	StripConfig_write	(StripConfig 		*scfg,
 			 scfg->Curves.Detail[j]->name);
 		      break;
 		    case STRIPCFGMASK_CURVE_EGU:
+		      if (scfg->Curves.Detail[j]->egu[0] == 0)
+			break;
+		      if (strcmp (scfg->Curves.Detail[j]->egu,
+				  STRIPDEF_CURVE_EGU) == 0)
+			break;
 		      fprintf
 			(f, "%-*s%s\n",
 			 LEFT_COLUMNWIDTH, fbuf,
@@ -815,6 +848,8 @@ int	StripConfig_write	(StripConfig 		*scfg,
 	    }
 	}
     }
+
+  return 1;
 }
 
 
@@ -828,7 +863,7 @@ int	StripConfig_load	(StripConfig 		*scfg,
 {
   char		fbuf[256], ebuf[256];
   char		*p, *ptok, *pval;
-  SCFToken	token, token_min, token_max;
+  int		token, token_min, token_max;
   int		curve_idx;
   XColor	color_def;
   long		foffset;

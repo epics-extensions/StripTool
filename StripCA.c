@@ -33,7 +33,11 @@ static void	work_callback		(void *);
 static void	connect_callback	(struct connection_handler_args);
 static void	info_callback		(struct event_handler_args);
 static void	data_callback		(struct event_handler_args);
-static double	value_callback		(void *);
+static double	get_value		(void *);
+static int	get_history	(void *,
+                                 struct timeval *,
+                                 struct timeval *,
+                                 StripCurveHistory *);
 
 
 /*
@@ -95,7 +99,7 @@ int	StripCA_request_connect	(StripCurve curve, void *the_sca)
 
   if (ret_val = (i < STRIP_MAX_CURVES))
     {
-      StripCurve_setattr (curve, STRIPCURVE_SAMPLEDATA, &sca->chan_data[i], 0);
+      StripCurve_setattr (curve, STRIPCURVE_FUNCDATA, &sca->chan_data[i], 0);
       ret_val = ca_search_and_connect
 	((char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME),
 	 &sca->chan_data[i].chan_id,
@@ -131,7 +135,7 @@ int	StripCA_request_disconnect	(StripCurve 	curve,
   int			ret_val;
 
   cd = (struct _ChannelData *) StripCurve_getattr_val
-    (curve, STRIPCURVE_SAMPLEDATA);
+    (curve, STRIPCURVE_FUNCDATA);
 
   if (cd->event_id != NULL)
     {
@@ -209,7 +213,7 @@ static void	connect_callback	(struct connection_handler_args args)
 
   curve = (StripCurve)(ca_puser (args.chid));
   cd = (struct _ChannelData *)StripCurve_getattr_val
-    (curve, STRIPCURVE_SAMPLEDATA);
+    (curve, STRIPCURVE_FUNCDATA);
 
   switch (ca_state (args.chid))
     {
@@ -267,7 +271,7 @@ static void	info_callback		(struct event_handler_args args)
 
   curve = (StripCurve)(ca_puser (args.chid));
   cd = (struct _ChannelData *)StripCurve_getattr_val
-    (curve, STRIPCURVE_SAMPLEDATA);
+    (curve, STRIPCURVE_FUNCDATA);
 
   if (args.status != ECA_NORMAL)
     {
@@ -339,7 +343,7 @@ static void	data_callback		(struct event_handler_args args)
 
   curve = (StripCurve)ca_puser (args.chid);
   cd = (struct _ChannelData *)StripCurve_getattr_val
-    (curve, STRIPCURVE_SAMPLEDATA);
+    (curve, STRIPCURVE_FUNCDATA);
 
   if (args.status != ECA_NORMAL)
     {
@@ -349,24 +353,17 @@ static void	data_callback		(struct event_handler_args args)
 	 "  [%s] get: %s\n",
 	 ca_name(cd->chan_id),
 	 ca_message_text[CA_EXTRACT_MSG_NO(args.status)]);
-      StripCurve_setstat
-	(curve, STRIPCURVE_WAITING | STRIPCURVE_CHECK_CONNECT);
+      Strip_setwaiting (cd->this->strip, curve);
     }
   else
     {
       if (StripCurve_getstat (curve, STRIPCURVE_WAITING))
 	{
-	  if (!StripCurve_getstat (curve, STRIPCURVE_CONNECTED))
-	    {
-	      StripCurve_setattr
-		(curve, STRIPCURVE_SAMPLEFUNC, value_callback, 0);
-	      Strip_setconnected (cd->this->strip, curve);
-	    }
-	  else
-	    {
-	      StripCurve_clearstat (curve, STRIPCURVE_WAITING);
-	      StripCurve_clearstat (curve, STRIPCURVE_CHECK_CONNECT);
-	    }
+	  StripCurve_setattr
+	    (curve, STRIPCURVE_SAMPLEFUNC, get_value, 0);
+	  StripCurve_setattr
+	    (curve, STRIPCURVE_HISTORYFUNC, get_history, 0);
+	  Strip_setconnected (cd->this->strip, curve);
 	}
       sts = (struct dbr_sts_double *)args.dbr;
       cd->value = sts->value;
@@ -375,13 +372,28 @@ static void	data_callback		(struct event_handler_args args)
 
 
 /*
- * value_callback
+ * get_value
  *
  *	Returns the current value specified by the CurveData passed in.
  */
-static double	value_callback	(void *data)
+static double	get_value	(void *data)
 {
   struct _ChannelData	*cd = (struct _ChannelData *)data;
 
   return cd->value;
+}
+
+
+
+/*
+ * get_history
+ *
+ */
+static int	get_history	(void 			*data,
+                                 struct timeval		*t0,
+                                 struct timeval		*t1,
+                                 StripCurveHistory	*history)
+{
+  fprintf (stdout, "StripCA: no history available!");
+  return 0;
 }

@@ -10,6 +10,7 @@
 
 
 #include "ColorDialog.h"
+#include "StripMisc.h"
 
 #include <X11/Xlib.h>
 #include <Xm/Frame.h>
@@ -22,6 +23,7 @@
 #include <Xm/Separator.h>
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #define RGB_FILE			"/usr/lib/X11/rgb.txt"
 #define DEF_WOFFSET			3
@@ -82,10 +84,8 @@ ColorDialog	ColorDialog_init	(Display *d, Colormap c, char *title)
 {
   ColorDialogInfo	*cd;
   Widget		frame1, frame2, base_form, form;
-  Widget		act_area, ctrl_area;
   Widget		btn, w;
   XmString		str;
-  int			clr;
 
   if ((cd = (ColorDialogInfo *)malloc (sizeof (ColorDialogInfo))) != NULL)
     {
@@ -302,7 +302,6 @@ static int	ColorDialog_build_dialog	(ColorDialogInfo *cd)
   char		*p, *c;
   int		i, n;
   int		buf_idx;
-  XmString	xstr;
   XmStringTable	name_list;
   int		ret_val;
   Widget	form, lbl, sep, btn, w;
@@ -463,35 +462,38 @@ void 	slider_drag	(Widget 	w,
   XtVaGetValues (w, XmNuserData, &cd, NULL);
 
   switch (which)
-    {
-    case Red:
-      cd->color.red = cbs->value;
-      cd->color.flags = DoRed;
-      break;
-    case Green:
-      cd->color.green = cbs->value;
-      cd->color.flags = DoGreen;
-      break;
-    case Blue:
-      cd->color.blue = cbs->value;
-      cd->color.flags = DoBlue;
-      break;
-    }
+  {
+      case Red:
+        cd->color.red = cbs->value;
+        cd->color.flags = DoRed;
+        break;
+      case Green:
+        cd->color.green = cbs->value;
+        cd->color.flags = DoGreen;
+        break;
+      case Blue:
+        cd->color.blue = cbs->value;
+        cd->color.flags = DoBlue;
+        break;
+      default:
+        fprintf (stderr, "Argh!\n");
+        exit (1);
+  }
 
   XStoreColor (cd->display, cd->cmap, &cd->color);
 }
 
-void 	dismiss_push	(Widget 	w,
+void 	dismiss_push	(Widget		BOGUS(1),
 			 XtPointer	client_data,
-			 XtPointer 	call_data)
+			 XtPointer	BOGUS(2))
 {
   ColorDialogInfo	*cd = (ColorDialogInfo *)client_data;
   ColorDialog_popdown (cd);
 }
 
-void 	names_push	(Widget 	w,
+void 	names_push	(Widget		BOGUS(1),
 			 XtPointer	client_data,
-			 XtPointer 	call_data)
+			 XtPointer	BOGUS(2))
 {
   ColorDialogInfo	*cd = (ColorDialogInfo *)client_data;
   Dimension		width;
@@ -517,7 +519,7 @@ void 	names_push	(Widget 	w,
 
 void	name_dlg_cb	(Widget 	w,
 			 XtPointer	client_data,
-			 XtPointer 	call_data)
+			 XtPointer	BOGUS(1))
 {
   ColorDialogInfo	*cd;
   int 			button = (int)client_data;

@@ -22,6 +22,10 @@ StripCurve	StripCurve_init (StripConfig *scfg)
       sc->details 	= NULL;
       sc->func_data	= NULL;
       sc->get_value	= NULL;
+      sc->get_history	= NULL;
+      sc->history.time	= NULL;
+      sc->history.data	= NULL;
+      sc->history.n	= 0;
       sc->status	= 0;
     }
 
@@ -96,7 +100,7 @@ int		StripCurve_setattr	(StripCurve the_sc, ...)
 	  case STRIPCURVE_SAMPLEFUNC:
 	    sc->get_value = va_arg (ap, StripCurveSampleFunc);
 	    break;
-	  case STRIPCURVE_SAMPLEDATA:
+	  case STRIPCURVE_FUNCDATA:
 	    sc->func_data = va_arg (ap, void *);
 	    break;
 	  }
@@ -147,11 +151,14 @@ int		StripCurve_getattr	(StripCurve the_sc, ...)
 	  case STRIPCURVE_COLOR:
 	    *(va_arg (ap, Pixel*)) = sc->details->pixel;
 	    break;
+	  case STRIPCURVE_FUNCDATA:
+	    *(va_arg (ap, void **)) = sc->func_data;
+	    break;
 	  case STRIPCURVE_SAMPLEFUNC:
 	    *(va_arg (ap, StripCurveSampleFunc *)) = sc->get_value;
 	    break;
-	  case STRIPCURVE_SAMPLEDATA:
-	    *(va_arg (ap, void **)) = sc->func_data;
+	  case STRIPCURVE_HISTORYFUNC:
+	    *(va_arg (ap, StripCurveHistoryFunc *)) = sc->get_history;
 	    break;
 	  }
       else break;
@@ -159,6 +166,14 @@ int		StripCurve_getattr	(StripCurve the_sc, ...)
   va_end (ap);
   return ret_val;
 }
+
+
+void	StripCurve_update	(StripCurve the_sc)
+{
+  StripCurveInfo	*sc = (StripCurveInfo *)the_sc;
+
+  StripConfig_update (sc->scfg, STRIPCFGMASK_CURVE);
+}  
 
 
 /*
@@ -172,34 +187,26 @@ void	*StripCurve_getattr_val	(StripCurve the_sc, StripCurveAttribute attrib)
     {
     case STRIPCURVE_NAME:
       return (void *)sc->details->name;
-      break;
     case STRIPCURVE_EGU:
       return (void *)sc->details->egu;
-      break;
     case STRIPCURVE_PRECISION:
       return (void *)&sc->details->precision;
-      break;
     case STRIPCURVE_MIN:
       return (void *)&sc->details->min;
-      break;
     case STRIPCURVE_MAX:
       return (void *)&sc->details->max;
-      break;
     case STRIPCURVE_PENSTAT:
       return (void *)&sc->details->penstat;
-      break;
     case STRIPCURVE_PLOTSTAT:
       return (void *)&sc->details->plotstat;
-      break;
     case STRIPCURVE_COLOR:
       return (void *)&sc->details->pixel;
-      break;
+    case STRIPCURVE_FUNCDATA:
+      return (void *)sc->func_data;
     case STRIPCURVE_SAMPLEFUNC:
       return (void *)sc->get_value;
-      break;
-    case STRIPCURVE_SAMPLEDATA:
-      return (void *)sc->func_data;
-      break;
+    case STRIPCURVE_HISTORYFUNC:
+      return (void *)sc->get_history;
     }
 }
 
@@ -207,38 +214,42 @@ void	*StripCurve_getattr_val	(StripCurve the_sc, StripCurveAttribute attrib)
 /*
  * StripCurve_setstat
  */
-StripCurveStatus	StripCurve_setstat	(StripCurve       the_sc,
-						 StripCurveStatus stat)
+StripCurveStatus	StripCurve_setstat	(StripCurve	the_sc,
+						 unsigned	stat)
 {
+  unsigned long		ret;
   StripCurveInfo	*sc = (StripCurveInfo *)the_sc;
 
   sc->details->set_mask |= (stat & STRIPCFGMASK_CURVE);
   sc->status |= stat;
-  return (((sc->details->set_mask & STRIPCFGMASK_CURVE) | sc->status) &
-	  stat);
+  ret = (((sc->details->set_mask & STRIPCFGMASK_CURVE) | sc->status) & stat);
+  return (StripCurveStatus)ret;
 }
 
 /*
  * StripCurve_getstat
  */
-StripCurveStatus	StripCurve_getstat	(StripCurve       the_sc,
-						 StripCurveStatus stat)
+StripCurveStatus	StripCurve_getstat	(StripCurve	the_sc,
+						 unsigned	stat)
 {
+  unsigned long		ret;
   StripCurveInfo	*sc = (StripCurveInfo *)the_sc;
 
-  return (((sc->details->set_mask & STRIPCFGMASK_CURVE) | sc->status) & stat);
+  ret = (((sc->details->set_mask & STRIPCFGMASK_CURVE) | sc->status) & stat);
+  return (StripCurveStatus)ret;
 }
 
 /*
  * StripCurve_clearstat
  */
-StripCurveStatus	StripCurve_clearstat	(StripCurve       the_sc,
-						 StripCurveStatus stat)
+StripCurveStatus	StripCurve_clearstat	(StripCurve	the_sc,
+						 unsigned	stat)
 {
+  unsigned long		ret;
   StripCurveInfo	*sc = (StripCurveInfo *)the_sc;
 
   sc->details->set_mask &= ~(stat & STRIPCFGMASK_CURVE);
   sc->status &= ~stat;
-  return (((sc->details->set_mask & STRIPCFGMASK_CURVE) | sc->status) &
-	  stat);
+  ret = (((sc->details->set_mask & STRIPCFGMASK_CURVE) | sc->status) & stat);
+  return (StripCurveStatus)ret;
 }

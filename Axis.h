@@ -12,7 +12,7 @@
 #ifndef _Axis
 #define _Axis
 
-#include <StripConfig.h>
+#include "StripConfig.h"
 
 #include <X11/Xlib.h>
 #include <stdarg.h>
@@ -45,6 +45,7 @@ typedef enum
   AXIS_MAX,		/* (double/struct timeval *)			rw */
   AXIS_PRECISION,	/* (int)					rw */
   AXIS_VALCOLOR,	/* (Pixel)					rw */
+  AXIS_NEWTICS,		/* (int)					r  */
   AXIS_NUM_ATTRIBUTES
 }
 AxisAttribute;

@@ -108,42 +108,42 @@ typedef enum
 }
 StripConfigAttribute;
 
-typedef enum
-{
-  STRIPCFGMASK_TITLE			= (1 << 0),
-  STRIPCFGMASK_TIME_TIMESPAN 		= (1 << 1),
-  STRIPCFGMASK_TIME_SAMPLE_INTERVAL	= (1 << 2),
-  STRIPCFGMASK_TIME_REFRESH_INTERVAL	= (1 << 3),
-  STRIPCFGMASK_COLOR_BACKGROUND		= (1 << 4),
-  STRIPCFGMASK_COLOR_FOREGROUND		= (1 << 5),
-  STRIPCFGMASK_COLOR_GRID		= (1 << 6),
-  STRIPCFGMASK_COLOR_LEGENDTEXT		= (1 << 7),
-  STRIPCFGMASK_COLOR_COLOR1		= (1 << 8),
-  STRIPCFGMASK_COLOR_COLOR2		= (1 << 9),
-  STRIPCFGMASK_COLOR_COLOR3		= (1 << 10),
-  STRIPCFGMASK_COLOR_COLOR4		= (1 << 11),
-  STRIPCFGMASK_COLOR_COLOR5		= (1 << 12),
-  STRIPCFGMASK_COLOR_COLOR6		= (1 << 13),
-  STRIPCFGMASK_COLOR_COLOR7		= (1 << 14),
-  STRIPCFGMASK_COLOR_COLOR8		= (1 << 15),
-  STRIPCFGMASK_COLOR_COLOR9		= (1 << 16),
-  STRIPCFGMASK_COLOR_COLOR10		= (1 << 17),
-  STRIPCFGMASK_OPTION_GRID_XON		= (1 << 18),
-  STRIPCFGMASK_OPTION_GRID_YON		= (1 << 19),
-  STRIPCFGMASK_OPTION_AXIS_XNUMTICS	= (1 << 20),
-  STRIPCFGMASK_OPTION_AXIS_YNUMTICS	= (1 << 21),
-  STRIPCFGMASK_OPTION_AXIS_YCOLORSTAT	= (1 << 22),
-  STRIPCFGMASK_OPTION_GRAPH_LINEWIDTH	= (1 << 23),
-  STRIPCFGMASK_OPTION_LEGEND_VISIBLE	= (1 << 24),
-  STRIPCFGMASK_CURVE_NAME		= (1 << 25),
-  STRIPCFGMASK_CURVE_EGU		= (1 << 26),
-  STRIPCFGMASK_CURVE_PRECISION		= (1 << 27),
-  STRIPCFGMASK_CURVE_MIN		= (1 << 28),
-  STRIPCFGMASK_CURVE_MAX		= (1 << 29),
-  STRIPCFGMASK_CURVE_PENSTAT		= (1 << 30),
-  STRIPCFGMASK_CURVE_PLOTSTAT		= ((unsigned)1 << 31),
-}
-StripConfigMask;
+typedef unsigned long	StripConfigMask;
+
+#define STRIPCFGMASK_TITLE			(StripConfigMask)(1 << 0)
+#define STRIPCFGMASK_TIME_TIMESPAN 		(StripConfigMask)(1 << 1)
+#define STRIPCFGMASK_TIME_SAMPLE_INTERVAL	(StripConfigMask)(1 << 2)
+#define STRIPCFGMASK_TIME_REFRESH_INTERVAL	(StripConfigMask)(1 << 3)
+#define STRIPCFGMASK_COLOR_BACKGROUND		(StripConfigMask)(1 << 4)
+#define STRIPCFGMASK_COLOR_FOREGROUND		(StripConfigMask)(1 << 5)
+#define STRIPCFGMASK_COLOR_GRID			(StripConfigMask)(1 << 6)
+#define STRIPCFGMASK_COLOR_LEGENDTEXT		(StripConfigMask)(1 << 7)
+#define STRIPCFGMASK_COLOR_COLOR1		(StripConfigMask)(1 << 8)
+#define STRIPCFGMASK_COLOR_COLOR2		(StripConfigMask)(1 << 9)
+#define STRIPCFGMASK_COLOR_COLOR3		(StripConfigMask)(1 << 10)
+#define STRIPCFGMASK_COLOR_COLOR4		(StripConfigMask)(1 << 11)
+#define STRIPCFGMASK_COLOR_COLOR5		(StripConfigMask)(1 << 12)
+#define STRIPCFGMASK_COLOR_COLOR6		(StripConfigMask)(1 << 13)
+#define STRIPCFGMASK_COLOR_COLOR7		(StripConfigMask)(1 << 14)
+#define STRIPCFGMASK_COLOR_COLOR8		(StripConfigMask)(1 << 15)
+#define STRIPCFGMASK_COLOR_COLOR9		(StripConfigMask)(1 << 16)
+#define STRIPCFGMASK_COLOR_COLOR10		(StripConfigMask)(1 << 17)
+#define STRIPCFGMASK_OPTION_GRID_XON		(StripConfigMask)(1 << 18)
+#define STRIPCFGMASK_OPTION_GRID_YON		(StripConfigMask)(1 << 19)
+#define STRIPCFGMASK_OPTION_AXIS_XNUMTICS	(StripConfigMask)(1 << 20)
+#define STRIPCFGMASK_OPTION_AXIS_YNUMTICS	(StripConfigMask)(1 << 21)
+#define STRIPCFGMASK_OPTION_AXIS_YCOLORSTAT	(StripConfigMask)(1 << 22)
+#define STRIPCFGMASK_OPTION_GRAPH_LINEWIDTH	(StripConfigMask)(1 << 23)
+#define STRIPCFGMASK_OPTION_LEGEND_VISIBLE	(StripConfigMask)(1 << 24)
+#define STRIPCFGMASK_CURVE_NAME			(StripConfigMask)(1 << 25)
+#define STRIPCFGMASK_CURVE_EGU			(StripConfigMask)(1 << 26)
+#define STRIPCFGMASK_CURVE_PRECISION		(StripConfigMask)(1 << 27)
+#define STRIPCFGMASK_CURVE_MIN			(StripConfigMask)(1 << 28)
+#define STRIPCFGMASK_CURVE_MAX			(StripConfigMask)(1 << 29)
+#define STRIPCFGMASK_CURVE_PENSTAT		(StripConfigMask)(1 << 30)
+#define STRIPCFGMASK_CURVE_PLOTSTAT		(StripConfigMask)(1 << 31)
+
+
 
 #define	STRIPCFGMASK_TIME \
 (STRIPCFGMASK_TIME_TIMESPAN 		| \
@@ -212,6 +212,7 @@ StripCurveDetail;
 typedef struct _StripConfig
 {
   char				*title;
+  FILE				*logfile;
   
   struct _Time {
     unsigned			timespan;
@@ -239,6 +240,7 @@ typedef struct _StripConfig
 
   struct _Curves {
     StripCurveDetail		*Detail[STRIP_MAX_CURVES];
+    int				plot_order[STRIP_MAX_CURVES];
   } Curves;
 
   struct _UpdateInfo {

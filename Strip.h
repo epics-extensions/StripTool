@@ -22,6 +22,7 @@
 typedef void *	Strip;
 typedef int	(*StripCallback) 	(StripCurve, void *);
 typedef void	(*StripFDCallback) 	(void *);
+typedef void	(*StripTOCallback) 	(void *);
 
 
 
@@ -47,9 +48,13 @@ StripAttribute;
  *	Creates a new strip data structure, setting all values to defaults.
  *	The first argument is the application name.  the other two are the
  *	command line specs.  If the application name is NULL, then argv[0]
- *	is used.
+ *	is used.  The last argument is the FILE pointer to which all error/
+ *	status messages are written.
  */
-Strip 	Strip_init	(char *app_name, int *argc, char *argv[]);
+Strip 	Strip_init	(char	*app_name,
+			 int 	*argc,
+			 char 	*argv[],
+			 FILE 	*logfile);
 
 
 /*
@@ -105,6 +110,18 @@ void	Strip_freesomecurves	(Strip, StripCurve[]);
 int	Strip_addfd	(Strip,
 			 int,			/* file descriptor */
 			 StripFDCallback,	/* callback function */
+			 void *);		/* callback data */
+
+
+/*
+ * Strip_addtimeout
+ *
+ *	Calls the given callback once the specified time span has passed.
+ *	If the timeout cannot be registered, false is returned.
+ */
+int	Strip_addtimeout(Strip,
+			 double,		/* num seconds */
+			 StripTOCallback,	/* callback function */
 			 void *);		/* callback data */
 
 
@@ -211,6 +228,5 @@ int	Strip_writeconfig	(Strip, FILE *, StripConfigMask);
  *	specified mask are then pushed into the current configuration.  See
  *	StripConfig.h for more info.
  */
-int	Strip_readconfig	(Strip, FILE *, StripConfigMask);
-
+int	Strip_readconfig	(Strip, FILE *, StripConfigMask, char *); /*VTR*/
 #endif

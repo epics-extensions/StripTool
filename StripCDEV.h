@@ -32,7 +32,7 @@ StripCDEV	StripCDEV_initialize	(Strip);
  *
  *	Frees cdev and internal resources allocated by initialize().
  */
-void		StripCDEV_Terminate	(StripCDEV);
+void		StripCDEV_terminate	(StripCDEV);
 
 
 
@@ -42,7 +42,7 @@ void		StripCDEV_Terminate	(StripCDEV);
  *	Requests that the signal specified in the StripCurve be connected
  *	to a cdev device.
  */
-int		StripCDEV_request_connect	(StripCurve, void *);
+int		StripCDEV_request_connect	(StripCurve, StripCDEV);
 
 
 /*
@@ -51,6 +51,6 @@ int		StripCDEV_request_connect	(StripCurve, void *);
  *	Requests that the signal specified in the StripCurve be disconnected
  *	from its cdev device.
  */
-int		StripCADEV_request_disconnect	(StripCurve, void *);
+int		StripCDEV_request_disconnect	(StripCurve, StripCDEV);
 
 #endif

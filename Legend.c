@@ -69,19 +69,18 @@ static void	initialize	(Display *display, int screen);
 static void	Legend_draw 	(LegendInfo *legend, Drawable canvas);
 
 static int	initialized = 0;
-static int	ItemMaxWidth, ItemMaxHeight;
 
 static void	initialize	(Display *display, int screen)
 {
   int pixels_per_mm;
 
-  pixels_per_mm = (double)DisplayWidth(display, screen) /
-    (double)DisplayWidthMM(display, screen);
-  ItemMaxWidth = pixels_per_mm * LEGEND_ITEM_MAX_WIDTH;
+  pixels_per_mm = (int)
+    ((double)DisplayWidth(display, screen) /
+     (double)DisplayWidthMM(display, screen));
 
-  pixels_per_mm = (double)DisplayHeight(display, screen) /
-    (double)DisplayHeightMM(display, screen);
-  ItemMaxHeight = pixels_per_mm * LEGEND_ITEM_MAX_HEIGHT;
+  pixels_per_mm = (int)
+    ((double)DisplayHeight(display, screen) /
+     (double)DisplayHeightMM(display, screen));
 
   initialized = 1;
 }
@@ -92,7 +91,7 @@ static void	initialize	(Display *display, int screen)
 Legend	Legend_init (Display 		*display,
 		     int 		screen,
 		     Window 		window,
-		     GC 		gc,
+		     GC			BOGUS(1),
 		     StripConfig 	*cfg)
 {
   int			mem_error;
@@ -238,7 +237,7 @@ int	Legend_getattr (Legend the_legend, ...)
 	    *(va_arg (ap, int *)) = legend->height;
 	    break;
 	  case LEGEND_WINDOW:
-	    *(va_arg (ap, int *)) = legend->window;
+	    *(va_arg (ap, int *)) = (int)legend->window;
 	    break;
 	  case LEGEND_XPOS:
 	    *(va_arg (ap, int *)) = legend->xpos;
@@ -379,9 +378,7 @@ void	Legend_hide	(Legend the_legend)
 static void	Legend_draw (LegendInfo *legend, Drawable canvas)
 {
   int			i;
-  int			good_fit;
-  int			bound_h, bound_w;
-  int			dummy1, dummy2;
+  int			bound_h, bound_w, tmp;
   int			xpos, ypos;
   char			minstr[MAX_REALNUM_LEN+1], maxstr[MAX_REALNUM_LEN+1];
   char			minmax[(STRIPMAX_CURVE_PRECISION*2)+5];
@@ -407,7 +404,7 @@ static void	Legend_draw (LegendInfo *legend, Drawable canvas)
 	(legend->display, legend->gc, legend->config->Color.background);
       XFillRectangle
 	(legend->display, legend->pixmap, legend->gc,
-	 0, 0, legend->width, legend->height);
+	 0, 0, legend->width+1, legend->height+1);
     }
 	 
   if (legend->n_items > 0)
@@ -533,16 +530,20 @@ static void	Legend_draw (LegendInfo *legend, Drawable canvas)
 		(legend->items[i].crv->details->max,
 		 legend->items[i].crv->details->precision,
 		 maxstr, MAX_REALNUM_LEN);
-	      bound_w = max (strlen (minstr), strlen (maxstr));
-	      sprintf
-		(minmax, "(%-*s, %*s)", bound_w, minstr, bound_w, maxstr);
+	      tmp = max (strlen (minstr), strlen (maxstr));
+	      sprintf (minmax, "(%-*s, %*s)", tmp, minstr, tmp, maxstr);
 	      
 	      ypos += legend->font_info->ascent + legend->font_info->descent;
+              font = get_font 
+		(legend->display, bound_h, minmax, bound_w, 0,
+                 STRIPCHARSET_REALNUM);
+              XSetFont (legend->display, legend->gc, font->fid);
 	      XDrawString
 		(legend->display, legend->pixmap, legend->gc,
 		 xpos+1, ypos+legend->font_info->ascent,
 		 minmax,
 		 strlen (minmax));
+              XSetFont (legend->display, legend->gc, legend->font_info->fid);
 	    }
 	}
     }

@@ -55,7 +55,7 @@ typedef struct
   int			recalc;		/* true if need tic info, etc. */
   int			resized; 	/* true if axis must be resized */
   int			new_range;	/* true if new min or max */
-  int			recent_ntics;	/* most recent number of tics */
+  int			new_tics;	/* set true when new tics are calculated */
   XFontStruct		*font_info;
   Pixel			val_pixel;
   int			precision;
@@ -95,62 +95,61 @@ Axis	Axis_init
   int		i;
 
   if ((axis = (AxisInfo *)malloc (sizeof(AxisInfo))) != NULL)
-    {
-      axis->orient 	= orient;
-      axis->type 	= type;
-      axis->config	= config;
-      axis->label 	= NULL;
+  {
+    axis->orient 	= orient;
+    axis->type 	= type;
+    axis->config	= config;
+    axis->label 	= NULL;
       
-      if ((axis->minval = (void *)malloc (AxisValueType_size[axis->type]))
-	  == NULL)
-	mem_error = 1;
-      else if ((axis->maxval = (void *)malloc (AxisValueType_size[axis->type]))
-	       == NULL)
-	mem_error = 1;
+    if ((axis->minval = (void *)malloc (AxisValueType_size[axis->type]))
+        == NULL)
+      mem_error = 1;
+    else if ((axis->maxval = (void *)malloc (AxisValueType_size[axis->type]))
+             == NULL)
+      mem_error = 1;
+    else
+    {
+      switch (axis->type)
+      {
+          case AxisReal:
+            *(double *)axis->minval = (double)DEF_MIN;
+            *(double *)axis->maxval = (double)DEF_MAX;
+            break;
+          case AxisTime:
+            ((struct timeval *)axis->minval)->tv_sec = DEF_MIN;
+            ((struct timeval *)axis->minval)->tv_usec = 0;
+            ((struct timeval *)axis->maxval)->tv_sec = DEF_MAX;
+            ((struct timeval *)axis->maxval)->tv_usec = 0;
+            break;
+          default:
+            printf ("\nAxis: bad axis type\n");
+            mem_error = 1;
+      }
+      axis->value_buf = (void *)malloc
+        ((MAX_TICS+1) * AxisValueType_size[axis->type]);
+      if (axis->value_buf == NULL)
+        mem_error = 1;
       else
-	{
-	  switch (axis->type)
-	    {
-	    case AxisReal:
-	      *(double *)axis->minval = (double)DEF_MIN;
-	      *(double *)axis->maxval = (double)DEF_MAX;
-	      break;
-	    case AxisTime:
-	      ((struct timeval *)axis->minval)->tv_sec = DEF_MIN;
-	      ((struct timeval *)axis->minval)->tv_usec = 0;
-	      ((struct timeval *)axis->maxval)->tv_sec = DEF_MAX;
-	      ((struct timeval *)axis->maxval)->tv_usec = 0;
-	      break;
-	    default:
-	      printf ("\nAxis: bad axis type\n");
-	      mem_error = 1;
-	    }
-	  axis->value_buf = (void *)malloc
-	    ((MAX_TICS+1) * AxisValueType_size[axis->type]);
-	  if (axis->value_buf == NULL)
-	    mem_error = 1;
-	  else
-	    {
-	      for (i = 0; i < MAX_TICS + 1; i++)
-		axis->tics[i].value = (void *)
-		  ((char *)axis->value_buf +
-		   i * AxisValueType_size[axis->type]);
+      {
+        for (i = 0; i < MAX_TICS + 1; i++)
+          axis->tics[i].value = (void *)
+            ((char *)axis->value_buf +
+             i * AxisValueType_size[axis->type]);
 	      
-	      axis->x0 = axis->y0 = axis->x1 = axis->y1 = -1;
-	      axis->recalc = axis->resized = 1;
-	      axis->granularity = 0;
-	      axis->precision = DEF_AXIS_PRECISION;
-	      axis->val_pixel = 0;
-	      axis->recent_ntics = 0;
-	    }
-	}
+        axis->x0 = axis->y0 = axis->x1 = axis->y1 = -1;
+        axis->recalc = axis->resized = axis->new_tics = 1;
+        axis->granularity = 0;
+        axis->precision = DEF_AXIS_PRECISION;
+        axis->val_pixel = 0;
+      }
     }
+  }
 
   if (mem_error)
-    {
-      Axis_delete (axis);
-      axis = NULL;
-    }
+  {
+    Axis_delete (axis);
+    axis = NULL;
+  }
   return axis;
 }
 
@@ -161,13 +160,13 @@ void Axis_delete (Axis the_axis)
   AxisInfo	*axis = (AxisInfo *)the_axis;
 
   if (axis != NULL)
-    {
-      if (axis->label != NULL) free (axis->label);
-      if (axis->minval != NULL) free (axis->minval);
-      if (axis->maxval != NULL) free (axis->maxval);
-      if (axis->value_buf != NULL) free (axis->value_buf);
-      free (axis);
-    }
+  {
+    if (axis->label != NULL) free (axis->label);
+    if (axis->minval != NULL) free (axis->minval);
+    if (axis->maxval != NULL) free (axis->maxval);
+    if (axis->value_buf != NULL) free (axis->value_buf);
+    free (axis);
+  }
 }
 
 
@@ -187,10 +186,10 @@ int Axis_setattr (Axis the_axis, ...)
   for (attrib = va_arg (ap, AxisAttribute);
        (attrib != 0);
        attrib = va_arg (ap, AxisAttribute))
-    {
-      if ((ret_val = ((attrib > 0) && (attrib < AXIS_NUM_ATTRIBUTES))))
-	switch (attrib)
-	  {
+  {
+    if ((ret_val = ((attrib > 0) && (attrib < AXIS_NUM_ATTRIBUTES))))
+      switch (attrib)
+      {
 	  case AXIS_LABEL:
 	    free (axis->label);
 	    axis->label = strdup (va_arg (ap, char *));
@@ -199,71 +198,75 @@ int Axis_setattr (Axis the_axis, ...)
 	    
 	  case AXIS_MIN:
 	    switch (axis->type)
-	      {
-	      case AxisReal:
-		r = va_arg (ap, double);
-		if (r != *(double *)axis->minval)
+            {
+                case AxisReal:
+                  r = va_arg (ap, double);
+                  if (r != *(double *)axis->minval)
 		  {
 		    axis->recalc =  axis->new_range = 1;
 		    *(double *)axis->minval = r;
 		  }
-		break;
-	      case AxisTime:
-		t = va_arg (ap, struct timeval *);
-		if (compare_times (t, (struct timeval *)axis->minval) != 0)
+                  break;
+                case AxisTime:
+                  t = va_arg (ap, struct timeval *);
+                  if (compare_times (t, (struct timeval *)axis->minval) != 0)
 		  {
 		    axis->recalc = axis->new_range = 1;
 		    Axis_copyval (axis, axis->minval, t);
 		  }
-		break;
-	      default:
-		printf ("Axis: bad axis type\n");
-	      }
+                  break;
+                default:
+                  printf ("Axis: bad axis type\n");
+            }
 	    break;
 	    
 	  case AXIS_MAX:
 	    switch (axis->type)
-	      {
-	      case AxisReal:
-		r = va_arg (ap, double);
-		if (r != *(double *)axis->maxval)
+            {
+                case AxisReal:
+                  r = va_arg (ap, double);
+                  if (r != *(double *)axis->maxval)
 		  {
 		    axis->recalc = axis->new_range = 1;
 		    *(double *)axis->maxval = r;
 		  }
-		break;
-	      case AxisTime:
-		t = va_arg (ap, struct timeval *);
-		if (compare_times (t, (struct timeval *)axis->maxval) != 0)
+                  break;
+                case AxisTime:
+                  t = va_arg (ap, struct timeval *);
+                  if (compare_times (t, (struct timeval *)axis->maxval) != 0)
 		  {
 		    axis->recalc = axis->new_range = 1;
 		    Axis_copyval (axis, axis->maxval, t);
 		  }
-		break;
-	      default:
-		printf ("Axis: bad axis type\n");
-	      }
+                  break;
+                default:
+                  printf ("Axis: bad axis type\n");
+            }
 	    break;
 
 	  case AXIS_PRECISION:
 	    tmp = va_arg (ap, int);
 	    if (tmp != axis->precision)
-	      {
-		axis->precision = tmp;
-		axis->recalc = 1;
-	      }
+            {
+              axis->precision = tmp;
+              axis->recalc = 1;
+            }
 	    break;
 	    
 	  case AXIS_VALCOLOR:
 	    axis->val_pixel = va_arg (ap, Pixel);
 	    break;
+
+          case AXIS_NEWTICS:
+            axis->new_tics = va_arg (ap, int);
+            break;
 	    
 	  default:
 	    fprintf (stderr, "Axis_setattr: cannot set read-only attribute\n");
 	    ret_val = 0;
-	  }
-      else break;
-    }
+      }
+    else break;
+  }
   va_end (ap);
 
   return ret_val;
@@ -285,10 +288,10 @@ int Axis_getattr (Axis the_axis, ...)
   for (attrib = va_arg (ap, AxisAttribute);
        attrib != 0;
        attrib = va_arg (ap, AxisAttribute))
-    {
-      if ((ret_val = ((attrib > 0) && (attrib < AXIS_NUM_ATTRIBUTES))))
-	switch (attrib)
-	  {
+  {
+    if ((ret_val = ((attrib > 0) && (attrib < AXIS_NUM_ATTRIBUTES))))
+      switch (attrib)
+      {
 	  case AXIS_LABEL:
 	    *(va_arg (ap, char **)) = axis->label;
 	    break;
@@ -309,7 +312,7 @@ int Axis_getattr (Axis the_axis, ...)
 	    else tmp = axis->config->Option.axis_ynumtics;
 	    
 	    for (i = 0; i < tmp; i++)
-		array[i] = axis->tics[i+1].offset;
+              array[i] = axis->tics[i].offset;
 	    break;
 	    
 	  case AXIS_GRANULARITY:
@@ -318,32 +321,32 @@ int Axis_getattr (Axis the_axis, ...)
 	    
 	  case AXIS_MIN:
 	    switch (axis->type)
-	      {
-	      case AxisReal:
-		Axis_copyval (axis, va_arg (ap, double *), axis->minval);
-		break;
-	      case AxisTime:
-		Axis_copyval
-		  (axis, va_arg (ap, struct timeval *), axis->minval);
-		break;
-	      default:
-		printf ("Axis: bad axis type\n");
-	      }
+            {
+                case AxisReal:
+                  Axis_copyval (axis, va_arg (ap, double *), axis->minval);
+                  break;
+                case AxisTime:
+                  Axis_copyval
+                    (axis, va_arg (ap, struct timeval *), axis->minval);
+                  break;
+                default:
+                  printf ("Axis: bad axis type\n");
+            }
 	    break;
 	    
 	  case AXIS_MAX:
 	    switch (axis->type)
-	      {
-	      case AxisReal:
-		Axis_copyval (axis, va_arg (ap, double *), axis->maxval);
-		break;
-	      case AxisTime:
-		Axis_copyval
-		  (axis, va_arg (ap, struct timeval *), axis->maxval);
-		break;
-	      default:
-		printf ("Axis: bad axis type\n");
-	      }
+            {
+                case AxisReal:
+                  Axis_copyval (axis, va_arg (ap, double *), axis->maxval);
+                  break;
+                case AxisTime:
+                  Axis_copyval
+                    (axis, va_arg (ap, struct timeval *), axis->maxval);
+                  break;
+                default:
+                  printf ("Axis: bad axis type\n");
+            }
 	    break;
 	    
 	  case AXIS_PRECISION:
@@ -353,9 +356,13 @@ int Axis_getattr (Axis the_axis, ...)
 	  case AXIS_VALCOLOR:
 	    *(va_arg (ap, Pixel *)) = axis->val_pixel;
 	    break;
-	  }
-      else break;
-    }
+            
+          case AXIS_NEWTICS:
+            *(va_arg (ap, int *)) = axis->new_tics;;
+            break;
+      }
+    else break;
+  }
   va_end (ap);
   return ret_val;
 }
@@ -393,19 +400,17 @@ void Axis_draw (Axis the_axis, Display *display, Pixmap pixmap, GC gc,
   axis->x1 = x1;
   axis->y1 = y1;
 
-  axis->recalc = (axis->recent_ntics != axis->config->Option.axis_ynumtics);
-
   if (axis->recalc || axis->resized) Axis_recalc (axis, display);
 
   XSetFont (display, gc, axis->font_info->fid);
 
   if (axis->config->Option.axis_ycolorstat)
-    {
-      /* get the current foreground color */
-      XGetGCValues (display, gc, GCForeground, &gc_attr);
-      if (axis->val_pixel == 0) axis->val_pixel = gc_attr.foreground;
-      fg = gc_attr.foreground;
-    }
+  {
+    /* get the current foreground color */
+    XGetGCValues (display, gc, GCForeground, &gc_attr);
+    if (axis->val_pixel == 0) axis->val_pixel = gc_attr.foreground;
+    fg = gc_attr.foreground;
+  }
   
   /* first of all, draw the axis line on the innermost edge of the axis
    * real estate */
@@ -418,84 +423,90 @@ void Axis_draw (Axis the_axis, Display *display, Pixmap pixmap, GC gc,
     (axis->orient == AxisVertical?
      axis->config->Option.axis_ynumtics : axis->config->Option.axis_xnumtics);
 
-  for (i = 0; i < numtics + 1; i++)
+  for (i = 0; i < numtics; i++)
     if (axis->orient == AxisVertical)
-      {
-	XDrawLine
-	  (display, pixmap, gc,
-	   x1, y1 - axis->tics[i].offset,
-	   x1 - TIC_LEN, y1 - axis->tics[i].offset);
+    {
+      XDrawLine
+        (display, pixmap, gc,
+         x1, y1 - axis->tics[i].offset,
+         x1 - TIC_LEN, y1 - axis->tics[i].offset);
 
-	if (axis->config->Option.axis_ycolorstat)
-	  XSetForeground (display, gc, axis->val_pixel);
-	XDrawString
-	  (display, pixmap, gc,
-	   x1 - TIC_LEN - TICLABEL_OFFSET - axis->ticlabel_max,
-	   y1 - axis->tics[i].offset + axis->font_info->ascent / 3,
-	   axis->tics[i].label,
-	   strlen (axis->tics[i].label));
-	if (axis->config->Option.axis_ycolorstat)
-	  XSetForeground (display, gc, fg);
-      }
+      if (axis->config->Option.axis_ycolorstat)
+        XSetForeground (display, gc, axis->val_pixel);
+#ifdef AXIS_LEFT_JUSTIFY
+      XDrawString
+        (display, pixmap, gc,
+         x1 - TIC_LEN - TICLABEL_OFFSET - axis->ticlabel_max,
+         y1 - axis->tics[i].offset + axis->font_info->ascent / 3,
+         axis->tics[i].label,
+         strlen (axis->tics[i].label));
+#else
+      XDrawString
+        (display, pixmap, gc,
+         x1 - TIC_LEN - TICLABEL_OFFSET - axis->tics[i].width,
+         y1 - axis->tics[i].offset + axis->font_info->ascent / 3,
+         axis->tics[i].label,
+         strlen (axis->tics[i].label));
+#endif
+      if (axis->config->Option.axis_ycolorstat)
+        XSetForeground (display, gc, fg);
+    }
     else	/* horizontal axis */
+    {
+      XDrawLine
+        (display, pixmap, gc,
+         x0 + axis->tics[i].offset, y0,
+         x0 + axis->tics[i].offset, y0 + TIC_LEN);
+
+      if (axis->config->Option.axis_ycolorstat)
+        XSetForeground (display, gc, axis->val_pixel);
+      XDrawString
+        (display, pixmap, gc,
+         x0 + axis->tics[i].offset - axis->tics[i].width + 1,
+         y0 + TIC_LEN + TICLABEL_OFFSET + axis->font_info->ascent,
+         axis->tics[i].label,
+         strlen (axis->tics[i].label));
+      if (axis->config->Option.axis_ycolorstat)
+        XSetForeground (display, gc, fg);
+
+      if (axis->type == AxisTime)
       {
-	XDrawLine
-	  (display, pixmap, gc,
-	   x0 + axis->tics[i].offset, y0,
-	   x0 + axis->tics[i].offset, y0 + TIC_LEN);
-
-	/* don't draw a label for the origin tic */
-	if ((i == 0) && (axis->type == AxisTime)) continue;
-	
-	if (axis->config->Option.axis_ycolorstat)
-	  XSetForeground (display, gc, axis->val_pixel);
-	XDrawString
-	  (display, pixmap, gc,
-	   x0 + axis->tics[i].offset - axis->tics[i].width + 1,
-	   y0 + TIC_LEN + TICLABEL_OFFSET + axis->font_info->ascent,
-	   axis->tics[i].label,
-	   strlen (axis->tics[i].label));
-	if (axis->config->Option.axis_ycolorstat)
-	  XSetForeground (display, gc, fg);
-
-	if (axis->type == AxisTime)
-	  {
-	    /* if this is the first tic label or if the date is different
-	     * from that of the previous tic, then write the date under
-	     * the time.
-	     */
-	    tt = (time_t)((struct timeval *)axis->tics[i].value)->tv_sec;
-	    tm = localtime(&tt);
-	    if ((write_date = (i == 0)))
-	      cur_day = tm->tm_mday;
+        /* if this is the first tic label or if the date is different
+         * from that of the previous tic, then write the date under
+         * the time.
+         */
+        tt = (time_t)((struct timeval *)axis->tics[i].value)->tv_sec;
+        tm = localtime(&tt);
+        if ((write_date = (i == 0)))
+          cur_day = tm->tm_mday;
 	    
-	    if (!write_date)
-	      {
-		/* if here then we're not on the first tic mark, so compare
-		 * this tic's date with the previous tic's. */
-		 cur_day = tm->tm_mday;
-		 write_date = (cur_day != prev_day);
-	      }
+        if (!write_date)
+        {
+          /* if here then we're not on the first tic mark, so compare
+           * this tic's date with the previous tic's. */
+          cur_day = tm->tm_mday;
+          write_date = (cur_day != prev_day);
+        }
 	    
-	    if (write_date)
-	      {
-		prev_day = cur_day;
-		strftime (date, MAX_DATE_LEN, "%b %d, %y", tm);
+        if (write_date)
+        {
+          prev_day = cur_day;
+          strftime (date, MAX_DATE_LEN, "%b %d, %y", tm);
 		
-		if (axis->config->Option.axis_ycolorstat)
-		  XSetForeground (display, gc, axis->val_pixel);
-		XDrawString
-		  (display, pixmap, gc,
-		   x0 + axis->tics[i].offset -
-		   XTextWidth (axis->font_info, date, strlen (date)) + 1,
-		   y0 + TIC_LEN + TICLABEL_OFFSET + TICLABEL_PAD +
-		   (axis->font_info->ascent*2) + axis->font_info->descent,
-		   date, strlen (date));
-		if (axis->config->Option.axis_ycolorstat)
-		  XSetForeground (display, gc, fg);
-	      }
-	  }
+          if (axis->config->Option.axis_ycolorstat)
+            XSetForeground (display, gc, axis->val_pixel);
+          XDrawString
+            (display, pixmap, gc,
+             x0 + axis->tics[i].offset -
+             XTextWidth (axis->font_info, date, strlen (date)) + 1,
+             y0 + TIC_LEN + TICLABEL_OFFSET + TICLABEL_PAD +
+             (axis->font_info->ascent*2) + axis->font_info->descent,
+             date, strlen (date));
+          if (axis->config->Option.axis_ycolorstat)
+            XSetForeground (display, gc, fg);
+        }
       }
+    }
 }
 
 
@@ -508,114 +519,181 @@ void Axis_draw (Axis the_axis, Display *display, Pixmap pixmap, GC gc,
  */
 static void Axis_recalc (AxisInfo *axis, Display *display)
 {
-  int		i, p;
+  int		i, k, m;
+  double	p, q, r, x, a, b;
+  double	epsilon = 0;
+  int		precision;
   int		max_strlen = 0;
   int		bound_w, bound_h;
-  int		numtics;
-  int		dummy1, dummy2;
+  int		n;
   double	diff, delta;
-  double	r;
   time_t	t;
 
-  numtics =
-    (axis->orient == AxisVertical?
-     axis->config->Option.axis_ynumtics : axis->config->Option.axis_xnumtics);
+  /* n : requested number of tics
+   * k : number of pixels
+   */
+  if (axis->orient == AxisVertical)
+  {
+    n = 10;
+    k = axis->y1 - axis->y0;
+  }
+  else
+  {
+    n = axis->config->Option.axis_xnumtics;
+    k = axis->x1 - axis->x0;
+  }
+
   
+  /* Find the best tic width, then calculate the tic values, offsets
+   * and labels */
   switch (axis->type)
-    {
-    case AxisReal:
-      diff = *(double *)axis->maxval - *(double *)axis->minval;
-      if ((delta = fabs (diff / (double)numtics)) != 0)
-	{
-	  for (p = 0; delta < 1; p++) delta *= 10;
-	  p =  (p > axis->precision? p : axis->precision);
-	}
-      else p = axis->precision;
-      break;
-    case AxisTime:
-      diff = subtract_times
-	(&tv,
-	 (struct timeval *)axis->minval,
-	 (struct timeval *)axis->maxval);
-      break;
-    default:
-      printf ("\nAxis: bad axis type\n");
-      diff = 1.0;
-    }
-  delta = 1.0 / (double)numtics;
+  {
+      case AxisReal:
+        /* Find the magnitude of 1, 2, 5, or 10 for new delta which is
+         * closest to the requested delta.
+         */
+        a = *(double *)axis->minval;
+        b = *(double *)axis->maxval;
+        delta = (b-a) / (double)n;
+        
+        p = log10 (delta);
+        /*
+          q = (p > 0? floor (p) : p < 0? ceil (p) : p);
+        */
+        q = floor (p);
+        precision = (q < 0? -q : 0);
+        q = pow (10, q);
+        
+        r = q;
+        if (fabs (delta - (2*q)) < fabs (delta - r))
+          r = 2*q;
+        if (fabs (delta - (5*q)) < fabs (delta - r))
+          r = 5*q;
+        if (fabs (delta - (10*q)) < fabs (delta - r))
+          r = 10*q;
+        
+        /* now we have the best delta, so we need to find the smallest
+         * number greater than or equal to axis->min which is evenly
+         * divisible by the tic width, r.  To do this, find the remainder
+         * of (axis->min / r).  Subtract this quantity from axis->min and
+         * then add the tic width if axis->min is positive :)
+         */
+        if (x = fmod (a, r))
+        {
+          x = a-x;
+          if (x >= 0) x += r;
+        }
+        else x = a;
+        
+        /* store the tic values and offsets.  Keep running count of numtics.
+         * This looks more confusing than its is.  _m_ is calculated to be
+         * the tic offset for the given value of x.  This integer value is
+         * compared with the maximum tic offset, rather than the floating
+         * point tic value being compared with the maximum axis value, in
+         * order to avoid inaccuracies in comparing floating point numbers.
+         */
+        for (n = 0; ((m = (int)((k*(x-a)) / (b-a))) <= k) && (n < MAX_TICS); x += r)
+        {
+          axis->tics[n].offset = m;
+	  dbl2str (x, precision, axis->tics[n].label, MAX_YLABEL_LEN);
+          max_strlen = max (strlen (axis->tics[n].label), max_strlen);
+          *(double *)axis->tics[n].value = x;
+          n++;
+        }
 
-  /* calculate tic positioning and labeling -- treat the axis proper as
-   * a tic just like the others (hence the "numtics + 1") */
-  for (i = 0; i < numtics + 1; i++)
-    {
-      /* first determine the tic's pixel offset */
-      if (axis->orient == AxisVertical)
-	axis->tics[i].offset = (axis->y1 - axis->y0) * (delta * i);
-      else axis->tics[i].offset = (axis->x1 - axis->x0) * (delta * i);
+        axis->new_tics = 1;
+        delta = 1.0 / (double)n;
+        break;
 
-      /* now store the tic value and label */
-      switch (axis->type)
-	{
-	case AxisReal:
-	  r = *(double *)axis->minval + (delta * i) * diff;
-	  Axis_copyval (axis, axis->tics[i].value, &r);
-	  dbl2str (r, p, axis->tics[i].label, MAX_YLABEL_LEN);
-	  break;
-	case AxisTime:
-	  dbl2time (&tv, (delta * i) * diff);
+        
+      case AxisTime:
+        /* Nothing fancy here --just put down however many tics. */
+        delta = 1.0 / (double)n;
+        diff = subtract_times
+          (&tv, (struct timeval *)axis->minval, (struct timeval *)axis->maxval);
+
+        for (i = 0; i < n; i++)
+        {
+          x = delta * (i+1);
+          axis->new_tics = (axis->tics[i].offset != (int)(k * x));
+          axis->tics[i].offset = (int)(k * x);
+	  dbl2time (&tv, x * diff);
 	  add_times
-	    (axis->tics[i].value, (struct timeval *)axis->minval, &tv);
+            ((struct timeval *)axis->tics[i].value,
+             (struct timeval *)axis->minval, &tv);
 	  t = (time_t)(((struct timeval *)axis->tics[i].value)->tv_sec);
 	  strftime (axis->tics[i].label, MAX_TIC_LABEL_LEN, "%H:%M:%S",
 		    localtime (&t));
-	  break;
-	default:
-	  printf ("\nAxis: bad axis type\n");
-	}
-      max_strlen = max (strlen (axis->tics[i].label), max_strlen);
-    }
+          max_strlen = max (strlen (axis->tics[i].label), max_strlen);
+        }
+        break;
+        
+      default:
+        printf ("\nAxis: bad axis type\n");
+        diff = 1.0;
+  }
 
+  
   /* Now find a good font size for the current real estate.
    * This is potentially time consuming, but will only occur on resizes or
    * when the range changes (possibly introducing longer or smaller tic
    * label strings) */
   if (axis->resized || ((axis->new_range && (axis->type == AxisReal))))
+  {
+    /* Calculate the size of the bounding box surrounding the tic label,
+     * then determine the best-fitting font, given the length of the
+     * longest label.
+     *
+     * Use get_font() from StripMisc to get find the best font based on
+     * height and width of max_strlen.
+     */
+
+    if (axis->orient == AxisVertical)
     {
-      /* Calculate the size of the bounding box surrounding the tic label,
-       * then determine the best-fitting font, given the length of the
-       * longest label.
-       *
-       * Use get_font() from utils.c to get find the best font based on
-       * height and width of max_strlen.
-       */
-
-      if (axis->orient == AxisVertical)
-	{
-	  bound_w = axis->x1 - axis->x0 -
-	    TIC_LEN - TICLABEL_OFFSET - TICLABEL_PAD;
-	  bound_h = (axis->y1 - axis->y0) * delta - TICLABEL_PAD;
-	}
-      else
-	{
-	  bound_w = (axis->x1 - axis->x0) * delta - TICLABEL_PAD;
-	  bound_h = axis->y1 - axis->y0 -
-	    TIC_LEN - TICLABEL_OFFSET - (TICLABEL_PAD * 2);
-	  bound_h /= 2;		/* need space for date underneath time */
-	}
-
-      axis->font_info = get_font
-	(display, bound_h, NULL, bound_w, max_strlen,
-	 axis->type == AxisReal? STRIPCHARSET_REALNUM : STRIPCHARSET_TIME);
+      bound_w = (int)
+        (axis->x1 - axis->x0 - TIC_LEN - TICLABEL_OFFSET - TICLABEL_PAD);
+      bound_h = (int)
+        ((axis->y1 - axis->y0) * delta - TICLABEL_PAD);
     }
+    else
+    {
+      bound_w = (int) ((axis->x1 - axis->x0) * delta - TICLABEL_PAD);
+      bound_h = (int)
+        (axis->y1 - axis->y0 -
+         TIC_LEN - TICLABEL_OFFSET - (TICLABEL_PAD * 2));
+      bound_h /= 2;		/* need space for date underneath time */
+    }
+
+    axis->font_info = get_font
+      (display, bound_h, NULL, bound_w, max_strlen,
+       axis->type == AxisReal? STRIPCHARSET_REALNUM : STRIPCHARSET_TIME);
+  }
   
   /* finally, calculate the tic label widths, and accumulate the max */
   axis->ticlabel_max = 0;
-  for (i = 0; i < numtics + 1; i++)
-    {
-      axis->tics[i].width = XTextWidth
-	(axis->font_info, axis->tics[i].label, strlen (axis->tics[i].label));
-      axis->ticlabel_max = max (axis->tics[i].width, axis->ticlabel_max);
-    }
+  for (i = 0; i < n; i++)
+  {
+    axis->tics[i].width = XTextWidth
+      (axis->font_info, axis->tics[i].label, strlen (axis->tics[i].label));
+    axis->ticlabel_max = max (axis->tics[i].width, axis->ticlabel_max);
+  }
+
+  
+  /* Now, need to store the new numtics in the config object to make the
+   * new number global.
+   */
+  if (axis->orient == AxisHorizontal)
+  {
+    if (axis->config->Option.axis_xnumtics != n)
+      StripConfig_setattr
+        (axis->config, STRIPCONFIG_OPTION_AXIS_XNUMTICS, n, 0);
+  }
+  else
+  {
+    if (axis->config->Option.axis_ynumtics != n)
+      StripConfig_setattr
+        (axis->config, STRIPCONFIG_OPTION_AXIS_YNUMTICS, n, 0);
+  }
 }
 
 
@@ -623,15 +701,15 @@ static void Axis_recalc (AxisInfo *axis, Display *display)
 static void Axis_copyval (AxisInfo *axis, void *to, void *from)
 {
   switch (axis->type)
-    {
-    case AxisReal:
-      *(double *)to = *(double *)from;
-      break;
-    case AxisTime:
-      ((struct timeval *)to)->tv_sec = ((struct timeval *)from)->tv_sec;
-      ((struct timeval *)to)->tv_usec = ((struct timeval *)from)->tv_usec;
-      break;
-    default:
-      printf ("\nAxis: bad axis type\n");
-    }
+  {
+      case AxisReal:
+        *(double *)to = *(double *)from;
+        break;
+      case AxisTime:
+        ((struct timeval *)to)->tv_sec = ((struct timeval *)from)->tv_sec;
+        ((struct timeval *)to)->tv_usec = ((struct timeval *)from)->tv_usec;
+        break;
+      default:
+        printf ("\nAxis: bad axis type\n");
+  }
 }

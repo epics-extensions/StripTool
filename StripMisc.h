@@ -17,6 +17,19 @@
 #include <time.h>
 #include <sys/time.h>
 
+/*
+ * this is some serious brain-damage
+ * by calling this macro in place of unused arguments in the function
+ * headers, then the code will compile without warning or error in
+ * either C++ or C.  (C++ complains about unused arguments, C complains
+ * about missing arguments)
+ */
+#ifdef __cplusplus
+#  define BOGUS(x)
+#else
+#  define BOGUS(x)	BOGUS_ARG_ ## x
+#endif
+
 #define STRIPCURVE_PENDOWN	1
 #define STRIPCURVE_PLOTTED	1
 
@@ -110,4 +123,8 @@ char	*dbl2str	(double,	/* value */
 			 int);		/* max length of converted string */
 
 char	*int2str	(int x, char buf[], int n);
+
+
+char 	*GetFileName 	(char *); /*VTR*/
+
 #endif

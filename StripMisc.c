@@ -18,15 +18,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define STRIP_MAX_FONTS 16
-
 #define MAX_PRE		32
 #define MAX_LEN		64
 #define EXP_DIGITS	3	/* digits in exp numerical portion */
 #define EXP_LEN		(2+EXP_DIGITS)	/* length of exponent string */
 
 
-static XFontStruct 	*font_table[STRIP_MAX_FONTS];
+#if 0
+#define STRIP_MAX_FONTS 16
 static char		*FontNameTable[STRIP_MAX_FONTS] = {
   "widgetDM_4",
   "widgetDM_6",
@@ -45,6 +44,25 @@ static char		*FontNameTable[STRIP_MAX_FONTS] = {
   "widgetDM_48",
   "widgetDM_60",
 };
+#else
+#define FONT_FAMILY	"helvetica-bold"
+#define STRIP_MAX_FONTS 11
+static char		*FontNameTable[STRIP_MAX_FONTS] = {
+  "*" FONT_FAMILY "-r-normal--8-*",
+  "*" FONT_FAMILY "-r-normal--10-*",
+  "*" FONT_FAMILY "-r-normal--11-*",
+  "*" FONT_FAMILY "-r-normal--12-*",
+  "*" FONT_FAMILY "-r-normal--14-*",
+  "*" FONT_FAMILY "-r-normal--17-*",
+  "*" FONT_FAMILY "-r-normal--18-*",
+  "*" FONT_FAMILY "-r-normal--20-*",
+  "*" FONT_FAMILY "-r-normal--24-*",
+  "*" FONT_FAMILY "-r-normal--25-*",
+  "*" FONT_FAMILY "-r-normal--34-*",
+};
+#endif
+
+static XFontStruct 	*font_table[STRIP_MAX_FONTS];
 
 static char	*StripCharSetChars[STRIPCHARSET_COUNT] = {
   "blah!!",
@@ -89,7 +107,7 @@ static int	load_fonts	(Display *d)
 	}
 
       j = font_table[i]->descent + font_table[i]->ascent;
-      k = pixels_per_mm * STRIP_FONT_MAXHEIGHT_MM;
+      k = (int)(pixels_per_mm * STRIP_FONT_MAXHEIGHT_MM);
       if (j > k)
 	{
 	  XFreeFont (d, font_table[i]);
@@ -119,6 +137,7 @@ static int	load_fonts	(Display *d)
   
 
   fonts_loaded = 1;
+  return 1;
 }
 
 
@@ -238,8 +257,7 @@ int 	compare_times (struct timeval *t1, struct timeval *t2)
 {
   int 	retval;
 
-  if ((retval = (double)t1->tv_sec - (double)t2->tv_sec) == 0.0)
-    retval = t1->tv_usec - t2->tv_usec;
+  retval = (int)((double)t1->tv_sec - (double)t2->tv_sec);
   return retval;
 }
 
@@ -309,9 +327,12 @@ char	*dbl2str	(double d, int p, char buf[], int n)
 {
   int	decpt, sign;
   char	tmp[MAX_LEN+1];
-  char	e_str[EXP_LEN+1] = { 'e', 0, 0, 0, 0 };
+  char	e_str[EXP_LEN+1];
   char	e_cnt;
   int	i = 0, j = 0;
+
+  memset (e_str, EXP_LEN+1, 1);
+  e_str[0] = 'e';
 
   strcpy (tmp, ecvt (d, n, &decpt, &sign));
   buf[i++] = sign? '-' : ' ';
@@ -423,6 +444,7 @@ char	*int2str	(int x, char buf[], int n)
   /* fill in rest of buffer with number string */
   for (i -= 1; i >= 0; i--) buf[j++] = tmp[i];
   buf[j++] = '\0';
+  return buf;
 }
 
 
@@ -490,7 +512,7 @@ void	MessageBox_popup 	(Widget 	parent,
 /*
  * MessageBox_cb
  */
-static void	MessageBox_cb	(Widget w, XtPointer client, XtPointer blah)
+static void	MessageBox_cb	(Widget w, XtPointer client, XtPointer BOGUS(1))
 {
   MsgBoxEvent		event = (MsgBoxEvent)client;
   Window		root, child;
@@ -538,3 +560,30 @@ static void	MessageBox_cb	(Widget w, XtPointer client, XtPointer blah)
       break;
     }
 }
+
+
+char	*GetFileName 	(char *fullName)
+{
+  char *copyFullName;
+  char *fileName = 0;
+  
+  if (fullName)
+  {
+    if (copyFullName = strdup(fullName)) 
+    {
+      if (strtok(copyFullName, "/"))
+      {
+        char * tmp;
+        
+        while (tmp = strtok(0, "/"))
+          fileName = tmp;
+        fileName = strdup(fileName?fileName:fullName);
+      }
+      free(copyFullName);
+    }
+  }
+
+  return fileName;
+}
+
+
