@@ -319,6 +319,9 @@ xxxx:
 	@echo HAVE_XPM: $(HAVE_XPM)
 	@echo z_DIR: $(z_DIR)
 	@echo ZLIB_FOUND: $(ZLIB_FOUND)
+	@echo RUNTIME_LDFLAGS: $(RUNTIME_LDFLAGS)
+	@echo BASE_3_14: $(BASE_3_14)
+	@echo FULL_PATH_INSTALL_LIB: $(FULL_PATH_INSTALL_LIB)
 
 # **************************** Emacs Editing Sequences *****************
 # Local Variables:

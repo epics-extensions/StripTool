@@ -45,8 +45,8 @@
  *
  * ---FHDR--- */
 
-#include <stdlib.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include <X11/Intrinsic.h>
 

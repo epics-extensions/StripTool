@@ -46,7 +46,6 @@
 
 #include        <ctype.h>
 #include        <stdlib.h>
-
 /*
  * We define a cursor for the list
  */
