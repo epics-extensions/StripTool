@@ -1694,7 +1694,7 @@ StripDataSource_dump    (StripDataSource        the_sds,
     memset(buf,0,SDS_DUMP_FIELDWIDTH+1);
     strftime(buf, SDS_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
 	localtime (&(timeP->tv_sec)));
-    fprintf (outfile, "%s.%d\t",buf,(int)timeP->tv_usec);
+    fprintf (outfile, "%s.%06d\t",buf,(int)timeP->tv_usec);
       
     /* (b-2) */
     for (j = 0; j < STRIP_MAX_CURVES; j++)
@@ -1730,7 +1730,7 @@ StripDataSource_dump    (StripDataSource        the_sds,
 	memset(buf,0,SDS_DUMP_FIELDWIDTH+1);
 	strftime(buf, SDS_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
 	  localtime (&(sds->times[i].tv_sec)));
-	fprintf (outfile, "%s.%d\t",buf,(int)sds->times[i].tv_usec); 
+	fprintf (outfile, "%s.%06d\t",buf,(int)sds->times[i].tv_usec); 
 	/* (b-2) */
 	for (j = 0; j < STRIP_MAX_CURVES; j++)
 	  if (sds->buffers[j].curve)
