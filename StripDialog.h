@@ -134,4 +134,11 @@ int     StripDialog_ismapped    (StripDialog);
 
 char     *getwidgetval_min       (char  *, int, double *); /* Albert */
 char     *getwidgetval_max       (char  *, int, double *);
+
+/*
+ * StripDialog_reset
+ */
+void            StripDialog_reset(StripDialog);
+
+
 #endif

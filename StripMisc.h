@@ -130,7 +130,7 @@ char            *time2str       (struct timeval *);
 #define time2dbl(t) \
 (double)((double)(t)->tv_sec + ((double)(t)->tv_usec / (double)ONE_MILLION))
 
-/* add_times
+/* add_times (s=a+b)
  */
 #define add_times(s,a,b) \
 (void) \
@@ -138,7 +138,7 @@ char            *time2str       (struct timeval *);
  (((a)->tv_usec + (b)->tv_usec) / (unsigned long)ONE_MILLION), \
  (s)->tv_usec = ((a)->tv_usec + (b)->tv_usec) % (long)ONE_MILLION)
 
-/* diff_times
+/* diff_times (s=a-b)
  */
 #define diff_times(s,b,a) \
 (void) \
@@ -153,13 +153,14 @@ char            *time2str       (struct timeval *);
          : ((s)->tv_sec -= (b)->tv_sec, (s)->tv_usec -= (b)->tv_usec) ))))
 
 /* compare_times
+ * returns >0 if a<b, 0 if a=b, and <0 if a<b
  */
 #define compare_times(a,b) \
 (int) \
 (((a)->tv_sec > (b)->tv_sec)? 1 : \
  (((a)->tv_sec < (b)->tv_sec)? -1 : ((a)->tv_usec - (b)->tv_usec)))
 
-/* subtract_times
+/* subtract_times (s=a-b)
  */
 #define subtract_times(s,b,a) \
 (double) \

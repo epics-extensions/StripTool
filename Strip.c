@@ -10,6 +10,14 @@
 
 #define DEBUG_CONNECTING 0
 
+#define USE_RIGHT_CLICK_ON_BUTTONS
+
+#define LARGE_ZOOM_FACTOR 2.0;
+#define SMALL_ZOOM_FACTOR 1.071773462536293 /* 2^(.1) */
+#define LARGE_PAN_FACTOR  0.5
+#define SMALL_PAN_FACTOR  0.05
+#define ROFF 1.0e-10
+
 #include "Strip.h"
 #include "StripDialog.h"
 #include "StripDataSource.h"
@@ -23,6 +31,8 @@
 #include "zoom_in.bm"
 #include "zoom_out.bm"
 #include "auto_scroll.bm"
+#include "pan.bm"
+#include "reset.bm"
 #include "refresh.bm"
 
 #include <errno.h>
@@ -95,6 +105,12 @@
 #define DEF_WOFFSET             3
 #define STRIP_MAX_FDS           64
 
+#if DEBUG_TRANSLATIONS
+/* From TMprint.c */
+String _XtPrintXlations(Widget w, XtTranslations xlations,
+  Widget accelWidget, _XtBoolean includeRHS);
+#endif
+
 
 /* ====== StripEvent stuff ====== */
 typedef enum
@@ -147,10 +163,10 @@ enum
 {
   STRIPBTN_LEFT = 0,
   STRIPBTN_RIGHT,
-  STRIPBTN_ZOOMIN,
-  STRIPBTN_ZOOMOUT,
   STRIPBTN_UP,         /* Albert */
   STRIPBTN_DOWN,       /* Albert */
+  STRIPBTN_ZOOMIN,
+  STRIPBTN_ZOOMOUT,
   STRIPBTN_ZOOMINY,    /* Albert */
   STRIPBTN_ZOOMOUTY,   /* Albert */
 #ifdef STRIP_HISTORY
@@ -158,9 +174,10 @@ enum
   STRIPBTN_ALG,        /* Albert */
   STRIPBTN_REPLOT,     /* Albert */
 #endif /*STRIP_HISTORY*/
+  STRIPBTN_RESET,
+  STRIPBTN_REFRESH,
   STRIPBTN_AUTO_SCALE, /* Albert */
   STRIPBTN_AUTOSCROLL,
-  STRIPBTN_REFRESH,
   STRIPBTN_COUNT
 };
   
@@ -272,6 +289,8 @@ static void     Strip_graphdrop_xfer    (Widget, XtPointer, Atom *, Atom *,
 
 static void     Strip_printer_init      (StripInfo *);
 
+static void     Strip_setbrowsemode     (StripInfo *, int);
+
 static void     callback                (Widget, XtPointer, XtPointer);
 static int      X_error_handler         (Display *, XErrorEvent *);
 
@@ -299,6 +318,7 @@ static void     fsdlg_cb                (Widget, XtPointer, XtPointer);
 
 int auto_scaleTriger=-1;
 static Pixmap auto_scalePixmap[2];
+static Pixmap browsePixmap[2];
 static int auto_scaleNoBrowse=1;
 static int changeMinMax( Strip the_strip);
 long radioChange=0;
@@ -404,17 +424,23 @@ Strip   Strip_init      (int    *argc,
   struct passwd         user;
   char                  *a, *b;
   XmString              xstr;
-
+#ifdef USE_RIGHT_CLICK_ON_BUTTONS
+  String                rightBtnTranslations =
+    "~Ctrl<Btn3Down>: Arm() \n\
+     ~Ctrl<Btn3Down>,~Ctrl<Btn3Up>: Activate() Disarm()";
+  XtTranslations parsedRightBtnTranslations;
+#endif
+  
   StripConfig_preinit();
   StripConfigMask_clear (&scfg_mask);
-
+  
   if ((si = (StripInfo *)malloc (sizeof (StripInfo))) != NULL)
   {
     si->history = StripHistory_init ((Strip)si); /* Albert */
     /* initialize the X-toolkit */
     XtSetLanguageProc (0, 0, 0);
     XtToolkitInitialize();
-
+    
     /* create the app context and open the display */
     si->app = XtCreateApplicationContext();
     si->display = XtOpenDisplay
@@ -427,29 +453,29 @@ Strip   Strip_init      (int    *argc,
     /* create a resource database from the fallbacks, then merge in
      * the site defaults, followed by the user defaults
      */
-
+    
     /* current resource database */
     db = XrmGetDatabase (si->display);
-
+    
     /* build database from fallback specs */
     db_fall = (XrmDatabase)0;
     pstr = fallback_resources;
     while (*pstr) XrmPutLineResource (&db_fall, *pstr++);
-
+    
     /* merge into current database without overriding */
     XrmCombineDatabase (db_fall, &db, False);
-
+    
     /* build site default resource database */
     env = getenv (STRIP_SITE_DEFAULTS_FILE_ENV);
     if (!env) env = STRIP_SITE_DEFAULTS_FILE;
     db_site = XrmGetFileDatabase (env);
-
+    
     /* merge into current resource database, overrinding */
     if (db_site) XrmCombineDatabase (db_site, &db, True);
-
+    
     /* build user default resource database
      */
-
+    
     /* first, get path of user's home directory and append the
      * resource file name to that */
     memcpy (&user, getpwuid (getuid()), sizeof (struct passwd));
@@ -460,32 +486,32 @@ Strip   Strip_init      (int    *argc,
     a = STRIP_USER_DEFAULTS_FILE;
     while (*a) *b++ = *a++;
     *b = 0;
-
+    
     /* build the database */
     db_user = XrmGetFileDatabase (path);
-
+    
     /* merge into current resource database, overrinding */
     if (db_user) XrmCombineDatabase (db_user, &db, True);
-      
+    
     
     /* create the top-level shell, but don't realize it until the
      * appropriate visual has been chosen.
      */
     si->toplevel = XtVaAppCreateShell
       (0, STRIP_APP_CLASS, applicationShellWidgetClass, si->display,
-       XmNmappedWhenManaged, False,
-       0);
-
+	  XmNmappedWhenManaged, False,
+	  0);
+    
 #ifdef USE_XMU
     /* editres support */
     XtAddEventHandler
       (si->toplevel, (EventMask)0, True, _XEditResCheckMessages, 0);
 #endif
-
+    
     /* replace default error handler so that we don't exit on
      * non-fatal exceptions */
     XSetErrorHandler (X_error_handler);
-
+    
     
     /* initialize the color manager */
     scm = cColorManager_init (si->display, /*STRIPCONFIG_NUMCOLORS*/ 0);
@@ -494,9 +520,9 @@ Strip   Strip_init      (int    *argc,
       xvi = *cColorManager_get_visinfo (scm);
       XtVaSetValues
         (si->toplevel,
-         XmNvisual,     xvi.visual,
-         XmNcolormap,   cColorManager_getcmap (scm),
-         0);
+	    XmNvisual,     xvi.visual,
+	    XmNcolormap,   cColorManager_getcmap (scm),
+	    0);
       XtRealizeWidget (si->toplevel);
     }
     else
@@ -506,16 +532,16 @@ Strip   Strip_init      (int    *argc,
       free (si);
       return NULL;
     }
-
+    
     /* initialize any miscellaeous routines */
     StripMisc_init (si->display, xvi.screen);
-
+    
     /* initialize the Config module */
     if (!(si->config = StripConfig_init (scm, &xvi, NULL, scfg_mask)))
     {
       fprintf
         (stdout,
-         "Strip_init: cannot initialize configuration manager.\n");
+	    "Strip_init: cannot initialize configuration manager.\n");
       cColorManager_delete (scm);
       XtDestroyWidget (si->toplevel);
       free (si);
@@ -523,7 +549,13 @@ Strip   Strip_init      (int    *argc,
     }
     si->config->logfile = logfile;
     si->config->user = user;
-
+    
+#ifdef USE_RIGHT_CLICK_ON_BUTTONS
+    /* parse the translation table */
+    parsedRightBtnTranslations =
+	XtParseTranslationTable(rightBtnTranslations);
+#endif
+    
     /* build the other shells now that the toplevel
      * has been taken care of.
      */
@@ -531,25 +563,25 @@ Strip   Strip_init      (int    *argc,
     hintshell = XtVaCreatePopupShell
       ("hintShell", xcgLiteClueWidgetClass, si->toplevel, 0);
 #endif
-
+    
     si->shell = XtVaCreatePopupShell
       ("StripGraph",
-       topLevelShellWidgetClass,        si->toplevel,
-       XmNdeleteResponse,               XmDO_NOTHING,
-       XmNmappedWhenManaged,            False,
-       XmNvisual,                       si->config->xvi.visual,
-       XmNcolormap,                     cColorManager_getcmap (scm),
-       NULL);
-
+	  topLevelShellWidgetClass,        si->toplevel,
+	  XmNdeleteResponse,               XmDO_NOTHING,
+	  XmNmappedWhenManaged,            False,
+	  XmNvisual,                       si->config->xvi.visual,
+	  XmNcolormap,                     cColorManager_getcmap (scm),
+	  NULL);
+    
     history_topShell=si->shell;
-
+    
 #ifdef USE_XMU
     /* editres support */
     XtAddEventHandler
       (si->shell, (EventMask)0, True, _XEditResCheckMessages, 0);
 #endif
-
-
+    
+    
     /* hook window manager delete message so we can shut down gracefully */
     WM_DELETE_WINDOW = XmInternAtom (si->display, "WM_DELETE_WINDOW", False);
     XmAddWMProtocolCallback (si->shell, WM_DELETE_WINDOW, callback, si);
@@ -557,260 +589,312 @@ Strip   Strip_init      (int    *argc,
     width = (Dimension)
       (((double)DisplayWidth (si->display, DefaultScreen (si->display)) /
         (double)DisplayWidthMM (si->display, DefaultScreen (si->display)))
-       * STRIP_GRAPH_WIDTH_MM);
+	  * STRIP_GRAPH_WIDTH_MM);
     height = (Dimension)
       (((double)DisplayHeight (si->display, DefaultScreen (si->display)) /
         (double)DisplayHeightMM (si->display, DefaultScreen (si->display)))
-       * STRIP_GRAPH_HEIGHT_MM);
+	  * STRIP_GRAPH_HEIGHT_MM);
     XtVaSetValues
       (si->shell,
-       XmNwidth,        width,
-       XmNheight,       height,
-       NULL);
+	  XmNwidth,        width,
+	  XmNheight,       height,
+	  NULL);
 #endif
     XtRealizeWidget (si->shell);
     
     form = XtVaCreateManagedWidget
       ("graphBaseForm",
-       xmFormWidgetClass,       si->shell,
-       0);
-
+	  xmFormWidgetClass,       si->shell,
+	  0);
+    
     /* the the motif foreground and background colors */
     XtVaGetValues
       (form,
-       XmNforeground,           &fg,
-       XmNbackground,           &bg,
-       0);
-
+	  XmNforeground,           &fg,
+	  XmNbackground,           &bg,
+	  0);
+    
     /* the graph control panel */
     si->graph_panel = XtVaCreateManagedWidget
       ("graphPanel",
-       xmFrameWidgetClass,              form,
-       XmNtopAttachment,                XmATTACH_NONE,
-       XmNleftAttachment,               XmATTACH_FORM,
-       XmNrightAttachment,              XmATTACH_FORM,
-       XmNbottomAttachment,             XmATTACH_FORM,
-       0);
+	  xmFrameWidgetClass,              form,
+	  XmNtopAttachment,                XmATTACH_NONE,
+	  XmNleftAttachment,               XmATTACH_FORM,
+	  XmNrightAttachment,              XmATTACH_FORM,
+	  XmNbottomAttachment,             XmATTACH_FORM,
+	  0);
     rowcol = XtVaCreateManagedWidget
       ("controlsRowColumn",
-       xmRowColumnWidgetClass,  si->graph_panel,
-       XmNorientation,          XmHORIZONTAL,
-       0);
-      
+	  xmRowColumnWidgetClass,  si->graph_panel,
+	  XmNorientation,          XmHORIZONTAL,
+	  0);
+    
     /* pan left button */
     pixmap = XCreatePixmapFromBitmapData
       (si->display, RootWindow (si->display, xvi.screen),
-       (char *)pan_left_bits,
-       pan_left_width, pan_left_height, fg, bg,
-       xvi.depth);
+	  (char *)pan_left_bits,
+	  pan_left_width, pan_left_height, fg, bg,
+	  xvi.depth);
     si->btn[STRIPBTN_LEFT] = XtVaCreateManagedWidget
       ("panLeftButton",
-       xmPushButtonWidgetClass, rowcol,
-       XmNlabelType,            XmPIXMAP,
-       XmNlabelPixmap,          pixmap,
-       0);
-
+	  xmPushButtonWidgetClass, rowcol,
+	  XmNlabelType,            XmPIXMAP,
+	  XmNlabelPixmap,          pixmap,
+	  0);
+    
     /* pan right button */
     pixmap = XCreatePixmapFromBitmapData
       (si->display, RootWindow (si->display, xvi.screen),
-       (char *)pan_right_bits, pan_right_width, pan_right_height, fg, bg,
-       xvi.depth);
+	  (char *)pan_right_bits, pan_right_width, pan_right_height, fg, bg,
+	  xvi.depth);
     si->btn[STRIPBTN_RIGHT] = XtVaCreateManagedWidget
       ("panRightButton",
-       xmPushButtonWidgetClass, rowcol,
-       XmNlabelType,            XmPIXMAP,
-       XmNlabelPixmap,          pixmap,
-       0);
-      
-    XtVaCreateManagedWidget
-      ("separator",
-       xmSeparatorWidgetClass,  rowcol,
-       XmNorientation,          XmVERTICAL,
-       0);
-
-    /* zoom in button */
-    pixmap = XCreatePixmapFromBitmapData
-      (si->display, RootWindow (si->display, xvi.screen),
-       (char *)zoom_in_bits, zoom_in_width, zoom_in_height, fg, bg,
-       xvi.depth);
-    si->btn[STRIPBTN_ZOOMIN] = XtVaCreateManagedWidget
-      ("zoomInButton",
-       xmPushButtonWidgetClass, rowcol,
-       XmNlabelType,            XmPIXMAP,
-       XmNlabelPixmap,          pixmap,
-       0);
-
-    /* zoom out button */
-    pixmap = XCreatePixmapFromBitmapData
-      (si->display, RootWindow (si->display, xvi.screen),
-       (char *)zoom_out_bits, zoom_out_width, zoom_out_height, fg, bg,
-       xvi.depth);
-    si->btn[STRIPBTN_ZOOMOUT] = XtVaCreateManagedWidget
-      ("zoomOutButton",
-       xmPushButtonWidgetClass, rowcol,
-       XmNlabelType,            XmPIXMAP,
-       XmNlabelPixmap,          pixmap,
-       0);
-      
-    XtVaCreateManagedWidget
-      ("separator",
-       xmSeparatorWidgetClass,  rowcol,
-       XmNorientation,          XmVERTICAL,
-       0);
+	  xmPushButtonWidgetClass, rowcol,
+	  XmNlabelType,            XmPIXMAP,
+	  XmNlabelPixmap,          pixmap,
+	  0);
+#if DEBUG_TRANSLATIONS
+    {
+	XtTranslations xlations=NULL;
+	String xString=NULL;
+	Widget w=si->btn[STRIPBTN_RIGHT];
+	
+	XtVaGetValues(w,XtNtranslations,&xlations,NULL);
+#if 0
+	/* Note: widget argument is needed, even if the
+	   parsedTranslations are independent of it */
+	xString= _XtPrintXlations(w,parsedTranslations,NULL,True);
+	print("parsedTranslations:\n");
+	print("%s\n",xString);
+	XtFree(xString);
+#endif
+	xString= _XtPrintXlations(w,xlations,NULL,True);
+	print("Default translations:\n");
+	print("%s\n",xString);
+	XtFree(xString);
+    }
+#endif
+    
     /* pan up button  Albert*/
     pixmap = XCreatePixmapFromBitmapData
       (si->display, RootWindow (si->display, xvi.screen),
-       (char *)pan_up_bits, pan_up_width, pan_up_height, fg, bg,
-       xvi.depth);
+	  (char *)pan_up_bits, pan_up_width, pan_up_height, fg, bg,
+	  xvi.depth);
     si->btn[STRIPBTN_UP] = XtVaCreateManagedWidget
       ("panUpButton",
-       xmPushButtonWidgetClass, rowcol,
-       XmNlabelType,            XmPIXMAP,
-       XmNlabelPixmap,          pixmap,
-       0);
-
+	  xmPushButtonWidgetClass, rowcol,
+	  XmNlabelType,            XmPIXMAP,
+	  XmNlabelPixmap,          pixmap,
+	  0);
+    
     /* pan down button */
     pixmap = XCreatePixmapFromBitmapData
       (si->display, RootWindow (si->display, xvi.screen),
-			 (char *)pan_down_bits, pan_down_width, pan_down_height, fg, bg,
-       xvi.depth);
+	  (char *)pan_down_bits, pan_down_width, pan_down_height, fg, bg,
+	  xvi.depth);
     si->btn[STRIPBTN_DOWN] = XtVaCreateManagedWidget
       ("panDownButton",
-       xmPushButtonWidgetClass, rowcol,
-       XmNlabelType,            XmPIXMAP,
-       XmNlabelPixmap,          pixmap,
-       0);
-      
+	  xmPushButtonWidgetClass, rowcol,
+	  XmNlabelType,            XmPIXMAP,
+	  XmNlabelPixmap,          pixmap,
+	  0);
+
+    /* separator */
     XtVaCreateManagedWidget
       ("separator",
-       xmSeparatorWidgetClass,  rowcol,
-       XmNorientation,          XmVERTICAL,
-       0);
-
+	  xmSeparatorWidgetClass,  rowcol,
+	  XmNorientation,          XmVERTICAL,
+	  0);
+    
+    /* zoom in button */
+    pixmap = XCreatePixmapFromBitmapData
+      (si->display, RootWindow (si->display, xvi.screen),
+	  (char *)zoom_in_bits, zoom_in_width, zoom_in_height, fg, bg,
+	  xvi.depth);
+    si->btn[STRIPBTN_ZOOMIN] = XtVaCreateManagedWidget
+      ("zoomInButton",
+	  xmPushButtonWidgetClass, rowcol,
+	  XmNlabelType,            XmPIXMAP,
+	  XmNlabelPixmap,          pixmap,
+	  0);
+    
+    /* zoom out button */
+    pixmap = XCreatePixmapFromBitmapData
+      (si->display, RootWindow (si->display, xvi.screen),
+	  (char *)zoom_out_bits, zoom_out_width, zoom_out_height, fg, bg,
+	  xvi.depth);
+    si->btn[STRIPBTN_ZOOMOUT] = XtVaCreateManagedWidget
+      ("zoomOutButton",
+	  xmPushButtonWidgetClass, rowcol,
+	  XmNlabelType,            XmPIXMAP,
+	  XmNlabelPixmap,          pixmap,
+	  0);
+    
     /* zoom inY button  Albert*/
     pixmap = XCreatePixmapFromBitmapData
       (si->display, RootWindow (si->display, xvi.screen),
-			 (char *)zoom_inY_bits, zoom_inY_width, zoom_inY_height, fg, bg,
-       xvi.depth);
+	  (char *)zoom_inY_bits, zoom_inY_width, zoom_inY_height, fg, bg,
+	  xvi.depth);
     si->btn[STRIPBTN_ZOOMINY] = XtVaCreateManagedWidget
       ("zoomInYButton",
-       xmPushButtonWidgetClass, rowcol,
-       XmNlabelType,            XmPIXMAP,
-       XmNlabelPixmap,          pixmap,
-       0);
-
+	  xmPushButtonWidgetClass, rowcol,
+	  XmNlabelType,            XmPIXMAP,
+	  XmNlabelPixmap,          pixmap,
+	  0);
+    
     /* zoomY out button Albert*/
     pixmap = XCreatePixmapFromBitmapData
       (si->display, RootWindow (si->display, xvi.screen),
-			 (char *)zoom_outY_bits, zoom_outY_width, zoom_outY_height, fg, bg,
-       xvi.depth);
+	  (char *)zoom_outY_bits, zoom_outY_width, zoom_outY_height, fg, bg,
+	  xvi.depth);
     si->btn[STRIPBTN_ZOOMOUTY] = XtVaCreateManagedWidget
       ("zoomOutYButton",
-       xmPushButtonWidgetClass, rowcol,
-       XmNlabelType,            XmPIXMAP,
-       XmNlabelPixmap,          pixmap,
-       0);
-      
+	  xmPushButtonWidgetClass, rowcol,
+	  XmNlabelType,            XmPIXMAP,
+	  XmNlabelPixmap,          pixmap,
+	  0);
+    
+    /* separator */
     XtVaCreateManagedWidget
       ("separator",
-       xmSeparatorWidgetClass,  rowcol,
-       XmNorientation,          XmVERTICAL,
-       0);
-
-    XtVaCreateManagedWidget
-      ("separator",
-       xmSeparatorWidgetClass,  rowcol,
-       XmNorientation,          XmVERTICAL,
-       0);
+	  xmSeparatorWidgetClass,  rowcol,
+	  XmNorientation,          XmVERTICAL,
+	  0);
+    
 #ifdef STRIP_HISTORY   
     /* FROM-TO button. Albert */
     pixmap = XCreatePixmapFromBitmapData
       (si->display, RootWindow (si->display, xvi.screen), from_to_bits,
-       from_to_width, from_to_height, fg, bg,
-       xvi.depth);
+	  from_to_width, from_to_height, fg, bg,
+	  xvi.depth);
     si->btn[STRIPBTN_FROM_TO] = XtVaCreateManagedWidget
-      ("From_To_Button",
-       xmPushButtonWidgetClass, rowcol,
-       XmNlabelType,		XmPIXMAP,
-       XmNlabelPixmap,		pixmap,
-       0);
-
+      ("fromToButton",
+	  xmPushButtonWidgetClass, rowcol,
+	  XmNlabelType,		XmPIXMAP,
+	  XmNlabelPixmap,		pixmap,
+	  0);
+    
     pixmap = XCreatePixmapFromBitmapData
       (si->display, RootWindow (si->display, xvi.screen), alg_bits,
-       alg_width, alg_height, fg, bg,
-       xvi.depth);
+	  alg_width, alg_height, fg, bg,
+	  xvi.depth);
     si->btn[STRIPBTN_ALG] = XtVaCreateManagedWidget
-      ("New History Algorithm",
-       xmPushButtonWidgetClass, rowcol,
-       XmNlabelType,		XmPIXMAP,
-       XmNlabelPixmap,		pixmap,
-       0);
-      
+      ("newHistoryAlgorithmButton",
+	  xmPushButtonWidgetClass, rowcol,
+	  XmNlabelType,		XmPIXMAP,
+	  XmNlabelPixmap,		pixmap,
+	  0);
+    
     pixmap = XCreatePixmapFromBitmapData
       (si->display, RootWindow (si->display, xvi.screen), replot_bits,
-       replot_width, replot_height, fg, bg,
-       xvi.depth);
-
+	  replot_width, replot_height, fg, bg,
+	  xvi.depth);
+    
     si->btn[STRIPBTN_REPLOT] = XtVaCreateManagedWidget
-      ("REAL REPLOT",
-       xmPushButtonWidgetClass, rowcol,
-       XmNlabelType,		XmPIXMAP,
-       XmNlabelPixmap,		pixmap,
-       0);
-  
-#endif /* STRIP_HISTORY */ 
-    pixmap = XCreatePixmapFromBitmapData
-      (si->display, RootWindow (si->display, xvi.screen),
-       (char *)auto_scaleR_bits, auto_scaleR_width,auto_scaleR_height, fg, bg,
-       xvi.depth);
-    auto_scalePixmap[1] = pixmap ;
-
-    pixmap = XCreatePixmapFromBitmapData
-      (si->display, RootWindow (si->display, xvi.screen),
-       (char *)auto_scale_bits, auto_scale_width,auto_scale_height, fg, bg,
-       xvi.depth);
-    auto_scalePixmap[0] = pixmap ;
-
-    si->btn[STRIPBTN_AUTO_SCALE] = XtVaCreateManagedWidget
-      ("AUTORANGE",
-       xmPushButtonWidgetClass, rowcol,
-       XmNlabelType,		XmPIXMAP,
-       XmNlabelPixmap,		pixmap,
-       0);
-
+      ("realReplotButton",
+	  xmPushButtonWidgetClass, rowcol,
+	  XmNlabelType,		XmPIXMAP,
+	  XmNlabelPixmap,		pixmap,
+	  0);
+    
+    /* separator */
     XtVaCreateManagedWidget
       ("separator",
-       xmSeparatorWidgetClass, 	rowcol,
-       XmNorientation,		XmVERTICAL,
-       0);
-
-
-    /* auto scroll button */
+	  xmSeparatorWidgetClass,  rowcol,
+	  XmNorientation,          XmVERTICAL,
+	  0);
+#endif /* STRIP_HISTORY */
+    
+    /* reset button */
     pixmap = XCreatePixmapFromBitmapData
       (si->display, RootWindow (si->display, xvi.screen),
-       (char *)auto_scroll_bits, auto_scroll_width, auto_scroll_height, fg, bg,
-       xvi.depth);
-    si->btn[STRIPBTN_AUTOSCROLL] = XtVaCreateManagedWidget
-      ("autoScrollButton",
-       xmPushButtonWidgetClass, rowcol,
-       XmNlabelType,            XmPIXMAP,
-       XmNlabelPixmap,          pixmap,
-       0);
-
+	  (char *)reset_bits, reset_width, reset_height, fg, bg,
+	  xvi.depth);
+    si->btn[STRIPBTN_RESET] = XtVaCreateManagedWidget
+      ("resetButton",
+	  xmPushButtonWidgetClass, rowcol,
+	  XmNlabelType,            XmPIXMAP,
+	  XmNlabelPixmap,          pixmap,
+	  0);
+    
     /* refresh button */
     pixmap = XCreatePixmapFromBitmapData
       (si->display, RootWindow (si->display, xvi.screen),
-       (char *)refresh_bits, refresh_width, refresh_height, fg, bg,
-       xvi.depth);
+	  (char *)refresh_bits, refresh_width, refresh_height, fg, bg,
+	  xvi.depth);
     si->btn[STRIPBTN_REFRESH] = XtVaCreateManagedWidget
       ("refreshButton",
-       xmPushButtonWidgetClass, rowcol,
-       XmNlabelType,            XmPIXMAP,
-       XmNlabelPixmap,          pixmap,
-       0);
-
+	  xmPushButtonWidgetClass, rowcol,
+	  XmNlabelType,            XmPIXMAP,
+	  XmNlabelPixmap,          pixmap,
+	  0);
+    
+    /* separator */
+    XtVaCreateManagedWidget
+      ("separator",
+	  xmSeparatorWidgetClass, 	rowcol,
+	  XmNorientation,		XmVERTICAL,
+	  0);
+    
+    /* autoscale button*/
+    pixmap = XCreatePixmapFromBitmapData
+      (si->display, RootWindow (si->display, xvi.screen),
+	  (char *)auto_scaleR_bits, auto_scaleR_width,auto_scaleR_height, fg, bg,
+	  xvi.depth);
+    auto_scalePixmap[1] = pixmap ;
+    
+    pixmap = XCreatePixmapFromBitmapData
+      (si->display, RootWindow (si->display, xvi.screen),
+	  (char *)auto_scale_bits, auto_scale_width,auto_scale_height, fg, bg,
+	  xvi.depth);
+    auto_scalePixmap[0] = pixmap ;
+    
+    si->btn[STRIPBTN_AUTO_SCALE] = XtVaCreateManagedWidget
+      ("autoRangeButton",
+	  xmPushButtonWidgetClass, rowcol,
+	  XmNlabelType,		XmPIXMAP,
+	  XmNlabelPixmap,		pixmap,
+	  0);
+    
+    /* auto scroll button */
+    pixmap = XCreatePixmapFromBitmapData
+      (si->display, RootWindow (si->display, xvi.screen),
+	  (char *)pan_bits, pan_width, pan_height, fg, bg,
+	  xvi.depth);
+    browsePixmap[1] = pixmap;
+    pixmap = XCreatePixmapFromBitmapData
+      (si->display, RootWindow (si->display, xvi.screen),
+	  (char *)auto_scroll_bits, auto_scroll_width, auto_scroll_height, fg, bg,
+	  xvi.depth);
+    browsePixmap[0] = pixmap;
+    si->btn[STRIPBTN_AUTOSCROLL] = XtVaCreateManagedWidget
+      ("autoScrollButton",
+	  xmPushButtonWidgetClass, rowcol,
+	  XmNlabelType,            XmPIXMAP,
+	  XmNlabelPixmap,          pixmap,
+	  0);
+    
     for (i = 0; i < STRIPBTN_COUNT; i++)
       XtAddCallback (si->btn[i], XmNactivateCallback, callback, si);
+    
+#ifdef USE_RIGHT_CLICK_ON_BUTTONS
+    XtOverrideTranslations(si->btn[STRIPBTN_LEFT],
+	parsedRightBtnTranslations);
+    XtOverrideTranslations(si->btn[STRIPBTN_RIGHT],
+	parsedRightBtnTranslations);
+    XtOverrideTranslations(si->btn[STRIPBTN_UP],
+	parsedRightBtnTranslations);
+    XtOverrideTranslations(si->btn[STRIPBTN_DOWN],
+	parsedRightBtnTranslations);
+    XtOverrideTranslations(si->btn[STRIPBTN_ZOOMIN],
+	parsedRightBtnTranslations);
+    XtOverrideTranslations(si->btn[STRIPBTN_ZOOMOUT],
+	parsedRightBtnTranslations);
+    XtOverrideTranslations(si->btn[STRIPBTN_ZOOMINY],
+	parsedRightBtnTranslations);
+    XtOverrideTranslations(si->btn[STRIPBTN_ZOOMOUTY],
+	parsedRightBtnTranslations);
+#endif
 
 #ifdef USE_CLUES
     XcgLiteClueAddWidget
@@ -818,21 +902,17 @@ Strip   Strip_init      (int    *argc,
     XcgLiteClueAddWidget
       (hintshell, si->btn[STRIPBTN_RIGHT], "Pan Right", 0, 0);
     XcgLiteClueAddWidget
-      (hintshell, si->btn[STRIPBTN_ZOOMIN], "Zoom In", 0, 0);
-    XcgLiteClueAddWidget
-      (hintshell, si->btn[STRIPBTN_ZOOMOUT], "Zoom Out", 0, 0);
-    XcgLiteClueAddWidget
       (hintshell, si->btn[STRIPBTN_UP], "Pan Up", 0, 0);          /*Albert */ 
     XcgLiteClueAddWidget
       (hintshell, si->btn[STRIPBTN_DOWN], "Pan Down", 0, 0);      /*Albert */
-
-
+    XcgLiteClueAddWidget
+      (hintshell, si->btn[STRIPBTN_ZOOMIN], "Zoom In X", 0, 0);
+    XcgLiteClueAddWidget
+      (hintshell, si->btn[STRIPBTN_ZOOMOUT], "Zoom Out X", 0, 0);
     XcgLiteClueAddWidget
       (hintshell, si->btn[STRIPBTN_ZOOMINY], "Zoom In Y", 0, 0);   /*Albert */
     XcgLiteClueAddWidget
       (hintshell, si->btn[STRIPBTN_ZOOMOUTY], "Zoom Out Y", 0, 0); /*Albert */
-    XcgLiteClueAddWidget
-      (hintshell, si->btn[STRIPBTN_AUTO_SCALE], "Auto Scale", 0, 0); /*Albert */
 #ifdef STRIP_HISTORY   
     XcgLiteClueAddWidget 
       (hintshell, si->btn[STRIPBTN_FROM_TO], "From-To Interval", 0, 0);/*Albert */
@@ -842,21 +922,25 @@ Strip   Strip_init      (int    *argc,
       (hintshell, si->btn[STRIPBTN_REPLOT], "Real Replot", 0, 0);
 #endif /*STRIP_HISTORY   */
     XcgLiteClueAddWidget
-      (hintshell, si->btn[STRIPBTN_AUTOSCROLL], "Auto Scroll", 0, 0);
+      (hintshell, si->btn[STRIPBTN_RESET], "Reset", 0, 0);
     XcgLiteClueAddWidget
       (hintshell, si->btn[STRIPBTN_REFRESH], "Refresh", 0, 0);
+    XcgLiteClueAddWidget
+      (hintshell, si->btn[STRIPBTN_AUTO_SCALE], "Toggle AutoScale", 0, 0); /*Albert */
+    XcgLiteClueAddWidget
+      (hintshell, si->btn[STRIPBTN_AUTOSCROLL], "Toggle Scroll or Pan", 0, 0);
 #endif
+
+    /* strings for the browse-mode indicator */
+    xstr_panning=XmStringCreateLocalized ("PANNING");
+    xstr_notpanning=XmStringCreateLocalized ("SCROLLING");
 
     /* the browse mode indicator widget */
     si->browse_lbl = XtVaCreateManagedWidget
-      ("",
+      ("browseIndicator",
        xmLabelWidgetClass,              rowcol,
-       XmNlabelString,                  "",
+       XmNlabelString,                  xstr_notpanning,
        0);
-
-    xstr_panning=XmStringCreateLocalized ("PANNING");
-    xstr_notpanning=XmStringCreateLocalized ("SCROLLING");
-    XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_notpanning, 0);
 
     /* the graph base widget */
     si->graph_form = XtVaCreateManagedWidget
@@ -1056,18 +1140,18 @@ int     Strip_setattr   (Strip the_strip, ...)
     if ((ret_val = ((attrib > 0) && (attrib < STRIP_LAST_ATTRIBUTE))))
       switch (attrib)
       {
-          case STRIP_CONNECT_FUNC:
-            si->connect_func = va_arg (ap, StripCallback);
-            break;
-          case STRIP_CONNECT_DATA:
-            si->connect_data = va_arg (ap, void *);
-            break;
-          case STRIP_DISCONNECT_FUNC:
-            si->disconnect_func = va_arg (ap, StripCallback);
-            break;
-          case STRIP_DISCONNECT_DATA:
-            si->disconnect_data = va_arg (ap, void *);
-            break;
+	case STRIP_CONNECT_FUNC:
+	  si->connect_func = va_arg (ap, StripCallback);
+	  break;
+	case STRIP_CONNECT_DATA:
+	  si->connect_data = va_arg (ap, void *);
+	  break;
+	case STRIP_DISCONNECT_FUNC:
+	  si->disconnect_func = va_arg (ap, StripCallback);
+	  break;
+	case STRIP_DISCONNECT_DATA:
+	  si->disconnect_data = va_arg (ap, void *);
+	  break;
       }
   }
 
@@ -1095,18 +1179,18 @@ int     Strip_getattr   (Strip the_strip, ...)
     if ((ret_val = ((attrib > 0) && (attrib < STRIP_LAST_ATTRIBUTE))))
       switch (attrib)
       {
-          case STRIP_CONNECT_FUNC:
-            *(va_arg (ap, StripCallback *)) = si->connect_func;
-            break;
-          case STRIP_CONNECT_DATA:
-            *(va_arg (ap, void **)) = si->connect_data;
-            break;
-          case STRIP_DISCONNECT_FUNC:
-            *(va_arg (ap, StripCallback *)) = si->disconnect_func;
-            break;
-          case STRIP_DISCONNECT_DATA:
-            *(va_arg (ap, void **)) = si->disconnect_data;
-            break;
+	case STRIP_CONNECT_FUNC:
+	  *(va_arg (ap, StripCallback *)) = si->connect_func;
+	  break;
+	case STRIP_CONNECT_DATA:
+	  *(va_arg (ap, void **)) = si->connect_data;
+	  break;
+	case STRIP_DISCONNECT_FUNC:
+	  *(va_arg (ap, StripCallback *)) = si->disconnect_func;
+	  break;
+	case STRIP_DISCONNECT_DATA:
+	  *(va_arg (ap, void **)) = si->disconnect_data;
+	  break;
       }
   }
 
@@ -1119,9 +1203,9 @@ int     Strip_getattr   (Strip the_strip, ...)
  * Strip_addfd
  */
 int     Strip_addfd     (Strip                  the_strip,
-                         int                    fd,
-                         XtInputCallbackProc    func,
-                         XtPointer              data)
+  int                    fd,
+  XtInputCallbackProc    func,
+  XtPointer              data)
 {
   StripInfo     *si = (StripInfo *)the_strip;
   int           i;
@@ -1144,9 +1228,9 @@ int     Strip_addfd     (Strip                  the_strip,
  * Strip_addtimeout
  */
 XtIntervalId    Strip_addtimeout        (Strip                  the_strip,
-                                         double                 sec,
-                                         XtTimerCallbackProc    cb_func,
-                                         XtPointer              cb_data)
+  double                 sec,
+  XtTimerCallbackProc    cb_func,
+  XtPointer              cb_data)
 {
   StripInfo             *si = (StripInfo *)the_strip;
 
@@ -1292,8 +1376,8 @@ void    Strip_freesomecurves    (Strip the_strip, StripCurve curves[])
     StripDialog_removesomecurves (si->dialog, curves);
     StripGraph_draw
       (si->graph,
-       SGCOMPMASK_LEGEND | SGCOMPMASK_DATA | SGCOMPMASK_YAXIS,
-       (Region *)0);
+	  SGCOMPMASK_LEGEND | SGCOMPMASK_DATA | SGCOMPMASK_YAXIS,
+	  (Region *)0);
 
     for (i = 0; curves[i]; i++)
     {
@@ -1316,8 +1400,8 @@ int     Strip_connectcurve      (Strip the_strip, StripCurve the_curve)
   int                   ret_val;
 
 #if DEBUG_CONNECTING
-	print("%s Strip_connectcurve\"  %s\n",
-		timeStamp(), sci->details->name);
+  print("%s Strip_connectcurve\"  %s\n",
+    timeStamp(), sci->details->name);
 #endif	
 
   if (si->connect_func != NULL)
@@ -1338,8 +1422,8 @@ int     Strip_connectcurve      (Strip the_strip, StripCurve the_curve)
   else
   {
     fprintf (stderr,
-             "Strip_connectcurve:\n"
-             "  Warning! no connection routine\n");
+	"Strip_connectcurve:\n"
+	"  Warning! no connection routine\n");
     ret_val = 0;
   }
 
@@ -1357,13 +1441,13 @@ void    Strip_setconnected      (Strip the_strip, StripCurve the_curve)
   StripCurve            curve[2];
 
 #if DEBUG_CONNECTING
-	print("%s Strip_setconnected\"  %s\n",
-		timeStamp(), sci->details->name);
+  print("%s Strip_setconnected\"  %s\n",
+    timeStamp(), sci->details->name);
 #endif	
 
 /* add the curve to the various modules only once --the first time it
-   * is connected
-   */
+ * is connected
+ */
   if (!StripCurve_getstat (the_curve, STRIPCURVE_CONNECTED))
   {
     StripDataSource_addcurve (si->data, the_curve);
@@ -1380,8 +1464,8 @@ void    Strip_setconnected      (Strip the_strip, StripCurve the_curve)
   
   StripGraph_draw
     (si->graph,
-     SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS,
-     (Region *)0);
+	SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS,
+	(Region *)0);
 
   StripDialog_update_curvestat (si->dialog, the_curve);
 }
@@ -1397,8 +1481,8 @@ void    Strip_setwaiting        (Strip the_strip, StripCurve the_curve)
   StripCurve            curve[2];
 
 #if DEBUG_CONNECTING
-	print("%s Strip_setwaiting\"  %s\n",
-		timeStamp(), sci->details->name);
+  print("%s Strip_setwaiting\"  %s\n",
+    timeStamp(), sci->details->name);
 #endif	
 
 #if 0
@@ -1423,13 +1507,13 @@ void    Strip_clear     (Strip the_strip)
   int                   i, j;
   StripConfigMask       mask;
 
- if(auto_scaleTriger==1) Strip_auto_scale(the_strip);
+  if(auto_scaleTriger==1) Strip_auto_scale(the_strip);
 
   Strip_ignoreevent
     (si,
-     STRIPEVENTMASK_SAMPLE |
-     STRIPEVENTMASK_REFRESH |
-     STRIPEVENTMASK_CHECK_CONNECT);
+	STRIPEVENTMASK_SAMPLE |
+	STRIPEVENTMASK_REFRESH |
+	STRIPEVENTMASK_CHECK_CONNECT);
   
   for (i = 0, j = 0; i < STRIP_MAX_CURVES; i++)
     if (si->curves[i].details)
@@ -1461,8 +1545,8 @@ void    Strip_refresh     (Strip the_strip)
   StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
   StripGraph_draw
     (si->graph,
-     SGCOMPMASK_TITLE | SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS,
-     (Region *)0);
+	SGCOMPMASK_TITLE | SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS,
+	(Region *)0);
 }
 
 int    Strip_auto_scale     (Strip the_strip)
@@ -1475,9 +1559,9 @@ int    Strip_auto_scale     (Strip the_strip)
   
   XtVaSetValues
     (si->btn[STRIPBTN_AUTO_SCALE],
-     XmNlabelType,		XmPIXMAP,
-     XmNlabelPixmap,		auto_scalePixmap[auto_scaleTriger],
-     0);
+	XmNlabelType,		XmPIXMAP,
+	XmNlabelPixmap,		auto_scalePixmap[auto_scaleTriger],
+	0);
 
   
   if (changeMinMax(the_strip) == 1) {
@@ -1485,8 +1569,8 @@ int    Strip_auto_scale     (Strip the_strip)
     StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
     StripGraph_draw
       (si->graph,
-       SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS,
-       (Region *)0);
+	  SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS,
+	  (Region *)0);
   }
   XtRealizeWidget (si->btn[STRIPBTN_AUTO_SCALE]); 
   return (0);
@@ -1498,26 +1582,26 @@ static int changeMinMax( Strip the_strip)
   int i;
   double  widgetMin, widgetMax;
   int need_refresh=0;
-if (auto_scaleTriger == 1)
+  if (auto_scaleTriger == 1)
   {
     need_refresh=StripAuto_min_max(si->data,(char *)si->graph);
   }
-else  if (auto_scaleTriger == 0)
+  else  if (auto_scaleTriger == 0)
   {
     for (i = 0; i < STRIP_MAX_CURVES; i++)
-      {
+    {
 	if (!si->curves[i].details) continue;
 	if (si->curves[i].details->plotstat != STRIPCURVE_PLOTTED) continue;
 	getwidgetval_min((char *)si->dialog,i,&widgetMin);
 	getwidgetval_max((char *)si->dialog,i,&widgetMax);
 	if (si->curves[i].details->min != widgetMin) 
-	  {si->curves[i].details->min=widgetMin;need_refresh =1;}
+	{si->curves[i].details->min=widgetMin;need_refresh =1;}
 	if (si->curves[i].details->max != widgetMax) 
-	  {si->curves[i].details->max=widgetMax;need_refresh =1;}
-      }
+	{si->curves[i].details->max=widgetMax;need_refresh =1;}
+    }
   }
-else {return (0);}
-return(need_refresh);
+  else {return (0);}
+  return(need_refresh);
 
 }
 
@@ -1541,32 +1625,32 @@ int     Strip_dumpdata  (Strip the_strip, char *fname)
     {
       for (i = 0; i < DFSDLG_TGL_COUNT; i++)
         if (XmToggleButtonGetState(si->fs_tgl[i])) break;
-        switch (i)
-        {
-            case DFSDLG_TGL_ASCII:
-              ret_val = StripGraph_dumpdata (si->graph, f);
-              break;
+	switch (i)
+	{
+	case DFSDLG_TGL_ASCII:
+	  ret_val = StripGraph_dumpdata (si->graph, f);
+	  break;
 #ifdef USE_SDDS
-            case DFSDLG_TGL_SDDS:
-              fclose (f);
-              ret_val = StripGraph_dumpdata_sdds (si->graph, fname);
-              break;
+	case DFSDLG_TGL_SDDS:
+	  fclose (f);
+	  ret_val = StripGraph_dumpdata_sdds (si->graph, fname);
+	  break;
 #endif
-        }
+	}
     }
     else
       ret_val = StripGraph_dumpdata (si->graph, f);
     if (!ret_val)
       MessageBox_popup
         (si->shell, &si->message_box, XmDIALOG_ERROR, "File I/O", "Ok",
-         "Unable to dump data");
+	    "Unable to dump data");
     fclose (f);
   }
   else
     MessageBox_popup
       (si->shell, &si->message_box, XmDIALOG_ERROR, "File I/O", "Ok",
-       "Unable to open file for writing.\nname: %s\nerror: %s",
-       fname, strerror (errno));
+	  "Unable to open file for writing.\nname: %s\nerror: %s",
+	  fname, strerror (errno));
   return ret_val;
 }
 
@@ -1575,9 +1659,9 @@ int     Strip_dumpdata  (Strip the_strip, char *fname)
  * Strip_writeconfig
  */
 int     Strip_writeconfig       (Strip                  the_strip,
-                                 FILE                   *f,
-                                 StripConfigMask        m,
-                                 char                   *fname)
+  FILE                   *f,
+  StripConfigMask        m,
+  char                   *fname)
 {
   StripInfo     *si = (StripInfo *)the_strip;
   int           ret_val;
@@ -1597,9 +1681,9 @@ int     Strip_writeconfig       (Strip                  the_strip,
  * Strip_readconfig
  */
 int     Strip_readconfig        (Strip                  the_strip,
-                                 FILE                   *f, 
-                                 StripConfigMask        m,
-                                 char                   *fname)
+  FILE                   *f, 
+  StripConfigMask        m,
+  char                   *fname)
 {
   StripInfo     *si = (StripInfo *)the_strip;
   int           ret_val;
@@ -1623,14 +1707,14 @@ int     Strip_readconfig        (Strip                  the_strip,
  * Strip_forgetcurve
  */
 static void     Strip_forgetcurve       (StripInfo      *si,
-                                         StripCurve     the_curve)
+  StripCurve     the_curve)
 {
   StripCurveInfo        *sci = (StripCurveInfo *)the_curve;
 
   StripCurve_clearstat
     (the_curve,
-     STRIPCURVE_EGU_SET | STRIPCURVE_COMMENT_SET | STRIPCURVE_PRECISION_SET |
-     STRIPCURVE_MIN_SET | STRIPCURVE_MAX_SET | STRIPCURVE_SCALE_SET);
+	STRIPCURVE_EGU_SET | STRIPCURVE_COMMENT_SET | STRIPCURVE_PRECISION_SET |
+	STRIPCURVE_MIN_SET | STRIPCURVE_MAX_SET | STRIPCURVE_SCALE_SET);
   StripConfig_reset_details (si->config, sci->details);
   sci->details = 0;
   sci->get_value = 0;
@@ -1644,8 +1728,8 @@ static void     Strip_forgetcurve       (StripInfo      *si,
  *      Handles drop events on the graph drawing area widget.
  */
 static void     Strip_graphdrop_handle  (Widget         w,
-                                         XtPointer      BOGUS(1),
-                                         XtPointer      call)
+  XtPointer      BOGUS(1),
+  XtPointer      call)
 {
   StripInfo                     *si;
   Display                       *dpy;
@@ -1706,12 +1790,12 @@ static void     Strip_graphdrop_handle  (Widget         w,
  *      routine.
  */
 static void     Strip_graphdrop_xfer    (Widget         BOGUS(w),
-                                         XtPointer      client,
-                                         Atom           *BOGUS(sel_type),
-                                         Atom           *type,
-                                         XtPointer      value,
-                                         unsigned long  *BOGUS(length),
-                                         int            *BOGUS(format))
+  XtPointer      client,
+  Atom           *BOGUS(sel_type),
+  Atom           *type,
+  XtPointer      value,
+  unsigned long  *BOGUS(length),
+  int            *BOGUS(format))
 {
   StripInfo     *si = (StripInfo *)client;
   StripCurve    curve;
@@ -1775,28 +1859,28 @@ static void     Strip_config_callback   (StripConfigMask mask, void *data)
       sprintf (str_buf, "%s Graph", si->config->title);
       XtVaSetValues
         (si->shell,
-         XmNtitle,      str_buf,
-         XmNiconName,   si->config->title,
-         0);
+	    XmNtitle,      str_buf,
+	    XmNiconName,   si->config->title,
+	    0);
       sprintf (str_buf, "%s Controls", si->config->title);
       XtVaSetValues
         (w_dlg,
-         XmNtitle,      str_buf,
-         XmNiconName,   si->config->title,
-         0);
+	    XmNtitle,      str_buf,
+	    XmNiconName,   si->config->title,
+	    0);
     }
     else
     {
       XtVaSetValues
         (si->shell,
-         XmNtitle,      STRIPGRAPH_TITLE,
-         XmNiconName,   STRIPGRAPH_ICON_NAME,
-         0);
+	    XmNtitle,      STRIPGRAPH_TITLE,
+	    XmNiconName,   STRIPGRAPH_ICON_NAME,
+	    0);
       XtVaSetValues
         (w_dlg,
-         XmNtitle,      STRIPDIALOG_TITLE,
-         XmNiconName,   STRIPDIALOG_ICON_NAME,
-         0);
+	    XmNtitle,      STRIPDIALOG_TITLE,
+	    XmNiconName,   STRIPDIALOG_ICON_NAME,
+	    0);
     }
   }
 
@@ -1824,9 +1908,9 @@ static void     Strip_config_callback   (StripConfigMask mask, void *data)
           
         StripGraph_setattr
           (si->graph,
-           STRIPGRAPH_BEGIN_TIME,       &t0,
-           STRIPGRAPH_END_TIME,         &t1,
-           0);
+		STRIPGRAPH_BEGIN_TIME,       &t0,
+		STRIPGRAPH_END_TIME,         &t1,
+		0);
         comp_mask |=  SGCOMPMASK_DATA | SGCOMPMASK_XAXIS;
       }
       else si->last_event[STRIPEVENT_REFRESH].tv_sec = 0;
@@ -1850,12 +1934,12 @@ static void     Strip_config_callback   (StripConfigMask mask, void *data)
        * occurs we won't see ugly colors */
       XtVaSetValues
         (si->graph_form,
-         XmNbackground, si->config->Color.background.xcolor.pixel,
-         0);
+	    XmNbackground, si->config->Color.background.xcolor.pixel,
+	    0);
       XtVaSetValues
         (si->canvas,
-         XmNbackground, si->config->Color.background.xcolor.pixel,
-         0);
+	    XmNbackground, si->config->Color.background.xcolor.pixel,
+	    0);
       
       /* have to redraw everything when the background color changes */
       comp_mask |= SGCOMPMASK_ALL;
@@ -1875,7 +1959,7 @@ static void     Strip_config_callback   (StripConfigMask mask, void *data)
     /* if any of the curves have changed color, must redraw */
     for (i = 0; i < STRIP_MAX_CURVES; i++)
       if (StripConfigMask_stat
-          (&mask, (StripConfigMaskElement)SCFGMASK_COLOR_COLOR1+i))
+	  (&mask, (StripConfigMaskElement)SCFGMASK_COLOR_COLOR1+i))
       {
         /* no way of knowing if the curve whose color changed was the
          * one defining the yaxis color */
@@ -1914,15 +1998,15 @@ static void     Strip_config_callback   (StripConfigMask mask, void *data)
     for (i = 0; i < STRIP_MAX_CURVES; i++)
     {
       if (StripConfigMask_stat
-          (&si->config->Curves.Detail[i].update_mask,
-           SCFGMASK_CURVE_NAME))
+	  (&si->config->Curves.Detail[i].update_mask,
+	    SCFGMASK_CURVE_NAME))
       {
         if ((sci = (StripCurveInfo *)si->config->Curves.Detail[i].id)
-            != NULL)
+	    != NULL)
         {
           /* the detail structure is used by some StripCurve */
           if (StripCurve_getstat
-              (sci, STRIPCURVE_CONNECTED | STRIPCURVE_WAITING))
+		(sci, STRIPCURVE_CONNECTED | STRIPCURVE_WAITING))
             dcon.curves[dcon.n++] = (StripCurve)sci;
         }
         else
@@ -1967,10 +2051,10 @@ static void     Strip_config_callback   (StripConfigMask mask, void *data)
       {
         fprintf
           (stderr,
-           "Strip_config_callback:\n"
-           "  Warning! connect failed for curve, %s\n",
-           (char *) StripCurve_getattr_val
-           (conn.curves[i], STRIPCURVE_NAME));
+		"Strip_config_callback:\n"
+		"  Warning! connect failed for curve, %s\n",
+		(char *) StripCurve_getattr_val
+		(conn.curves[i], STRIPCURVE_NAME));
         Strip_forgetcurve (si, conn.curves[i]);
       }
     }
@@ -2022,11 +2106,11 @@ static void     Strip_config_callback   (StripConfigMask mask, void *data)
       for (i = 0; i < STRIP_MAX_CURVES; i++)
         if (si->curves[i].details)
           if (StripConfigMask_stat
-              (&si->curves[i].details->update_mask, SCFGMASK_CURVE_PLOTSTAT))
+		(&si->curves[i].details->update_mask, SCFGMASK_CURVE_PLOTSTAT))
           {
             for (j = 0, shift = 0; j < STRIP_MAX_CURVES; j++) {
               if (j == i) shift = 1;
-                si->config->Curves.plot_order[j] = j + shift;
+		  si->config->Curves.plot_order[j] = j + shift;
             } 
             si->config->Curves.plot_order[STRIP_MAX_CURVES-1] = i;
             break;
@@ -2039,15 +2123,15 @@ static void     Strip_config_callback   (StripConfigMask mask, void *data)
 #if 1
   /* Albert : */
   if ( StripConfigMask_stat(&mask, SCFGMASK_TIME_TIMESPAN) )
-      if (auto_scaleTriger == 1)
-	{
-	  if (changeMinMax(si)) { /* Albert */
-	    StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
-	    StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
+    if (auto_scaleTriger == 1)
+    {
+	if (changeMinMax(si)) { /* Albert */
+	  StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
+	  StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
 	    
-	    comp_mask=SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS | SGCOMPMASK_XAXIS;
-	  }
+	  comp_mask=SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS | SGCOMPMASK_XAXIS;
 	}
+    }
 #endif
   if (comp_mask) StripGraph_draw (si->graph, comp_mask, (Region *)0);
 }
@@ -2070,7 +2154,7 @@ static void     Strip_eventmgr          (XtPointer arg, XtIntervalId *BOGUS(id))
   {
     /* only process desired events */
     if (!(si->event_mask & (1 << event))) continue;
-
+    
     get_current_time (&event_time);
     diff = subtract_times (&tv, &event_time, &si->next_event[event]);
     if (diff <= STRIP_TIMER_ACCURACY)
@@ -2079,79 +2163,79 @@ static void     Strip_eventmgr          (XtPointer arg, XtIntervalId *BOGUS(id))
       
       switch (event)
       {
-          case STRIPEVENT_SAMPLE:
-	    /* StripDataSource_sample (si->data); Albert*/
-            StripDataSource_sample (si->data,(char *)si->graph); /* Albert */
-            break;
-            
-          case STRIPEVENT_REFRESH:
-            /* if we are in browse mode, then only refresh the graph if the
-             * current time falls within the displayed time range */
-            if (si->status & STRIPSTAT_BROWSE_MODE)
-            {
-              struct timeval    t0, t1;
-
-              StripGraph_getattr
-                (si->graph,
-                 STRIPGRAPH_BEGIN_TIME, &t0,
-                 STRIPGRAPH_END_TIME,   &t1,
-                 0);
-              if ((compare_times (&event_time, &t0) >= 0) &&
-                  (compare_times (&event_time, &t1) <= 0))
-                StripGraph_draw (si->graph, SGCOMPMASK_DATA, (Region *)0);
-            }
-            /* if we are not in browse mode then refresh the graph with
-             * the current time as the rightmost value */
-            else
-            {
-              dbl2time (&tv, si->config->Time.timespan);
-              subtract_times (&t, &tv, &event_time);
-              StripGraph_setattr
-                (si->graph,
-                 STRIPGRAPH_BEGIN_TIME, &t,
-                 STRIPGRAPH_END_TIME,   &event_time,
-                 0);
-
-if (auto_scaleNoBrowse == 1) 
-  {
-    auto_scaleNoBrowse=0;
-    if (auto_scaleTriger == 1) {
-      if (changeMinMax(si)) { /* Albert */
-	StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
-	StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
-	StripGraph_draw
-	  (si->graph,
-	   SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS | SGCOMPMASK_XAXIS,
-	   (Region *)0);
-      }
-    }
-  }
-else
-              StripGraph_draw
-                (si->graph, SGCOMPMASK_XAXIS | SGCOMPMASK_DATA, (Region *)0);
-            }
-            break;
-            
-          case STRIPEVENT_CHECK_CONNECT:
-            for (i = 0, n = 0; i < STRIP_MAX_CURVES; i++)
-              if (si->curves[i].details)
-                if (StripCurve_getstat
-                    ((StripCurve)&si->curves[i], STRIPCURVE_WAITING) &&
-                    StripCurve_getstat
-                    ((StripCurve)&si->curves[i], STRIPCURVE_CHECK_CONNECT))
-                {
-                  diff = subtract_times
-                    (&tv, &si->curves[i].connect_request, &event_time);
-                  if (diff >= STRIP_CONNECTION_TIMEOUT)
-                  {
-                    StripCurve_clearstat
-                      ((StripCurve)&si->curves[i],
-                       STRIPCURVE_CHECK_CONNECT);
-                    n++;
-                  }
-                  if (n > 0) ; /* do nothing */
-                }
-            break;
+	case STRIPEVENT_SAMPLE:
+	  /* StripDataSource_sample (si->data); Albert*/
+	  StripDataSource_sample (si->data,(char *)si->graph); /* Albert */
+	  break;
+	  
+	case STRIPEVENT_REFRESH:
+	  /* if we are in browse mode, then only refresh the graph if the
+	   * current time falls within the displayed time range */
+	  if (si->status & STRIPSTAT_BROWSE_MODE)
+	  {
+	    struct timeval    t0, t1;
+	    
+	    StripGraph_getattr
+		(si->graph,
+		  STRIPGRAPH_BEGIN_TIME, &t0,
+		  STRIPGRAPH_END_TIME,   &t1,
+		  0);
+	    if ((compare_times (&event_time, &t0) >= 0) &&
+		(compare_times (&event_time, &t1) <= 0))
+		StripGraph_draw (si->graph, SGCOMPMASK_DATA, (Region *)0);
+	  }
+	  /* if we are not in browse mode then refresh the graph with
+	   * the current time as the rightmost value */
+	  else
+	  {
+	    dbl2time (&tv, si->config->Time.timespan);
+	    subtract_times (&t, &tv, &event_time);
+	    StripGraph_setattr
+		(si->graph,
+		  STRIPGRAPH_BEGIN_TIME, &t,
+		  STRIPGRAPH_END_TIME,   &event_time,
+		  0);
+	    
+	    if (auto_scaleNoBrowse == 1) 
+	    {
+		auto_scaleNoBrowse=0;
+		if (auto_scaleTriger == 1) {
+		  if (changeMinMax(si)) { /* Albert */
+		    StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
+		    StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
+		    StripGraph_draw
+			(si->graph,
+			  SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS | SGCOMPMASK_XAXIS,
+			  (Region *)0);
+		  }
+		}
+	    }
+	    else
+		StripGraph_draw
+		  (si->graph, SGCOMPMASK_XAXIS | SGCOMPMASK_DATA, (Region *)0);
+	  }
+	  break;
+	  
+	case STRIPEVENT_CHECK_CONNECT:
+	  for (i = 0, n = 0; i < STRIP_MAX_CURVES; i++)
+	    if (si->curves[i].details)
+		if (StripCurve_getstat
+		  ((StripCurve)&si->curves[i], STRIPCURVE_WAITING) &&
+		  StripCurve_getstat
+		  ((StripCurve)&si->curves[i], STRIPCURVE_CHECK_CONNECT))
+		{
+		  diff = subtract_times
+		    (&tv, &si->curves[i].connect_request, &event_time);
+		  if (diff >= STRIP_CONNECTION_TIMEOUT)
+		  {
+		    StripCurve_clearstat
+			((StripCurve)&si->curves[i],
+			  STRIPCURVE_CHECK_CONNECT);
+		    n++;
+		  }
+		  if (n > 0) ; /* do nothing */
+		}
+	  break;
       }
     }
   }
@@ -2209,8 +2293,8 @@ static void     Strip_dispatch          (StripInfo *si)
 #ifdef DEBUG_EVENT
     fprintf
       (stdout, "=> last %-15s:\n%s\n",
-       StripEventTypeStr[i],
-       time2str (&si->last_event[i]));
+	  StripEventTypeStr[i],
+	  time2str (&si->last_event[i]));
 #endif
     dbl2time (&t, interval[i]);
     add_times (&si->next_event[i], &si->last_event[i], &t);
@@ -2234,13 +2318,13 @@ static void     Strip_dispatch          (StripInfo *si)
       if (si->event_mask & (1 << i))
         fprintf
           (stdout, "=> Next %s\n%s\n",
-           StripEventTypeStr[i],
-           time2str (&si->next_event[i]));
+		StripEventTypeStr[i],
+		time2str (&si->next_event[i]));
     }
     fprintf (stdout, "=> Next Event\n%s\n", time2str (next));
     fprintf (stdout, "=> Current Time\n%s\n", time2str (&now));
     fprintf (stdout, "=> si->next_event - current_time = %lf (seconds)\n",
-             sec = subtract_times (&t, &now, next));
+	sec = subtract_times (&t, &now, next));
     fprintf (stdout, "============\n");
 #endif
 
@@ -2290,6 +2374,32 @@ static void     Strip_printer_init      (StripInfo *si)
   *s = 0;
 }
 
+/*
+ * Strip_setbrowsemode
+ */
+static void     Strip_setbrowsemode     (StripInfo *si, int browse)
+{
+  if(browse)
+  {
+    si->status |= STRIPSTAT_BROWSE_MODE;
+    XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_panning, 0);
+    XtVaSetValues	(si->btn[STRIPBTN_AUTOSCROLL],
+	XmNlabelType,		XmPIXMAP,
+	XmNlabelPixmap,		browsePixmap[1],
+	0);
+  }
+  else
+  {
+    auto_scaleNoBrowse = 1;
+    si->status &= ~STRIPSTAT_BROWSE_MODE;
+    XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_notpanning, 0);
+    XtVaSetValues	(si->btn[STRIPBTN_AUTOSCROLL],
+	XmNlabelType,		XmPIXMAP,
+	XmNlabelPixmap,		browsePixmap[0],
+	0);
+  }
+}
+
 
 /*
  * callback
@@ -2311,388 +2421,452 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
 
   switch (cbs->reason)
   {
-      case XmCR_PROTOCOLS:
-
-        dlgrequest_quit (si, 0);
-        break;
-        
-      case XmCR_ACTIVATE:
-
-        /*
-         * Pan left or right
-         */
-        if (w == si->btn[STRIPBTN_LEFT] || w == si->btn[STRIPBTN_RIGHT])
-        {
-          /* pan by half a screen */
-          dbl2time (&t, si->config->Time.timespan / 2.0);
-          StripGraph_getattr (si->graph, STRIPGRAPH_END_TIME, &tb, 0);
-
-          if (w == si->btn[STRIPBTN_LEFT])
-            /* t1 = tb - t */
-            subtract_times (&t1, &t, &tb);
-          else
-            /* t1 = tb + t */
-            add_times (&t1, &t, &tb);
-
-          /* go into browse mode, and redraw the graph with the new range */
-          si->status |= STRIPSTAT_BROWSE_MODE;
-          XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_panning, 0);
-          
-          dbl2time (&t, si->config->Time.timespan);
-          subtract_times (&t0, &t, &t1);
-          
-          StripGraph_setattr
-            (si->graph,
-             STRIPGRAPH_BEGIN_TIME,     &t0,
-             STRIPGRAPH_END_TIME,       &t1,
-             0);
-	  if (auto_scaleTriger != 1)
-	    StripGraph_draw
-	      (si->graph, SGCOMPMASK_DATA | SGCOMPMASK_XAXIS, (Region *)0);
-	  else {
-	    if (changeMinMax(si)) { /* Albert */
-	      StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
-	      StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
-	      StripGraph_draw
-		(si->graph,
-		 SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS | SGCOMPMASK_XAXIS,
-		 (Region *)0);
-	    }
-	    else  StripGraph_draw
-		    (si->graph,SGCOMPMASK_DATA|SGCOMPMASK_XAXIS,(Region *)0);
-	  }
-	  
-        }
-
-
-        /*
-         * Zoom in or out
-         *
-         *      (1) set new end time of graph object (begin time is calculated
-         *          as offset from end time)
-         *      (2) turn on browse mode
-         *      (3) set new timespan via StripConfig_setattr()
-         *      (4) generate configuration update callbacks, causing
-         *          the graph to be updated.
-         */
-        else if (w == si->btn[STRIPBTN_ZOOMIN] ||
-                 w == si->btn[STRIPBTN_ZOOMOUT])
-        {
-          struct timeval        t, tb, t1;
-          unsigned              t_new;
-          
-          StripGraph_getattr (si->graph, STRIPGRAPH_END_TIME, &tb, 0);
-          
-          if (w == si->btn[STRIPBTN_ZOOMIN])
-          {
-            /* halve viewable area by subtracting 1/4 current range from the
-             * end-point */
-            dbl2time (&t, si->config->Time.timespan * 0.25);
-            subtract_times (&t1, &t, &tb);
-            t_new = si->config->Time.timespan / 2;
-          }
-          else
-          {
-            /* double viewable area by adding 1/2 current range to the
-             * end-point */
-            dbl2time (&t, si->config->Time.timespan * 0.5);
-            add_times (&t1, &t, &tb);
-            t_new = si->config->Time.timespan * 2;
-          }
-
-          StripGraph_setattr (si->graph, STRIPGRAPH_END_TIME, &t1, 0);
-          si->status |= STRIPSTAT_BROWSE_MODE;
-          XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_panning, 0);
-          StripConfig_setattr
-            (si->config, STRIPCONFIG_TIME_TIMESPAN, t_new, 0);
-
-          StripConfigMask_clear (&scfg_mask);
-          StripConfigMask_set (&scfg_mask, SCFGMASK_TIME_TIMESPAN);
-          StripConfig_update (si->config, scfg_mask);
-        }
-	else if (w == si->btn[STRIPBTN_ZOOMINY] ||
-                 w == si->btn[STRIPBTN_ZOOMOUTY])
-	  {
-	    int i;
-	    double width;
-	    for (i = 0; i < STRIP_MAX_CURVES; i++)
-	      {
-		if (!si->curves[i].details) continue;
-		if (si->curves[i].details->plotstat != STRIPCURVE_PLOTTED) 
-		  continue;
-		width=si->curves[i].details->max - si->curves[i].details->min;
-		width /= 2;
-		if (w == si->btn[STRIPBTN_ZOOMOUTY])
-		  {
-		    si->curves[i].details->max += width;
-		    si->curves[i].details->min -= width;
-		  }
-		else 
-		  {
-		    width /= 2;
-		    si->curves[i].details->max -= width;
-		    si->curves[i].details->min += width;
-		  }
-	      }
-	    StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
-	    StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
-	    StripGraph_draw
-	      (si->graph,
-	       SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS | 
-	       SGCOMPMASK_XAXIS,(Region *)0);
-	  }
+  case XmCR_PROTOCOLS:
+    
+    dlgrequest_quit (si, 0);
+    break;
+    
+  case XmCR_ACTIVATE:
+    
+    /*
+     * Pan left or right
+     */
+    if (w == si->btn[STRIPBTN_LEFT] || w == si->btn[STRIPBTN_RIGHT])
+    {
+	if (event->xany.type == ButtonRelease &&
+	  ((XButtonEvent *)event)->button == Button3)
+	{
+	  /* pan by twentieth a screen */
+	  dbl2time (&t, si->config->Time.timespan * SMALL_PAN_FACTOR);
+	}
+	else
+	{
+	  /* pan by half a screen */
+	  dbl2time (&t, si->config->Time.timespan * LARGE_PAN_FACTOR);
+	}
+	StripGraph_getattr (si->graph, STRIPGRAPH_END_TIME, &tb, 0);
 	
-	else if (w == si->btn[STRIPBTN_UP] ||
-                 w == si->btn[STRIPBTN_DOWN])
-	  {
-	    int i;
-	    double width;
-	    for (i = 0; i < STRIP_MAX_CURVES; i++)
-	      {
-		if (!si->curves[i].details) continue;
-		if (si->curves[i].details->plotstat != STRIPCURVE_PLOTTED) 
-		  continue;
-		width=si->curves[i].details->max - si->curves[i].details->min;
-		width /= 2;
-		if (w == si->btn[STRIPBTN_UP])
-		  {
-		    si->curves[i].details->max += width;
-		    si->curves[i].details->min += width;
-		  }
-		else 
-		  {
-		    si->curves[i].details->max -= width;
-		    si->curves[i].details->min -= width;
-		  }
-	      }
+	if (w == si->btn[STRIPBTN_LEFT])
+	  /* t1 = tb - t */
+	  subtract_times (&t1, &t, &tb);
+	else
+	  /* t1 = tb + t */
+	  add_times (&t1, &t, &tb);
+	
+	/* go into browse mode, and redraw the graph with the new range */
+	Strip_setbrowsemode (si, True);
+	
+	dbl2time (&t, si->config->Time.timespan);
+	subtract_times (&t0, &t, &t1);
+	
+	StripGraph_setattr
+	  (si->graph,
+	    STRIPGRAPH_BEGIN_TIME,     &t0,
+	    STRIPGRAPH_END_TIME,       &t1,
+	    0);
+	if (auto_scaleTriger != 1)
+	  StripGraph_draw
+	    (si->graph, SGCOMPMASK_DATA | SGCOMPMASK_XAXIS, (Region *)0);
+	else {
+	  if (changeMinMax(si)) { /* Albert */
 	    StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
 	    StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
 	    StripGraph_draw
-	      (si->graph,
-	       SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS | 
-	       SGCOMPMASK_XAXIS,(Region *)0);
+		(si->graph,
+		  SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS | SGCOMPMASK_XAXIS,
+		  (Region *)0);
 	  }
-
-        /*
-         * Reset auto-scroll
-         */
-        else if (w == si->btn[STRIPBTN_AUTOSCROLL])
-        {
-	  auto_scaleNoBrowse =1;
-          si->status &= ~STRIPSTAT_BROWSE_MODE;
-          XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_notpanning, 0);
-        }
-
-        /*
-         * Refresh the screen
-         */
-        else if (w == si->btn[STRIPBTN_REFRESH])
-        {
-          StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
-          StripGraph_draw (si->graph, SGCOMPMASK_DATA, (Region *)0);
-        }
-#ifdef  STRIP_HISTORY
-        else if (w == si->btn[STRIPBTN_FROM_TO])   /* Albert */
-        {
-         time_t t;
-         struct tm *tms;
-         static char buf[32];
-         int i;
-         static char defaultTUString[LAST_TIME_UNIT][5];
-
-	  if(fromToShell == NULL)
-            { 
-            fromToShell=fromToDialog_init (si->toplevel, "From-To Window",si);
-            }
-
-
-         StripGraph_getattr (si->graph, STRIPGRAPH_BEGIN_TIME, &t, 0);
-         tms=localtime((const time_t *) &t);
-         sprintf(buf,"%04d%02d%02d%02d%02d",
-         1900+tms->tm_year,1+tms->tm_mon,tms->tm_mday,tms->tm_hour,tms->tm_min);
-         sscanf(buf,"%4s%2s%2s%2s%2s",
-         &defaultTUString[0][0],
-         &defaultTUString[1][0],
-         &defaultTUString[2][0],
-         &defaultTUString[3][0],
-         &defaultTUString[4][0]);
-
-         for(i=0;i<LAST_TIME_UNIT;i++)
-             XmTextSetString(timeUnitTextWidget[0][i],&defaultTUString[i][0]);
-
-         StripGraph_getattr (si->graph, STRIPGRAPH_END_TIME, &t, 0);
-         tms=localtime(&t);
-         sprintf(buf,"%04d%02d%02d%02d%02d",
-         1900+tms->tm_year,1+tms->tm_mon,tms->tm_mday,tms->tm_hour,tms->tm_min);
-         sscanf(buf,"%4s%2s%2s%2s%2s",
-         &defaultTUString[0][0],
-         &defaultTUString[1][0],
-         &defaultTUString[2][0],
-         &defaultTUString[3][0],
-         &defaultTUString[4][0]);
-
-         for(i=0;i<LAST_TIME_UNIT;i++)
-            XmTextSetString(timeUnitTextWidget[1][i],&defaultTUString[i][0]);
-
-         XMapRaised (XtDisplay (fromToShell), XtWindow (fromToShell));
-
+	  else  StripGraph_draw
+		    (si->graph,SGCOMPMASK_DATA|SGCOMPMASK_XAXIS,(Region *)0);
 	}
-
-       else if (w == si->btn[STRIPBTN_ALG])   /* Albert */
-        {
-	  static Widget tmp;
-	  int i;
-	  static Widget panel;
-	  static Widget radio_box;
-	  static Widget arch_btn;
-	  static Widget btn_radio_close;
-	  static Widget btn_radio_help;
-
-	  static Widget nopPanel;
-	  static Widget text_nop;
-	  static Widget label_nop;
-	  static Widget refresh_nop;
-	  static char buf[32];
-	  if(algShell == NULL) 
-	    {
-	      algShell = XtVaCreatePopupShell
-		("AlgDialog",
-		 topLevelShellWidgetClass, 	si->toplevel,
-		 XmNtitle,			"AlgDialog", 
-		 NULL);
-	      panel = XmCreateRowColumn(algShell , "panel", NULL, 0);
-	      XtManageChild(panel);
-
-	      radio_box = XmCreateRadioBox(panel,"radio_box",NULL,0);
-	      XtVaSetValues(radio_box,
-			    XmNnumColumns,algorithmLength,
-			    XmNpacking,XmPACK_TIGHT,
-			    XmNuserData, (XtPointer)si,
-			    NULL);
-	      for (i = 0; i < algorithmLength; i++) {
-		tmp=XtVaCreateManagedWidget(algorithmString[i],
-					xmToggleButtonGadgetClass, radio_box,
-					XmNset, i == AVERAGE_METHOD-1,
-					NULL);
-		XtAddCallback(tmp,XmNvalueChangedCallback,radio_toggled,
-			      (XtPointer) i );
-	      }
-#ifndef USE_AAPI/*only under AAPI possible choose reduction algorithms right now */ 
-	      XtSetSensitive(radio_box,False);
-#endif
-	      XtManageChild(radio_box);
-  
-	      arch_btn = XtVaCreateManagedWidget("Show points",
-                xmToggleButtonGadgetClass,panel, NULL);
-	      XtAddCallback (arch_btn,XmNvalueChangedCallback,arch_callback,NULL);
-	      XtVaSetValues (arch_btn, XmNuserData, (XtPointer)si, 0);
-
-	      nopPanel = XmCreateRowColumn(panel, "panel", NULL, 0);
-	      XtVaSetValues(nopPanel, XmNorientation,XmHORIZONTAL,NULL);
-
-	      label_nop=XtVaCreateManagedWidget("Points:",xmLabelGadgetClass,
-						nopPanel,NULL);
-	      
-	      sprintf(buf,"%d",DEFAULT_HISTORY_SIZE);
-
-	      text_nop=XtVaCreateManagedWidget("tex_nop",
-		       xmTextFieldWidgetClass,nopPanel,
-		       XmNcolumns,6,
-		       NULL);
-	      XmTextSetString(text_nop,buf);
-	      XtAddCallback(text_nop,XmNmodifyVerifyCallback,allDigit,NULL);
-
-	      refresh_nop=XtVaCreateManagedWidget("Refresh #",
-			 xmPushButtonWidgetClass, nopPanel, 0);
-
-	      XtVaSetValues (refresh_nop, XmNuserData, (XtPointer)si, 0);     
-
-	      XtAddCallback (refresh_nop,XmNactivateCallback,historyPoints,
-			     text_nop);
-
-	      XtManageChild(nopPanel );
-
-	      btn_radio_help = XtVaCreateManagedWidget
-		("Help", xmPushButtonWidgetClass,panel, 0);
-	      XtAddCallback (btn_radio_help,XmNactivateCallback,radioHelp,NULL);
-	      btn_radio_close = XtVaCreateManagedWidget
-		("Close", xmPushButtonWidgetClass,panel, 0);
-	      XtAddCallback (btn_radio_close,XmNactivateCallback,radioClose,NULL);
-
-	      XtManageChild(btn_radio_close);
-	      XtManageChild(btn_radio_help);
-	      XtRealizeWidget (algShell);
-	    }
-
-	  XMapRaised (XtDisplay (algShell), XtWindow (algShell));
-	}
-	else if (w == si->btn[STRIPBTN_REPLOT])
+	
+    }
+    
+    else if (w == si->btn[STRIPBTN_UP] ||
+	w == si->btn[STRIPBTN_DOWN])
+    {
+	int i;
+	double width;
+	double factor;
+	for (i = 0; i < STRIP_MAX_CURVES; i++)
+	{
+	  if (!si->curves[i].details) continue;
+	  if (si->curves[i].details->plotstat != STRIPCURVE_PLOTTED) 
+	    continue;
+	  width=si->curves[i].details->max - si->curves[i].details->min;
+	  if (event->xany.type == ButtonRelease &&
+	    ((XButtonEvent *)event)->button == Button3)
 	  {
-	    if (auto_scaleTriger != 1) Strip_refresh(si);
-	    else 
-	      {
-		if(StripAuto_min_max(si->data,(char *)si->graph))
-		  {
-		    StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
-		    StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
-		    StripGraph_draw
-		      (si->graph,
-		       SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS,
-		       (Region *)0);
-		  }
-	      }
+	    factor=SMALL_PAN_FACTOR;
 	  }
-
-#endif /* STRIP_HISTORY */
-
-     	else if (w == si->btn[STRIPBTN_AUTO_SCALE])
+	  else
 	  {
-	    Strip_auto_scale(si);
-	  }    
- 
-  
-        break;
-
-        case XmCR_INPUT:
-        
-        if (event->xany.type == ButtonPress)
-        {
-          x = event->xbutton.x;
-          y = event->xbutton.y;
-
-          /* if this is the third button, then popup the menu */
-          if (event->xbutton.button == Button3)
-          {
-            PopupMenu_position
-              (si->popup_menu, (XButtonPressedEvent *)cbs->event);
-            PopupMenu_popup (si->popup_menu);
-          }
-
-          /* if this is the first button, then initiate a comment entry */
-          else if (event->xbutton.button == Button1)
-          {
+	    factor=LARGE_PAN_FACTOR;
+	  }
+	  width *= factor;
+	  if (w == si->btn[STRIPBTN_UP])
+	  {
+	    si->curves[i].details->max += width;
+	    si->curves[i].details->min += width;
+	  }
+	  else 
+	  {
+	    si->curves[i].details->max -= width;
+	    si->curves[i].details->min -= width;
+	  }
+	}
+	StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
+	StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
+	StripGraph_draw
+	  (si->graph,
+	    SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS | 
+	    SGCOMPMASK_XAXIS,(Region *)0);
+    }
+    
+    /*
+     * Zoom in or out
+     *
+     *      (1) set new end time of graph object (begin time is calculated
+     *          as offset from end time)
+     *      (2) turn on browse mode
+     *      (3) set new timespan via StripConfig_setattr()
+     *      (4) generate configuration update callbacks, causing
+     *          the graph to be updated.
+     */
+    else if (w == si->btn[STRIPBTN_ZOOMIN] ||
+	w == si->btn[STRIPBTN_ZOOMOUT])
+    {
+	struct timeval        t, tb, t1;
+	unsigned              t_new;
+	double factor;
+	
+	StripGraph_getattr (si->graph, STRIPGRAPH_END_TIME, &tb, 0);
+	
+	if (event->xany.type == ButtonRelease &&
+	  ((XButtonEvent *)event)->button == Button3)
+	{
+	  factor=SMALL_ZOOM_FACTOR;
+	}
+	else
+	{
+	  factor=LARGE_ZOOM_FACTOR;
+	}
+	if (w == si->btn[STRIPBTN_ZOOMIN])
+	{
+	  /* subtract the appropriate amount from the end point and
+           divide the range by the factor */
+	  dbl2time (&t, si->config->Time.timespan * (.5 * (1. - 1. / factor)));
+	  subtract_times (&t1, &t, &tb);
+	  t_new = si->config->Time.timespan / factor;
+	}
+	else
+	{
+	  /* add the appropriate amount to the end point and multiply
+           the range by the factor */
+	  dbl2time (&t, si->config->Time.timespan * (.5 * (factor - 1.)));
+	  add_times (&t1, &t, &tb);
+	  t_new = si->config->Time.timespan * factor;
+	}
+	
+	StripGraph_setattr (si->graph, STRIPGRAPH_END_TIME, &t1, 0);
 #if 0
-            Widget txt;
-            
-            /* pause the graph by putting it in browse mode */
-            si->status |= STRIPSTAT_BROWSE_MODE;
-            XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_panning, 0);
-
-            /* create the text entry widget */
-            txt = XtVaCreateManagedWidget
-              ("commentTextF",
-               xmTextFieldWidgetClass, w,
-               XmNx, x, XmNy, y, 0);
-            XmProcessTraversal (txt, XmTRAVERSE_CURRENT);
+	/* KE: There is no reason to go in browse mode */
+	Strip_setbrowsemode (si, True);
 #endif
-          }
-        }
-        
-        else if (event->xany.type == ButtonRelease)
-        {
-          /* nothing here at the moment! */
-        }
-        break;
+	StripConfig_setattr
+	  (si->config, STRIPCONFIG_TIME_TIMESPAN, t_new, 0);
+#if 0
+	/* KE: This sets new values in the Control Dialog.  We don't
+         want to do this.  These temporary values may be saved
+         unknowingly by the user and changing them also keep us from
+         doing a reset.  */
+	StripConfigMask_clear (&scfg_mask);
+	StripConfigMask_set (&scfg_mask, SCFGMASK_TIME_TIMESPAN);
+	StripConfig_update (si->config, scfg_mask);
+#else	
+	StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
+	StripGraph_draw
+	  (si->graph, SGCOMPMASK_XAXIS, (Region *)0);
+#endif
+    }
+    else if (w == si->btn[STRIPBTN_ZOOMINY] ||
+	w == si->btn[STRIPBTN_ZOOMOUTY])
+    {
+	int i;
+	double width;
+	double factor;
+	for (i = 0; i < STRIP_MAX_CURVES; i++)
+	{
+	  if (!si->curves[i].details) continue;
+	  if (si->curves[i].details->plotstat != STRIPCURVE_PLOTTED) 
+	    continue;
+	  width = si->curves[i].details->max - si->curves[i].details->min;
+	  if (event->xany.type == ButtonRelease &&
+	    ((XButtonEvent *)event)->button == Button3)
+	  {
+	    factor=SMALL_ZOOM_FACTOR;
+	  }
+	  else
+	  {
+	    factor=LARGE_ZOOM_FACTOR;
+	  }
+	  if (w == si->btn[STRIPBTN_ZOOMOUTY])
+	  {
+	    width *= (.5 * (factor - 1.));
+	    si->curves[i].details->max += width;
+	    si->curves[i].details->min -= width;
+	  }
+	  else 
+	  {
+	    width *= (.5 * (1. - 1. / factor));
+	    si->curves[i].details->max -= width;
+	    si->curves[i].details->min += width;
+	  }
+	  /* fix roundoff near zero */
+	  width = si->curves[i].details->max - si->curves[i].details->min;
+	  if(width && fabs(si->curves[i].details->max/width) < ROFF)
+	    si->curves[i].details->max = 0.;
+	  if(width && fabs(si->curves[i].details->min/width) < ROFF)
+	    si->curves[i].details->min = 0.;
+	}
+	StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
+	StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
+	StripGraph_draw
+	  (si->graph,
+	    SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS | 
+	    SGCOMPMASK_XAXIS,(Region *)0);
+    }
+    
+#ifdef  STRIP_HISTORY
+    else if (w == si->btn[STRIPBTN_FROM_TO])   /* Albert */
+    {
+	time_t t;
+	struct tm *tms;
+	static char buf[32];
+	int i;
+	static char defaultTUString[LAST_TIME_UNIT][5];
+	
+	if(fromToShell == NULL)
+	{ 
+	  fromToShell=fromToDialog_init (si->toplevel, "From-To Window",si);
+	}
+	
+	
+	StripGraph_getattr (si->graph, STRIPGRAPH_BEGIN_TIME, &t, 0);
+	tms=localtime((const time_t *) &t);
+	sprintf(buf,"%04d%02d%02d%02d%02d",
+	  1900+tms->tm_year,1+tms->tm_mon,tms->tm_mday,tms->tm_hour,tms->tm_min);
+	sscanf(buf,"%4s%2s%2s%2s%2s",
+	  &defaultTUString[0][0],
+	  &defaultTUString[1][0],
+	  &defaultTUString[2][0],
+	  &defaultTUString[3][0],
+	  &defaultTUString[4][0]);
+	
+	for(i=0;i<LAST_TIME_UNIT;i++)
+	  XmTextSetString(timeUnitTextWidget[0][i],&defaultTUString[i][0]);
+	
+	StripGraph_getattr (si->graph, STRIPGRAPH_END_TIME, &t, 0);
+	tms=localtime(&t);
+	sprintf(buf,"%04d%02d%02d%02d%02d",
+	  1900+tms->tm_year,1+tms->tm_mon,tms->tm_mday,tms->tm_hour,tms->tm_min);
+	sscanf(buf,"%4s%2s%2s%2s%2s",
+	  &defaultTUString[0][0],
+	  &defaultTUString[1][0],
+	  &defaultTUString[2][0],
+	  &defaultTUString[3][0],
+	  &defaultTUString[4][0]);
+	
+	for(i=0;i<LAST_TIME_UNIT;i++)
+	  XmTextSetString(timeUnitTextWidget[1][i],&defaultTUString[i][0]);
+	
+	XMapRaised (XtDisplay (fromToShell), XtWindow (fromToShell));
+	
+    }
+    
+    else if (w == si->btn[STRIPBTN_ALG])   /* Albert */
+    {
+	static Widget tmp;
+	int i;
+	static Widget panel;
+	static Widget radio_box;
+	static Widget arch_btn;
+	static Widget btn_radio_close;
+	static Widget btn_radio_help;
+	
+	static Widget nopPanel;
+	static Widget text_nop;
+	static Widget label_nop;
+	static Widget refresh_nop;
+	static char buf[32];
+	if(algShell == NULL) 
+	{
+	  algShell = XtVaCreatePopupShell
+	    ("AlgDialog",
+		topLevelShellWidgetClass, 	si->toplevel,
+		XmNtitle,			"AlgDialog", 
+		NULL);
+	  panel = XmCreateRowColumn(algShell , "panel", NULL, 0);
+	  XtManageChild(panel);
+	  
+	  radio_box = XmCreateRadioBox(panel,"radio_box",NULL,0);
+	  XtVaSetValues(radio_box,
+	    XmNnumColumns,algorithmLength,
+	    XmNpacking,XmPACK_TIGHT,
+	    XmNuserData, (XtPointer)si,
+	    NULL);
+	  for (i = 0; i < algorithmLength; i++) {
+	    tmp=XtVaCreateManagedWidget(algorithmString[i],
+		xmToggleButtonGadgetClass, radio_box,
+		XmNset, i == AVERAGE_METHOD-1,
+		NULL);
+	    XtAddCallback(tmp,XmNvalueChangedCallback,radio_toggled,
+		(XtPointer) i );
+	  }
+#ifndef USE_AAPI/*only under AAPI possible choose reduction algorithms right now */ 
+	  XtSetSensitive(radio_box,False);
+#endif
+	  XtManageChild(radio_box);
+	  
+	  arch_btn = XtVaCreateManagedWidget("Show points",
+	    xmToggleButtonGadgetClass,panel, NULL);
+	  XtAddCallback (arch_btn,XmNvalueChangedCallback,arch_callback,NULL);
+	  XtVaSetValues (arch_btn, XmNuserData, (XtPointer)si, 0);
+	  
+	  nopPanel = XmCreateRowColumn(panel, "panel", NULL, 0);
+	  XtVaSetValues(nopPanel, XmNorientation,XmHORIZONTAL,NULL);
+	  
+	  label_nop=XtVaCreateManagedWidget("Points:",xmLabelGadgetClass,
+	    nopPanel,NULL);
+	  
+	  sprintf(buf,"%d",DEFAULT_HISTORY_SIZE);
+	  
+	  text_nop=XtVaCreateManagedWidget("tex_nop",
+	    xmTextFieldWidgetClass,nopPanel,
+	    XmNcolumns,6,
+	    NULL);
+	  XmTextSetString(text_nop,buf);
+	  XtAddCallback(text_nop,XmNmodifyVerifyCallback,allDigit,NULL);
+	  
+	  refresh_nop=XtVaCreateManagedWidget("Refresh #",
+	    xmPushButtonWidgetClass, nopPanel, 0);
+	  
+	  XtVaSetValues (refresh_nop, XmNuserData, (XtPointer)si, 0);     
+	  
+	  XtAddCallback (refresh_nop,XmNactivateCallback,historyPoints,
+	    text_nop);
+	  
+	  XtManageChild(nopPanel );
+	  
+	  btn_radio_help = XtVaCreateManagedWidget
+	    ("Help", xmPushButtonWidgetClass,panel, 0);
+	  XtAddCallback (btn_radio_help,XmNactivateCallback,radioHelp,NULL);
+	  btn_radio_close = XtVaCreateManagedWidget
+	    ("Close", xmPushButtonWidgetClass,panel, 0);
+	  XtAddCallback (btn_radio_close,XmNactivateCallback,radioClose,NULL);
+	  
+	  XtManageChild(btn_radio_close);
+	  XtManageChild(btn_radio_help);
+	  XtRealizeWidget (algShell);
+	}
+	
+	XMapRaised (XtDisplay (algShell), XtWindow (algShell));
+    }
+
+    else if (w == si->btn[STRIPBTN_REPLOT])
+    {
+	if (auto_scaleTriger != 1) Strip_refresh(si);
+	else 
+	{
+	  if(StripAuto_min_max(si->data,(char *)si->graph))
+	  {
+	    StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
+	    StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
+	    StripGraph_draw
+		(si->graph,
+		  SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS,
+		  (Region *)0);
+	  }
+	}
+    }
+    
+#endif /* STRIP_HISTORY */
+    
+    /*
+     * Reset the screen
+     */
+    else if (w == si->btn[STRIPBTN_RESET])
+    {
+	if(si->dialog) StripDialog_reset(si->dialog);
+	else XBell(si->display, 50);
+    }
+
+    /*
+     * Refresh the screen
+     */
+    else if (w == si->btn[STRIPBTN_REFRESH])
+    {
+	StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
+	StripGraph_draw (si->graph, SGCOMPMASK_DATA, (Region *)0);
+    }
+
+    /*
+     *Toggle auto scale
+     */
+    else if (w == si->btn[STRIPBTN_AUTO_SCALE])
+    {
+	Strip_auto_scale(si);
+    }    
+    
+    /*
+     * Toggle scroll/pan
+     */
+    else if (w == si->btn[STRIPBTN_AUTOSCROLL])
+    {
+	Strip_setbrowsemode (si, !(si->status & STRIPSTAT_BROWSE_MODE));
+    }
+    
+    break;
+    
+  case XmCR_INPUT:
+    
+    if (event->xany.type == ButtonPress)
+    {
+	x = event->xbutton.x;
+	y = event->xbutton.y;
+	
+	/* if this is the third button, then popup the menu */
+	if (event->xbutton.button == Button3)
+	{
+	  PopupMenu_position
+	    (si->popup_menu, (XButtonPressedEvent *)cbs->event);
+	  PopupMenu_popup (si->popup_menu);
+	}
+	
+	/* if this is the first button, then initiate a comment entry */
+	else if (event->xbutton.button == Button1)
+	{
+#if 0
+	  Widget txt;
+	  
+	  /* pause the graph by putting it in browse mode */
+	  Strip_setbrowsemode (si, True);
+	  
+	  /* create the text entry widget */
+	  txt = XtVaCreateManagedWidget
+	    ("commentTextF",
+		xmTextFieldWidgetClass, w,
+		XmNx, x, XmNy, y, 0);
+	  XmProcessTraversal (txt, XmTRAVERSE_CURRENT);
+#endif
+	}
+    }
+    
+    else if (event->xany.type == ButtonRelease)
+    {
+	/* nothing here at the moment! */
+    }
+    break;
   }
 }
 
@@ -2705,12 +2879,12 @@ static int      X_error_handler         (Display *display, XErrorEvent *error)
   XGetErrorText (display, error->error_code, msg, 128);
   fprintf
     (stderr,
-     "==== StripTool X Error Handler ====\n"
-     "error:         %s\n"
-     "major opcode:  %d\n"
-     "serial:        %d\n"
-     "process ID:    %d\n",
-     msg, error->request_code, error->serial, getpid());
+	"==== StripTool X Error Handler ====\n"
+	"error:         %s\n"
+	"major opcode:  %d\n"
+	"serial:        %d\n"
+	"process ID:    %d\n",
+	msg, error->request_code, error->serial, getpid());
 
   /* remember error */
   Strip_x_error_code = error->error_code;
@@ -2784,7 +2958,7 @@ static void     dlgrequest_dismiss      (void *client, void *BOGUS(1))
     StripDialog_getattr (si->dialog, STRIPDIALOG_SHELL_WIDGET, &tmp_w, 0);
     MessageBox_popup
       (tmp_w, &si->message_box, XmDIALOG_ERROR, "Oops", "Ok",
-       "You can't dismiss all your windows");
+	  "You can't dismiss all your windows");
   }
 }
 
@@ -2801,9 +2975,9 @@ static void     dlgrequest_quit (void *client, void *BOGUS(1))
   si->status |= STRIPSTAT_TERMINATED;
   Strip_ignoreevent
     (si,
-     STRIPEVENTMASK_SAMPLE |
-     STRIPEVENTMASK_REFRESH |
-     STRIPEVENTMASK_CHECK_CONNECT);
+	STRIPEVENTMASK_SAMPLE |
+	STRIPEVENTMASK_REFRESH |
+	STRIPEVENTMASK_CHECK_CONNECT);
 }
 
 
@@ -2818,9 +2992,9 @@ static void     dlgrequest_window_popup (void *client, void *call)
 
   switch (which)
   {
-      case STRIPWINDOW_GRAPH:
-        window_map (si->display, XtWindow (si->shell));
-        break;
+  case STRIPWINDOW_GRAPH:
+    window_map (si->display, XtWindow (si->shell));
+    break;
   }
 }
 
@@ -2948,7 +3122,7 @@ static Widget   PopupMenu_build (Widget parent)
  * PopupMenu_position
  */
 static void     PopupMenu_position      (Widget                 menu,
-                                         XButtonPressedEvent    *event)
+  XButtonPressedEvent    *event)
 {
   XmMenuPosition (menu, event);
 }
@@ -2986,104 +3160,104 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
 
   switch (item)
   {
-      case POPUPMENU_CONTROLS:
-        StripDialog_popup (si->dialog);
-        break;
+  case POPUPMENU_CONTROLS:
+    StripDialog_popup (si->dialog);
+    break;
         
-      case POPUPMENU_TOGGLE_SCROLL:
-        if (XtIsManaged (si->graph_panel))
-        {
-          XtUnmanageChild (si->graph_panel);
-          XtVaSetValues
-            (si->graph_form, XmNbottomAttachment, XmATTACH_FORM, 0);
-        }
-        else
-        {
-          XtManageChild (si->graph_panel);
-          XtVaSetValues
-            (si->graph_form,
-             XmNbottomAttachment,       XmATTACH_WIDGET,
-             XmNbottomWidget,           si->graph_panel,
-             0);
-        }
-        break;
+  case POPUPMENU_TOGGLE_SCROLL:
+    if (XtIsManaged (si->graph_panel))
+    {
+	XtUnmanageChild (si->graph_panel);
+	XtVaSetValues
+	  (si->graph_form, XmNbottomAttachment, XmATTACH_FORM, 0);
+    }
+    else
+    {
+	XtManageChild (si->graph_panel);
+	XtVaSetValues
+	  (si->graph_form,
+	    XmNbottomAttachment,       XmATTACH_WIDGET,
+	    XmNbottomWidget,           si->graph_panel,
+	    0);
+    }
+    break;
 
         
-      case POPUPMENU_PRINTER_SETUP:
-        PrinterDialog_popup (si->pd, si);
-        break;
+  case POPUPMENU_PRINTER_SETUP:
+    PrinterDialog_popup (si->pd, si);
+    break;
         
         
-      case POPUPMENU_PRINT:
-        window_map (si->display, XtWindow(si->shell));
+  case POPUPMENU_PRINT:
+    window_map (si->display, XtWindow(si->shell));
 #ifdef DESY_PRINT   
-           sprintf
-          (cmd_buf,
-           "xwpick -window %ld"
-           " -format %s"
-           " | lpr -P%s ",
-           XtWindow (si->graph_form),
-           si->print_info.device,
-           si->print_info.printer);
-	   /*printf(" cmd_buf=%s\n",cmd_buf );*/
+    sprintf
+	(cmd_buf,
+	  "xwpick -window %ld"
+	  " -format %s"
+	  " | lpr -P%s ",
+	  XtWindow (si->graph_form),
+	  si->print_info.device,
+	  si->print_info.printer);
+    /*printf(" cmd_buf=%s\n",cmd_buf );*/
 #else /* DESY_PRINT */
 
 #if defined(SOLARIS)
-        if (strcmp (si->print_info.device, "ps") == 0)
-         sprintf
-           (cmd_buf,
-           "xwd -id %d | xwdtopnm | pnmtops | lp -d%s -onb",
-           XtWindow (si->graph_form),
-           si->print_info.printer);
-         else
+    if (strcmp (si->print_info.device, "ps") == 0)
+	sprintf
+	  (cmd_buf,
+	    "xwd -id %d | xwdtopnm | pnmtops | lp -d%s -onb",
+	    XtWindow (si->graph_form),
+	    si->print_info.printer);
+    else
 #endif
-        sprintf
-          (cmd_buf,
-           "xwd -id %d | xpr -device %s | lp -d%s -onb",
-           XtWindow (si->graph_form),
-           si->print_info.device,
-           si->print_info.printer);
+	sprintf
+	  (cmd_buf,
+	    "xwd -id %d | xpr -device %s | lp -d%s -onb",
+	    XtWindow (si->graph_form),
+	    si->print_info.device,
+	    si->print_info.printer);
 #endif /* DESY_PRINT */               
         
-        if (pid = fork ())
-        {
-          execl ("/bin/sh", "sh", "-c", cmd_buf, 0);
-          exit (0);
-        }
-        break;
+    if (pid = fork ())
+    {
+	execl ("/bin/sh", "sh", "-c", cmd_buf, 0);
+	exit (0);
+    }
+    break;
         
-      case POPUPMENU_SNAPSHOT:
-        window_map (si->display, XtWindow(si->shell));
-        sprintf
-          (cmd_buf,
-           "xwd -id %d | xwud -raw",
-           XtWindow (si->graph_form));
-        if (pid = fork ())
-        {
-          execl ("/bin/sh", "sh", "-c", cmd_buf, 0);
-          exit (0);
-        }
-        break;
+  case POPUPMENU_SNAPSHOT:
+    window_map (si->display, XtWindow(si->shell));
+    sprintf
+	(cmd_buf,
+	  "xwd -id %d | xwud -raw",
+	  XtWindow (si->graph_form));
+    if (pid = fork ())
+    {
+	execl ("/bin/sh", "sh", "-c", cmd_buf, 0);
+	exit (0);
+    }
+    break;
         
-      case POPUPMENU_DUMP:
-        fsdlg_popup ((Strip)si, (fsdlg_functype)Strip_dumpdata);
-        break;
+  case POPUPMENU_DUMP:
+    fsdlg_popup ((Strip)si, (fsdlg_functype)Strip_dumpdata);
+    break;
         
-      case POPUPMENU_DISMISS:
-        if (StripDialog_ismapped (si->dialog))
-          window_unmap (si->display, XtWindow (si->shell));
-        else MessageBox_popup
-               (si->shell, &si->message_box, XmDIALOG_ERROR, "Oops", "Ok",
-                "You can't dismiss all your windows");
-        break;
+  case POPUPMENU_DISMISS:
+    if (StripDialog_ismapped (si->dialog))
+	window_unmap (si->display, XtWindow (si->shell));
+    else MessageBox_popup
+	     (si->shell, &si->message_box, XmDIALOG_ERROR, "Oops", "Ok",
+		 "You can't dismiss all your windows");
+    break;
         
-      case POPUPMENU_QUIT:
-        dlgrequest_quit ((void *)si, NULL);
-        break;
+  case POPUPMENU_QUIT:
+    dlgrequest_quit ((void *)si, NULL);
+    break;
         
-      default:
-        fprintf (stderr, "Argh!\n");
-        exit (1);
+  default:
+    fprintf (stderr, "Argh!\n");
+    exit (1);
   }
 }
 
@@ -3114,11 +3288,11 @@ static PrinterDialog    *PrinterDialog_build    (Widget parent)
   XtVaGetValues (pd->name_textf, XmNbackground, &bg, XmNforeground, &fg, 0);
   XtVaSetValues
     (pd->device_combo,
-     XgNlistForeground,         fg,
-     XgNtextForeground,         fg,
-     XgNlistBackground,         bg,
-     XgNtextBackground,         bg,
-     0);
+	XgNlistForeground,         fg,
+	XgNtextForeground,         fg,
+	XgNlistBackground,         bg,
+	XgNtextBackground,         bg,
+	0);
 
   return pd;
 }
@@ -3139,7 +3313,7 @@ static void     PrinterDialog_popup     (PrinterDialog *pd, StripInfo *si)
   /* find out where the pointer is */
   XQueryPointer
     (XtDisplay (pd->msgbox), DefaultRootWindow (XtDisplay (pd->msgbox)),
-     &root, &child, &root_x, &root_y, &win_x, &win_y, &mask);
+	&root, &child, &root_x, &root_y, &win_x, &win_y, &mask);
 
   /* place dialog box so it surrounds the pointer horizontally */
   XtVaGetValues (pd->msgbox, XmNwidth, &width, XmNheight, &height, 0);
@@ -3149,10 +3323,10 @@ static void     PrinterDialog_popup     (PrinterDialog *pd, StripInfo *si)
 
   XtVaSetValues
     (pd->msgbox,
-     XmNx,              (Dimension)win_x,
-     XmNy,              (Dimension)win_y,
-     XmNuserData,       si,                     /* need for callback */
-     0);
+	XmNx,              (Dimension)win_x,
+	XmNy,              (Dimension)win_y,
+	XmNuserData,       si,                     /* need for callback */
+	0);
 
   /* pop it up! */
   XtManageChild (pd->msgbox);
@@ -3160,8 +3334,8 @@ static void     PrinterDialog_popup     (PrinterDialog *pd, StripInfo *si)
 
 
 static void     PrinterDialog_cb        (Widget         w,
-                                         XtPointer      BOGUS(client),
-                                         XtPointer      call)
+  XtPointer      BOGUS(client),
+  XtPointer      call)
 {
   XmAnyCallbackStruct   *cbs = (XmAnyCallbackStruct *)call;
   StripInfo             *si;
@@ -3204,36 +3378,36 @@ static void     fsdlg_popup     (StripInfo *si, fsdlg_functype func)
     {
       frame = XtVaCreateManagedWidget
         ("frame",
-         xmFrameWidgetClass,              si->fs_dlg,
-         NULL);
+	    xmFrameWidgetClass,              si->fs_dlg,
+	    NULL);
       XtVaCreateManagedWidget
         ("File Type",
-         xmLabelWidgetClass,              frame,
-         XmNchildType,                    XmFRAME_TITLE_CHILD,
-         NULL);
+	    xmLabelWidgetClass,              frame,
+	    XmNchildType,                    XmFRAME_TITLE_CHILD,
+	    NULL);
       w = XtVaCreateManagedWidget
         ("rowcol",
-         xmRowColumnWidgetClass,  frame,
-         XmNchildType,                    XmFRAME_WORKAREA_CHILD,
-         XmNradioBehavior,                True,
-         NULL);
+	    xmRowColumnWidgetClass,  frame,
+	    XmNchildType,                    XmFRAME_WORKAREA_CHILD,
+	    XmNradioBehavior,                True,
+	    NULL);
       for (i = 0; i < DFSDLG_TGL_COUNT; i++)
       {
         xstr = XmStringCreateLocalized (DfsDlgTglStr[i]);
         si->fs_tgl[i] = XtVaCreateManagedWidget
           ("togglebutton",
-           xmToggleButtonWidgetClass,     w,
-           XmNlabelString,                xstr,
-           NULL);
+		xmToggleButtonWidgetClass,     w,
+		XmNlabelString,                xstr,
+		NULL);
         XmStringFree (xstr);
       }
-     XmToggleButtonSetState(si->fs_tgl[0],True,True);
+	XmToggleButtonSetState(si->fs_tgl[0],True,True);
 
-     /* set default dump file type */
-     if (ftype = getenv (STRIP_DUMP_TYPE_DEFAULT_ENV))
-       for (i = 0; i < DFSDLG_TGL_COUNT; i++)
-         if (strcmp(DfsDlgTglStr[i],ftype) == 0)
-           XmToggleButtonSetState(si->fs_tgl[i],True,True);
+	/* set default dump file type */
+	if (ftype = getenv (STRIP_DUMP_TYPE_DEFAULT_ENV))
+	  for (i = 0; i < DFSDLG_TGL_COUNT; i++)
+	    if (strcmp(DfsDlgTglStr[i],ftype) == 0)
+		XmToggleButtonSetState(si->fs_tgl[i],True,True);
     }
   }
   XtVaSetValues (si->fs_dlg, XmNuserData, func, NULL);
@@ -3269,298 +3443,301 @@ static void     fsdlg_cb        (Widget w, XtPointer data, XtPointer call)
 
 static Widget fromToDialog_init (Widget parent, char* title, StripInfo* si)
 {
-static Widget shell,btn_ok,btn_close, base_form, rowBase,rowcol[3];
-static Widget timeUnitArrowUpWidget  [2][LAST_TIME_UNIT];
-static Widget timeUnitArrowDownWidget[2][LAST_TIME_UNIT];
-static Widget rowcolForArrows        [2][LAST_TIME_UNIT];
-static goData gData;
-static arrowData aData[2][LAST_TIME_UNIT];
-static int i,j;
-
-    shell = XtVaCreatePopupShell
-      ("FromToDialog",
-       topLevelShellWidgetClass, 	parent,
-       XmNdeleteResponse,		XmUNMAP,
-       XmNmappedWhenManaged,		False,
-       XmNtitle,			title == NULL? "FromToDialog" : title,
-       NULL);
-
-    base_form = XtVaCreateManagedWidget
-      ("form",
-       xmFormWidgetClass,		shell,
-       /*       XmNfractionBase,			9, */
-       XmNnoResize,			True,
-       XmNresizable,			False,
-       XmNresizePolicy,			XmRESIZE_NONE,
-       XmNverticalSpacing,		DEF_WOFFSET,
-       XmNhorizontalSpacing,		DEF_WOFFSET,
-       NULL);
-
-       rowBase = XtVaCreateManagedWidget
-      ("rowBase",
-       xmRowColumnWidgetClass,		base_form,
-       XmNtopAttachment,		XmATTACH_FORM,
-       XmNbottomAttachment,		XmATTACH_FORM,
-       XmNleftAttachment,		XmATTACH_FORM,
-       XmNrightAttachment,		XmATTACH_FORM,
-       XmNorientation,                  XmVERTICAL,
-       NULL);
-
-for(i=0;i<2;i++)
-{
+  static Widget shell,btn_ok,btn_close, base_form, rowBase,rowcol[3];
+  static Widget timeUnitArrowUpWidget  [2][LAST_TIME_UNIT];
+  static Widget timeUnitArrowDownWidget[2][LAST_TIME_UNIT];
+  static Widget rowcolForArrows        [2][LAST_TIME_UNIT];
+  static goData gData;
+  static arrowData aData[2][LAST_TIME_UNIT];
+  static int i,j;
+  
+  shell = XtVaCreatePopupShell
+    ("FromToDialog",
+	topLevelShellWidgetClass, 	parent,
+	XmNdeleteResponse,		XmUNMAP,
+	XmNmappedWhenManaged,		False,
+	XmNtitle,			title == NULL? "FromToDialog" : title,
+	NULL);
+  
+  base_form = XtVaCreateManagedWidget
+    ("form",
+	xmFormWidgetClass,		shell,
+	/*       XmNfractionBase,			9, */
+	XmNnoResize,			True,
+	XmNresizable,			False,
+	XmNresizePolicy,			XmRESIZE_NONE,
+	XmNverticalSpacing,		DEF_WOFFSET,
+	XmNhorizontalSpacing,		DEF_WOFFSET,
+	NULL);
+  
+  rowBase = XtVaCreateManagedWidget
+    ("rowBase",
+	xmRowColumnWidgetClass,		base_form,
+	XmNtopAttachment,		XmATTACH_FORM,
+	XmNbottomAttachment,		XmATTACH_FORM,
+	XmNleftAttachment,		XmATTACH_FORM,
+	XmNrightAttachment,		XmATTACH_FORM,
+	XmNorientation,                  XmVERTICAL,
+	NULL);
+  
+  for(i=0;i<2;i++)
+  {
     rowcol[i] = XtVaCreateManagedWidget
       ("TimeUnitsRowColumn",
-       xmRowColumnWidgetClass,		rowBase,
-       XmNtopAttachment,		(i==0)?XmATTACH_FORM:XmATTACH_NONE,
-       XmNbottomAttachment,		XmATTACH_NONE,
-       XmNleftAttachment,		XmATTACH_FORM,
-       XmNrightAttachment,		XmATTACH_FORM,
-       XmNorientation,                  XmHORIZONTAL,
-       0);
-
-     XtVaCreateManagedWidget((i == 0)?"From:":"   To:",
-     xmLabelGadgetClass,rowcol[i],NULL);
-
-   XtVaCreateManagedWidget
+	  xmRowColumnWidgetClass,		rowBase,
+	  XmNtopAttachment,		(i==0)?XmATTACH_FORM:XmATTACH_NONE,
+	  XmNbottomAttachment,		XmATTACH_NONE,
+	  XmNleftAttachment,		XmATTACH_FORM,
+	  XmNrightAttachment,		XmATTACH_FORM,
+	  XmNorientation,                  XmHORIZONTAL,
+	  0);
+    
+    XtVaCreateManagedWidget((i == 0)?"From:":"   To:",
+	xmLabelGadgetClass,rowcol[i],NULL);
+    
+    /* separator */
+    XtVaCreateManagedWidget
       ("separator",
-       xmSeparatorWidgetClass, 	rowcol[i],
-       XmNorientation,		XmVERTICAL,
-       NULL);
-for(j=0;j<LAST_TIME_UNIT;j++)
-  {
-
-    /* Label */
-     XtVaCreateManagedWidget(timeUnitString[j],xmLabelGadgetClass,rowcol[i],
-                             NULL);
-    /* Text */
-
-     timeUnitTextWidget[i][j]=
-     XtVaCreateManagedWidget("Text",xmTextFieldWidgetClass,
-     rowcol[i],
-     XmNcolumns,   (j == 0)?4:2, 
-     XmNmaxLength, (j == 0)?4:2,
-     NULL);
-
-    XtAddCallback(timeUnitTextWidget[i][j], XmNmodifyVerifyCallback, 
-    allDigit, NULL);
-
-    rowcolForArrows[i][j] = XtVaCreateManagedWidget
-      ("ArrowRowColumn",
-       xmRowColumnWidgetClass,		rowcol[i],
-       XmNorientation,                  XmVERTICAL,
-       NULL);
-
-
-    /* Increment/Decrement arrows */
+	  xmSeparatorWidgetClass, 	rowcol[i],
+	  XmNorientation,		XmVERTICAL,
+	  NULL);
+    for(j=0;j<LAST_TIME_UNIT;j++)
+    {
+	
+	/* Label */
+	XtVaCreateManagedWidget(timeUnitString[j],xmLabelGadgetClass,rowcol[i],
+	  NULL);
+	/* Text */
+	
+	timeUnitTextWidget[i][j]=
+	  XtVaCreateManagedWidget("Text",xmTextFieldWidgetClass,
+	    rowcol[i],
+	    XmNcolumns,   (j == 0)?4:2, 
+	    XmNmaxLength, (j == 0)?4:2,
+	    NULL);
+	
+	XtAddCallback(timeUnitTextWidget[i][j], XmNmodifyVerifyCallback, 
+	  allDigit, NULL);
+	
+	rowcolForArrows[i][j] = XtVaCreateManagedWidget
+	  ("ArrowRowColumn",
+	    xmRowColumnWidgetClass,		rowcol[i],
+	    XmNorientation,                  XmVERTICAL,
+	    NULL);
+	
+	
+	/* Increment/Decrement arrows */
       timeUnitArrowUpWidget[i][j]= 
-      XtVaCreateManagedWidget ("arr1", xmArrowButtonGadgetClass,
-      rowcolForArrows[i][j],
-      XmNarrowDirection, XmARROW_UP,
-      NULL);
-
+	  XtVaCreateManagedWidget ("arr1", xmArrowButtonGadgetClass,
+	    rowcolForArrows[i][j],
+	    XmNarrowDirection, XmARROW_UP,
+	    NULL);
+	
       aData[i][j].num=j;
       aData[i][j].w=timeUnitTextWidget[i][j];
-   
+	
       XtAddCallback (timeUnitArrowUpWidget[i][j], XmNactivateCallback, 
-                     stepUp, &aData[i][j]);
-
-
+	  stepUp, &aData[i][j]);
+	
+	
       timeUnitArrowDownWidget[i][j]= 
-      XtVaCreateManagedWidget ("arr2", xmArrowButtonGadgetClass, 
-      rowcolForArrows[i][j],
-      XmNarrowDirection, XmARROW_DOWN,
-      NULL);
+	  XtVaCreateManagedWidget ("arr2", xmArrowButtonGadgetClass, 
+	    rowcolForArrows[i][j],
+	    XmNarrowDirection, XmARROW_DOWN,
+	    NULL);
       XtAddCallback (timeUnitArrowDownWidget[i][j], XmNactivateCallback, 
-                     stepDown,&aData[i][j] );
-
+	  stepDown,&aData[i][j] );
+	
       XtVaCreateManagedWidget
+	  ("separator",
+	    xmSeparatorWidgetClass, 	rowcol[i],
+	    XmNorientation,		XmVERTICAL,
+	    NULL);
+	
+	
+    }
+
+    /* separator */
+    XtVaCreateManagedWidget
       ("separator",
-       xmSeparatorWidgetClass, 	rowcol[i],
-       XmNorientation,		XmVERTICAL,
-       NULL);
-
-
+	  xmSeparatorWidgetClass, 	rowBase,
+	  XmNorientation,		XmHORIZONTAL,
+	  NULL);
+    
   }
-      XtVaCreateManagedWidget
-      ("separator",
-       xmSeparatorWidgetClass, 	rowBase,
-       XmNorientation,		XmHORIZONTAL,
-       NULL);
-
-}
-
-    rowcol[3] = XtVaCreateManagedWidget
-      ("TimeUnitsRowColumn",
-       xmRowColumnWidgetClass,		rowBase,
-       XmNtopAttachment,		XmATTACH_NONE,
-       XmNbottomAttachment,		XmATTACH_FORM,
-       XmNleftAttachment,		XmATTACH_FORM,
-       XmNrightAttachment,		XmATTACH_FORM,
-       XmNorientation,                  XmHORIZONTAL,
-       0);
-
-    gData.si=si;
-    gData.time_textFrom= &timeUnitTextWidget[0][0];
-    gData.time_textTo  = &timeUnitTextWidget[1][0];
-
-    btn_ok = XtVaCreateManagedWidget
-      ("GO!", xmPushButtonWidgetClass, rowcol[3], 0);
-    XtAddCallback (btn_ok, XmNactivateCallback, fromToGo,
-     &gData);
-
-
-    btn_close = XtVaCreateManagedWidget
-      ("Close", xmPushButtonWidgetClass, rowcol[3], 0);
-    XtAddCallback (btn_close, XmNactivateCallback,fromToClose , NULL);
-
-    XtRealizeWidget (shell);
-    return shell;
+  
+  rowcol[3] = XtVaCreateManagedWidget
+    ("TimeUnitsRowColumn",
+	xmRowColumnWidgetClass,		rowBase,
+	XmNtopAttachment,		XmATTACH_NONE,
+	XmNbottomAttachment,		XmATTACH_FORM,
+	XmNleftAttachment,		XmATTACH_FORM,
+	XmNrightAttachment,		XmATTACH_FORM,
+	XmNorientation,                  XmHORIZONTAL,
+	0);
+  
+  gData.si=si;
+  gData.time_textFrom= &timeUnitTextWidget[0][0];
+  gData.time_textTo  = &timeUnitTextWidget[1][0];
+  
+  btn_ok = XtVaCreateManagedWidget
+    ("GO!", xmPushButtonWidgetClass, rowcol[3], 0);
+  XtAddCallback (btn_ok, XmNactivateCallback, fromToGo,
+    &gData);
+  
+  
+  btn_close = XtVaCreateManagedWidget
+    ("Close", xmPushButtonWidgetClass, rowcol[3], 0);
+  XtAddCallback (btn_close, XmNactivateCallback,fromToClose , NULL);
+  
+  XtRealizeWidget (shell);
+  return shell;
 }
 
 static void allDigit(text_w, unused, cbs)
-Widget      text_w;
-XtPointer   unused;
-XmTextVerifyCallbackStruct *cbs;
+  Widget      text_w;
+  XtPointer   unused;
+  XmTextVerifyCallbackStruct *cbs;
 {
   char c;
   int len = XmTextGetLastPosition(text_w);
   if (cbs->text->ptr == NULL) return; /* backspace */
   /* don't allow non-digits or let the input exceed 10 chars */
   if (!isdigit( (int) c = cbs->text->ptr[0]) || len >= 10) 
-      cbs->doit = False;
+    cbs->doit = False;
 }
 
 static void stepUp (widget, aData, call_data)
-    Widget                widget;
-    arrowData             *aData;
-    XmAnyCallbackStruct  *call_data;
+  Widget                widget;
+  arrowData             *aData;
+  XmAnyCallbackStruct  *call_data;
 {
-char buff[5];
-unsigned int data;
-Widget rec=aData->w;
-int num=aData->num;
-
-data = atoi( (const char *) XmTextGetString(rec));
-
-if(DEBUG) printf("stepUp data =%d\n",data);
-
-if (data < timUnitMax[num])
+  char buff[5];
+  unsigned int data;
+  Widget rec=aData->w;
+  int num=aData->num;
+  
+  data = atoi( (const char *) XmTextGetString(rec));
+  
+  if(DEBUG) printf("stepUp data =%d\n",data);
+  
+  if (data < timUnitMax[num])
   {
-  sprintf(buff,"%d",++data);
-  XmTextSetString(rec,buff);
+    sprintf(buff,"%d",++data);
+    XmTextSetString(rec,buff);
   }
 /* check for unnumeric in dated string */
-if ( atoi( (const char *) XmTextGetString(rec)) <= 0) 
-   XmTextSetString(rec,"0");
-
-if(DEBUG) printf("stepUp data =%d\n",data);
-
+  if ( atoi( (const char *) XmTextGetString(rec)) <= 0) 
+    XmTextSetString(rec,"0");
+  
+  if(DEBUG) printf("stepUp data =%d\n",data);
+  
 }
 
 static void stepDown (widget, aData, call_data)
-    Widget                widget;
-    arrowData             *aData;
-    XmAnyCallbackStruct  *call_data;
+  Widget                widget;
+  arrowData             *aData;
+  XmAnyCallbackStruct  *call_data;
 {
-char buff[5];
-unsigned int data;
-Widget rec=aData->w;
-int num=aData->num;
-
-data = atoi( (const char *) XmTextGetString(rec));
-
-if(DEBUG) printf("stepDown data =%d\n",data);
-
-if (data > timUnitMin[num])
+  char buff[5];
+  unsigned int data;
+  Widget rec=aData->w;
+  int num=aData->num;
+  
+  data = atoi( (const char *) XmTextGetString(rec));
+  
+  if(DEBUG) printf("stepDown data =%d\n",data);
+  
+  if (data > timUnitMin[num])
   {
-  sprintf(buff,"%d",--data);
-  XmTextSetString(rec,buff);
+    sprintf(buff,"%d",--data);
+    XmTextSetString(rec,buff);
   }
 /* check for unnumeric in dated string */
-if ( atoi( (const char *) XmTextGetString(rec)) <= 0) 
-   XmTextSetString(rec,"0");
-
-if(DEBUG) printf("stepDown data =%d\n",data);
-
+  if ( atoi( (const char *) XmTextGetString(rec)) <= 0) 
+    XmTextSetString(rec,"0");
+  
+  if(DEBUG) printf("stepDown data =%d\n",data);
+  
 }
 
 
 static void fromToClose(widget, unused , call_data)
-    Widget                widget;
-    XtPointer             unused;
-    XmAnyCallbackStruct  *call_data;
+  Widget                widget;
+  XtPointer             unused;
+  XmAnyCallbackStruct  *call_data;
 {
   XUnmapWindow (XtDisplay (fromToShell), XtWindow (fromToShell));
 }
 
 static void fromToGo(wdgt, gData , call_data)
-    Widget                 wdgt;
-    goData             *gData;
-    XmAnyCallbackStruct  *call_data;
+  Widget                 wdgt;
+  goData             *gData;
+  XmAnyCallbackStruct  *call_data;
 {
- struct tm       from_tm;
- struct tm         to_tm;
- long from_epoch;
- long   to_epoch;
- Widget *w0, *w1;
- struct timeval t_from;
- struct timeval t_to;
+  struct tm       from_tm;
+  struct tm         to_tm;
+  long from_epoch;
+  long   to_epoch;
+  Widget *w0, *w1;
+  struct timeval t_from;
+  struct timeval t_to;
 #if 0
- double                dval;  /* Albert */
- unsigned int          int_dval; /* Albert */
+  double                dval;  /* Albert */
+  unsigned int          int_dval; /* Albert */
   unsigned int	       t_new;
 #endif   
- long tmp_time;
- struct tm *tm;
-
- StripInfo *si= (StripInfo *) gData->si;
- StripConfigMask	scfg_mask;
- 
- w0=gData->time_textFrom;
- w1=gData->time_textTo;
- 
- from_tm.tm_sec = 0; 
- from_tm.tm_min  = atoi((const char *) XmTextGetString(w0[MINUTE]));
- from_tm.tm_hour = atoi((const char *) XmTextGetString(w0[HOUR])); 
- from_tm.tm_mday = atoi((const char *) XmTextGetString(w0[DAY])); 
- from_tm.tm_mon  = atoi((const char *) XmTextGetString(w0[MONTH])) -1;
- from_tm.tm_year = atoi((const char *) XmTextGetString(w0[YEAR])) -1900;
- from_tm.tm_isdst=-1;
- from_epoch = mktime( &from_tm );
- /* printf("from_epoch1=%d,%s",from_epoch,ctime(&from_epoch));*/
-
- if (from_epoch <= 0) {  
-     MessageBox_popup
+  long tmp_time;
+  struct tm *tm;
+  
+  StripInfo *si= (StripInfo *) gData->si;
+  StripConfigMask	scfg_mask;
+  
+  w0=gData->time_textFrom;
+  w1=gData->time_textTo;
+  
+  from_tm.tm_sec = 0; 
+  from_tm.tm_min  = atoi((const char *) XmTextGetString(w0[MINUTE]));
+  from_tm.tm_hour = atoi((const char *) XmTextGetString(w0[HOUR])); 
+  from_tm.tm_mday = atoi((const char *) XmTextGetString(w0[DAY])); 
+  from_tm.tm_mon  = atoi((const char *) XmTextGetString(w0[MONTH])) -1;
+  from_tm.tm_year = atoi((const char *) XmTextGetString(w0[YEAR])) -1900;
+  from_tm.tm_isdst=-1;
+  from_epoch = mktime( &from_tm );
+  /* printf("from_epoch1=%d,%s",from_epoch,ctime(&from_epoch));*/
+  
+  if (from_epoch <= 0) {  
+    MessageBox_popup
       (fromToShell,(Widget *)XmCreateMessageDialog(fromToShell,"Oops",NULL,0), 
-      XmDIALOG_WARNING, "TIME PROBLEM", "Ok","From-Time Error\n");
-     return;
-   }
- 
- to_tm.tm_sec = 0; 
- to_tm.tm_min  = atoi((const char *) XmTextGetString(w1[MINUTE]));
- to_tm.tm_hour = atoi((const char *) XmTextGetString(w1[HOUR])); 
- to_tm.tm_mday = atoi((const char *) XmTextGetString(w1[DAY])); 
- to_tm.tm_mon  = atoi((const char *) XmTextGetString(w1[MONTH])) -1; 
- to_tm.tm_year = atoi((const char *) XmTextGetString(w1[YEAR])) -1900;
- to_tm.tm_isdst=-1;
-
- to_epoch = mktime( &to_tm );
- /* printf("  to_epoch1=%d,%s",to_epoch,ctime(&to_epoch));  */
- if (to_epoch <= 0)  {
-     MessageBox_popup
-      (fromToShell,(Widget *)XmCreateMessageDialog(fromToShell,"Oops",NULL,0), 
-      XmDIALOG_WARNING, "TIME PROBLEM", "Ok","To-Time Error\n");
-     return;
+	  XmDIALOG_WARNING, "TIME PROBLEM", "Ok","From-Time Error\n");
+    return;
   }
- 
- if(from_epoch >= to_epoch) {
-     MessageBox_popup
+  
+  to_tm.tm_sec = 0; 
+  to_tm.tm_min  = atoi((const char *) XmTextGetString(w1[MINUTE]));
+  to_tm.tm_hour = atoi((const char *) XmTextGetString(w1[HOUR])); 
+  to_tm.tm_mday = atoi((const char *) XmTextGetString(w1[DAY])); 
+  to_tm.tm_mon  = atoi((const char *) XmTextGetString(w1[MONTH])) -1; 
+  to_tm.tm_year = atoi((const char *) XmTextGetString(w1[YEAR])) -1900;
+  to_tm.tm_isdst=-1;
+  
+  to_epoch = mktime( &to_tm );
+  /* printf("  to_epoch1=%d,%s",to_epoch,ctime(&to_epoch));  */
+  if (to_epoch <= 0)  {
+    MessageBox_popup
       (fromToShell,(Widget *)XmCreateMessageDialog(fromToShell,"Oops",NULL,0), 
-	XmDIALOG_WARNING, "TIME PROBLEM", "Ok","From > TO!!! \n");
-     return;
-   } 
+	  XmDIALOG_WARNING, "TIME PROBLEM", "Ok","To-Time Error\n");
+    return;
+  }
+  
+  if(from_epoch >= to_epoch) {
+    MessageBox_popup
+      (fromToShell,(Widget *)XmCreateMessageDialog(fromToShell,"Oops",NULL,0), 
+	  XmDIALOG_WARNING, "TIME PROBLEM", "Ok","From > TO!!! \n");
+    return;
+  } 
   t_from.tv_sec=from_epoch; t_from.tv_usec=0;
-    t_to.tv_sec=  to_epoch;   t_to.tv_usec=0;
+  t_to.tv_sec=  to_epoch;   t_to.tv_usec=0;
   
   if(DEBUG) printf("from=%s",ctime(&from_epoch));
   if(DEBUG) printf("to  =%s",ctime(&to_epoch));
@@ -3569,68 +3746,67 @@ static void fromToGo(wdgt, gData , call_data)
 #if 0
   /* For memory problem Albert: */
   t_new=to_epoch - from_epoch;
-
-            StripConfig_getattr
-            (si->config, STRIPCONFIG_TIME_SAMPLE_INTERVAL, &dval, 0);        
-
-	        if (t_new > MEMORY_RATIO)  /* Albert */ 
-                  {
-                  int_dval=(int) (t_new/MEMORY_RATIO);
-                  if (int_dval < 1) int_dval=1;
-                  dval = (double) int_dval ;           /* End Albert */
-
+  
+  StripConfig_getattr
+    (si->config, STRIPCONFIG_TIME_SAMPLE_INTERVAL, &dval, 0);        
+  
+  if (t_new > MEMORY_RATIO)  /* Albert */ 
+  {
+    int_dval=(int) (t_new/MEMORY_RATIO);
+    if (int_dval < 1) int_dval=1;
+    dval = (double) int_dval ;           /* End Albert */
+    
 /* ?????          si->status |= STRIPSTAT_BROWSE_MODE;  */
-                  StripConfig_setattr
-                   (si->config,STRIPCONFIG_TIME_SAMPLE_INTERVAL,dval,0);
-                  StripConfigMask_clear (&scfg_mask);
-                  StripConfigMask_set 
-                   (&scfg_mask,STRIPCONFIG_TIME_SAMPLE_INTERVAL);
-                  StripConfig_update (si->config, scfg_mask);
-                  }
-
-                if(dval > t_new/3 )
-                  {
-                  fprintf(stderr,"StripHistoryTool: Data_Sample_Interval SO BIG...\n");
-                  int_dval= (int) t_new/3;
-                  if (int_dval < 1) int_dval=1;
-                  dval = (double) int_dval ;           /* End Albert */
-
+    StripConfig_setattr
+	(si->config,STRIPCONFIG_TIME_SAMPLE_INTERVAL,dval,0);
+    StripConfigMask_clear (&scfg_mask);
+    StripConfigMask_set 
+	(&scfg_mask,STRIPCONFIG_TIME_SAMPLE_INTERVAL);
+    StripConfig_update (si->config, scfg_mask);
+  }
+  
+  if(dval > t_new/3 )
+  {
+    fprintf(stderr,"StripHistoryTool: Data_Sample_Interval SO BIG...\n");
+    int_dval= (int) t_new/3;
+    if (int_dval < 1) int_dval=1;
+    dval = (double) int_dval ;           /* End Albert */
+    
 /* ?????          si->status |= STRIPSTAT_BROWSE_MODE;  */
-                  StripConfig_setattr
-                   (si->config,STRIPCONFIG_TIME_SAMPLE_INTERVAL,dval,0);
-                  StripConfigMask_clear (&scfg_mask);
-                  StripConfigMask_set 
-                   (&scfg_mask,STRIPCONFIG_TIME_SAMPLE_INTERVAL);
-                  StripConfig_update (si->config, scfg_mask);
-		  }
+    StripConfig_setattr
+	(si->config,STRIPCONFIG_TIME_SAMPLE_INTERVAL,dval,0);
+    StripConfigMask_clear (&scfg_mask);
+    StripConfigMask_set 
+	(&scfg_mask,STRIPCONFIG_TIME_SAMPLE_INTERVAL);
+    StripConfig_update (si->config, scfg_mask);
+  }
 /* End of memory allocation problem */ 
 #endif /* 0 */
-
-	  StripGraph_setattr (si->graph, STRIPGRAPH_END_TIME, &t_to, 0);
-          StripGraph_setattr (si->graph, STRIPGRAPH_BEGIN_TIME, &t_from, 0);
-          si->status |= STRIPSTAT_BROWSE_MODE;
-          XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_panning, 0);
-	  StripGraph_draw(si->graph,SGCOMPMASK_DATA|SGCOMPMASK_XAXIS,(Region *)0);
-
-	  if(DEBUG) printf("to_epoch - from_epoch =%ld",to_epoch - from_epoch);
-
-          StripConfig_setattr
-            (si->config, STRIPCONFIG_TIME_TIMESPAN,to_epoch-from_epoch, 0);
-          StripConfigMask_clear (&scfg_mask);
-          StripConfigMask_set (&scfg_mask, SCFGMASK_TIME_TIMESPAN);
-          StripConfig_update (si->config, scfg_mask);
-
-
-	  if (auto_scaleTriger == 1) {
-	    if (changeMinMax(si)) {
-	      StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
-	      StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
-	      StripGraph_draw
-		(si->graph,
-		 SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS | SGCOMPMASK_XAXIS,
-		 (Region *)0);
-	    }
-	  }
+  
+  StripGraph_setattr (si->graph, STRIPGRAPH_END_TIME, &t_to, 0);
+  StripGraph_setattr (si->graph, STRIPGRAPH_BEGIN_TIME, &t_from, 0);
+  Strip_setbrowsemode (si, True);
+  StripGraph_draw(si->graph,SGCOMPMASK_DATA|SGCOMPMASK_XAXIS,(Region *)0);
+  
+  if(DEBUG) printf("to_epoch - from_epoch =%ld",to_epoch - from_epoch);
+  
+  StripConfig_setattr
+    (si->config, STRIPCONFIG_TIME_TIMESPAN,to_epoch-from_epoch, 0);
+  StripConfigMask_clear (&scfg_mask);
+  StripConfigMask_set (&scfg_mask, SCFGMASK_TIME_TIMESPAN);
+  StripConfig_update (si->config, scfg_mask);
+  
+  
+  if (auto_scaleTriger == 1) {
+    if (changeMinMax(si)) {
+	StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
+	StripGraph_setstat (si->graph, SGSTAT_LEGEND_REFRESH);
+	StripGraph_draw
+	  (si->graph,
+	    SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS | SGCOMPMASK_XAXIS,
+	    (Region *)0);
+    }
+  }
   XUnmapWindow (XtDisplay (fromToShell), XtWindow (fromToShell));
 }
 
@@ -3639,71 +3815,70 @@ static void radio_toggled(Widget widget,int which,XmToggleButtonCallbackStruct *
   StripInfo *si;
   StripConfigMask mask;
   char *titlePt;
-
+  
   if(DEBUG)  printf("RADIO_BOX:which=%d\n",which);
   if(which != radioBoxAlgorithm)
-    {
-
-      radioBoxAlgorithm=which;
-      XtVaGetValues (XtParent(widget), XmNuserData, &si, 0);
-      
-      radioChange=1;
-      
-      StripConfig_getattr (si->config, STRIPCONFIG_TITLE,&titlePt, 0);
-      StripConfig_setattr (si->config, STRIPCONFIG_TITLE,titlePt, 0);
-      StripConfigMask_clear (&mask);
-      StripConfigMask_set (&mask, SCFGMASK_TITLE);
-      StripConfig_update (si->config, mask);
-      
-      /* new Albert */
-      if (auto_scaleTriger == 1) {
+  {
+    
+    radioBoxAlgorithm=which;
+    XtVaGetValues (XtParent(widget), XmNuserData, &si, 0);
+    
+    radioChange=1;
+    
+    StripConfig_getattr (si->config, STRIPCONFIG_TITLE,&titlePt, 0);
+    StripConfig_setattr (si->config, STRIPCONFIG_TITLE,titlePt, 0);
+    StripConfigMask_clear (&mask);
+    StripConfigMask_set (&mask, SCFGMASK_TITLE);
+    StripConfig_update (si->config, mask);
+    
+    /* new Albert */
+    if (auto_scaleTriger == 1) {
 	changeMinMax(si);/* Albert */
-      }
-      /* end new Albert */
-      Strip_refresh((Strip) si);  
-      
-    }     
+    }
+    /* end new Albert */
+    Strip_refresh((Strip) si);  
+    
+  }     
 }
 
-
 static void radioClose(widget, unused , call_data)
-     Widget                widget;
-     XtPointer             unused;
-     XmAnyCallbackStruct  *call_data;
+  Widget                widget;
+  XtPointer             unused;
+  XmAnyCallbackStruct  *call_data;
 {
   XUnmapWindow( XtDisplay (XtParent((XtParent(widget)))), 
-		    XtWindow(XtParent((XtParent(widget)))) );
+    XtWindow(XtParent((XtParent(widget)))) );
 }
 
 static void radioHelp(widget, unused , call_data)
-    Widget                widget;
-    XtPointer             unused;
-    XmAnyCallbackStruct  *call_data;
+  Widget                widget;
+  XtPointer             unused;
+  XmAnyCallbackStruct  *call_data;
 {
   MessageBox_popup(history_topShell,
-	      (Widget *) XmCreateMessageDialog(history_topShell,"Help",NULL,0),
-		   XmDIALOG_INFORMATION, 
-		   "ArchiveMethods", 
-		   "Ok",
-   "You can \n"
-   " 1) choose   History   Reduction   Algorithm:\n"
-   "     (available only in AAPI version)\n"
-   "       a) Average Method -- IDL-style\n"
-   "       b) Tail of raw data -- Show last 1024 real data from Archive \n"
-   "       c) Sharp Method - try show all big (max/min)\n"
-   "       d) Spline Method - smothh curve using cubic spline \n"
-   "\n"
-   " 2) show all reall points using little circle around all real point\n"
-   "\n"
-   " 3) change History Buffer Size (default is 1Kb)\n"
-	         "\n" );
+    (Widget *) XmCreateMessageDialog(history_topShell,"Help",NULL,0),
+    XmDIALOG_INFORMATION, 
+    "ArchiveMethods", 
+    "Ok",
+    "You can \n"
+    " 1) choose   History   Reduction   Algorithm:\n"
+    "     (available only in AAPI version)\n"
+    "       a) Average Method -- IDL-style\n"
+    "       b) Tail of raw data -- Show last 1024 real data from Archive \n"
+    "       c) Sharp Method - try show all big (max/min)\n"
+    "       d) Spline Method - smothh curve using cubic spline \n"
+    "\n"
+    " 2) show all reall points using little circle around all real point\n"
+    "\n"
+    " 3) change History Buffer Size (default is 1Kb)\n"
+    "\n" );
 }
 
 
 static void arch_callback(widget, bit, toggle_data)
-     Widget widget;
-     int bit;
-     XmToggleButtonCallbackStruct *toggle_data;
+  Widget widget;
+  int bit;
+  XmToggleButtonCallbackStruct *toggle_data;
 {
   StripInfo *si;
   arch_flag=1-arch_flag;
@@ -3719,37 +3894,42 @@ static void arch_callback(widget, bit, toggle_data)
     (si->graph,
     SGCOMPMASK_DATA | SGCOMPMASK_LEGEND | SGCOMPMASK_YAXIS,
     (Region *)0);
-    */
+  */
 }
 
 static void historyPoints(widget, textField , call_data)
-    Widget                widget;
-    XtPointer             textField;
-    XmAnyCallbackStruct  *call_data;
+  Widget                widget;
+  XtPointer             textField;
+  XmAnyCallbackStruct  *call_data;
 {
-
+  
   StripInfo *si;
   static char buf[32];
   Widget w= (Widget) textField;
   unsigned int tmp;
-
-   tmp = (unsigned int) atoi(XmTextGetString(w));
-   if((tmp==0) || (tmp>MAX_HISTORY_SIZE) ) {
-     sprintf(buf,"%d",historySize);
-     XmTextSetString(w,buf);
-     XMapRaised (XtDisplay ( algShell), XtWindow ( algShell));
-     return;
+  
+  tmp = (unsigned int) atoi(XmTextGetString(w));
+  if((tmp==0) || (tmp>MAX_HISTORY_SIZE) ) {
+    sprintf(buf,"%d",historySize);
+    XmTextSetString(w,buf);
+    XMapRaised (XtDisplay ( algShell), XtWindow ( algShell));
+    return;
   }
-
+  
   XtVaGetValues (widget, XmNuserData, &si, 0);
-   historySize=tmp;
+  historySize=tmp;
   Strip_refresh((Strip) si);
 }
 #endif /* STRIP_HISTORY */
 
 /* **************************** Emacs Editing Sequences ***************** */
 /* Local Variables: */
-/* tab-width: 2 */
+/* tab-width: 6 */
 /* c-basic-offset: 2 */
-/* c-file-offsets: ((substatement-open . 0) (label . 0)) */
+/* c-comment-only-line-offset: 0 */
+/* c-indent-comments-syntactically-p: t */
+/* c-label-minimum-indentation: 1 */
+/* c-file-offsets: ((substatement-open . 0) (label . 2) */
+/* (brace-entry-open . 0) (label .2) (arglist-intro . +) */
+/* (arglist-cont-nonempty . c-lineup-arglist) ) */
 /* End: */

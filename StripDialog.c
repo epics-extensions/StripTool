@@ -473,7 +473,12 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
     xstr = XmStringCreateLocalized (STRIP_CONFIGFILE_PATTERN);
     XtVaSetValues (sd->fs.dlg, XmNpattern, xstr, NULL);
     XmStringFree (xstr);
-      
+    
+    /* pattern */
+    xstr = XmStringCreateLocalized (STRIP_CONFIGFILE_PATTERN);
+    XtVaSetValues (sd->fs.dlg, XmNpattern, xstr, NULL);
+    XmStringFree (xstr);
+
     XtAddCallback
       (sd->fs.dlg, XmNcancelCallback, fsdlg_cb, (XtPointer)FSDLG_CANCEL);
     XtAddCallback (sd->fs.dlg, XmNokCallback, fsdlg_cb, (XtPointer)FSDLG_OK);
@@ -1710,6 +1715,8 @@ int     StripDialog_addcurve            (StripDialog the_sd, StripCurve curve)
 
   if ((ret_val = (sd->sdcurve_count < STRIP_MAX_CURVES)))
   {
+    char *str;
+    
     insert_sdcurve (sd, sd->sdcurve_count, curve, False);
     show_sdcurve (sd, sd->sdcurve_count);
     sd->sdcurve_count++;
@@ -1717,11 +1724,14 @@ int     StripDialog_addcurve            (StripDialog the_sd, StripCurve curve)
     /* if the curve's name matches the string in the connect text box,
      * then clear the the text box
      */
+    str =  XmTextGetString (sd->connect_txt);
     if (strcmp
-        (XmTextGetString (sd->connect_txt),
-         (char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME))
-        == 0)
+	(str,
+	  (char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME))== 0)
+    {
       XmTextSetString (sd->connect_txt, "");
+    }
+    XtFree(str);
   }
   return ret_val;
 }
@@ -1868,6 +1878,81 @@ int     StripDialog_ismapped    (StripDialog the_sd)
   return (window_ismapped (sd->display, XtWindow (sd->shell)));
 }
 
+/*
+ * StripDialog_reset
+ */
+void            StripDialog_reset(StripDialog the_sd)
+{
+  int                   which;
+  int                   h, m, s;
+  double                a, b, tmp;
+  StripConfigMask       mask;
+  StripCurveInfo        *sc;
+  StripDialogInfo       *sd = (StripDialogInfo *)the_sd;
+
+  if(!sd) return;
+
+  /* loop over curves */
+  for (which = 0; which < sd->sdcurve_count; which++)
+  {
+    /* make sure that max > min */
+    getwidgetval_min ((char *)sd, which, &a);
+    getwidgetval_max ((char *)sd, which, &b);
+    if (a > b) { tmp = a; a = b; b = tmp; }
+
+    sc = (StripCurveInfo *)sd->curve_info[which].curve;
+    
+    if (a < b)
+    {
+      if (StripCurve_setattr (sc, STRIPCURVE_MIN, a, 0))
+      {
+        setwidgetval_min (sd, which, a);
+        StripConfigMask_set (&mask, SCFGMASK_CURVE_MIN);
+      }
+      else setwidgetval_min (sd, which, sc->details->min);
+        
+      if (StripCurve_setattr (sc, STRIPCURVE_MAX, b, 0))
+      {
+        setwidgetval_max (sd, which, b);
+        StripConfigMask_set (&mask, SCFGMASK_CURVE_MAX);
+      }
+      else setwidgetval_max (sd, which, sc->details->max);
+    }
+    else
+    {
+      setwidgetval_min (sd, which, sc->details->min);
+      setwidgetval_max (sd, which, sc->details->max);
+    }
+  }
+
+  /* get time values */
+  getwidgetval_tm_tshour (sd, &h);
+  getwidgetval_tm_tsminute (sd, &m);
+  getwidgetval_tm_tssecond (sd, &s);
+  
+  h = max (0, h);
+  m = max (0, m);
+  s = max (0, s);
+  
+  if (StripConfig_setattr
+    (sd->config,
+	STRIPCONFIG_TIME_TIMESPAN,     (unsigned)(h*3600 + m*60 + s),
+	0))
+  {
+    StripConfigMask_set (&mask, SCFGMASK_TIME_TIMESPAN);
+  }
+  else
+  {
+    sec2hms (sd->config->Time.timespan, &h, &m, &s);
+    setwidgetval_tm_tshour (sd, h);
+    setwidgetval_tm_tsminute (sd, m);
+    setwidgetval_tm_tssecond (sd, s);
+  }
+
+  /* update */
+  if (StripConfigMask_intersect (&mask, &SCFGMASK_ALL))
+    StripConfig_update (sd->config, mask);
+}
 
 /* ====== Static Function Definitions ====== */
 /*

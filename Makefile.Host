@@ -28,7 +28,10 @@
 TOP = ../../..
 include $(TOP)/config/CONFIG_EXTENSIONS
 
-# StripTool Options
+# ==========================================================================
+# Options
+# ==========================================================================
+
 STRIP_HISTORY      = StripHistoryAR+ArR.c
 ARCHIVER_CALL      = NONE
 USE_ARCHIVE_RECORD = NO
@@ -36,19 +39,12 @@ USE_ARCHIVE_RECORD = NO
 HAVE_XPM	= YES
 HAVE_XMU	= YES
 
+#PURIFY = YES
 PURIFY_FLAGS = -first-only -chain-length=26
 
-X11_INC	:= $(X11_INC)
-MOTIF_INC := $(MOTIF_INC)
-X11_LIB	:= $(X11_LIB)
-MOTIF_LIB := $(MOTIF_LIB)
-XMU_INC	:= $(X11_LIB)
-XMU_LIB	:= $(X11_LIB)
-
-# ==========================================================================
-# Options
-# ==========================================================================
 CMPLR 		= STRICT
+
+# When committed, HOST_OPT should be undefined.  Use for debugging.
 ifdef WIN32
  #HOST_OPT = NO
 else
@@ -61,7 +57,7 @@ ifeq ($(HOST_OPT),NO)
     endif
   endif
 endif
-#PURIFY = YES
+
 STRIP_DAQ	= StripCA.c
 #STRIP_HISTORY	= StripHistoryNULL.c
 USE_CLUES	= YES
@@ -70,6 +66,21 @@ USE_SDDS	= YES
 ifeq ($(STRIP_DAQ),StripCDEV.cc)
   USE_CDEV	= YES
 endif
+
+# Note that StripTool will ding without explanation on startup if
+# STRIP_CONFIGFILE_DIR is invalid.  If STRIP_CONFIGFILE_DIR is not
+# defined here, then the value in StripDefines.h will be used.
+#STRIP_CONFIGFILE_DIR=\"/applic/stripTool\"
+
+# Library locations
+# Use these definitions and implement them in the appropriate
+# CONFIG_SITE.xxx rather than hard-coding them here.
+X11_INC	:= $(X11_INC)
+MOTIF_INC := $(MOTIF_INC)
+X11_LIB	:= $(X11_LIB)
+MOTIF_LIB := $(MOTIF_LIB)
+XMU_INC	:= $(X11_LIB)
+XMU_LIB	:= $(X11_LIB)
 
 # ==========================================================================
 # Sources
@@ -138,8 +149,6 @@ endif
 # ==========================================================================
 ifneq ($(STRIP_CONFIGFILE_DIR),)
   USR_CPPFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=$(STRIP_CONFIGFILE_DIR)
-else
-  USR_CPPFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/applic/stripTool\"
 endif
 
 USR_CPPFLAGS 	+= -DUSE_MOTIF
@@ -243,6 +252,12 @@ include $(TOP)/config/RULES.Host
 
 ../main_+.cc: main_c.c
 	$(CP) $< $@
+
+# ==========================================================================
+# Debugging (Do gnumake xxxx in O.whatever directory)
+# ==========================================================================
+xxxx:
+	@echo STRIP_CONFIGFILE_DIR: $(STRIP_CONFIGFILE_DIR)
 
 # **************************** Emacs Editing Sequences *****************
 # Local Variables:

@@ -77,11 +77,6 @@
 /* the maximum font height (in millimeters) */
 #define STRIP_FONT_MAXHEIGHT_MM         8.0 /* 4.0 Albert */
 
-/* the default directory in which to find configuration files */
-#ifndef STRIP_CONFIGFILE_DIR
-#  define STRIP_CONFIGFILE_DIR          "."
-#endif
-
 /* the default configuration filename */
 #define STRIP_DEFAULT_FILENAME          "StripTool.stp"
 
@@ -92,7 +87,13 @@
 #define STRIP_FILE_SEARCH_PATH_ENV      "STRIP_FILE_SEARCH_PATH"
 #endif
 
-/* the default wildcard for finding configuration files */
+/* the default directory for the file selection dialog */
+/* ("." will be changed to the CWD. Others will be used as is) */
+#ifndef STRIP_CONFIGFILE_DIR
+#  define STRIP_CONFIGFILE_DIR          "."
+#endif
+
+/* the default wildcard for teh file selection dialog */
 #ifndef STRIP_CONFIGFILE_PATTERN
 #define STRIP_CONFIGFILE_PATTERN        "*.stp"
 #endif
