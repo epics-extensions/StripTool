@@ -88,3 +88,13 @@ Wed Nov 06, 2002 - StripTool-2-5-2-4 - evans
 	(without explanation) on startup by removing hard-coded, invalid
 	STRIP_CONFIGFILE_DIR default in Makefile.Host.  Fixed a memory leak in
 	StripDialog_addcurve.  Found others that need to be fixed.
+
+Tue Nov 12, 2002 - StripTool-2-5-2-5 - evans
+	It is now running on WIN32.  It builds without errors or warnings on
+	Solaris and WIN32.  Printing and Snapshot are not implemented on WIN32
+	since they use xwd.  (Alt-PrintScreen can be used instead.)  There
+	were major modifications to Makefile.Host to allow multiple platforms.
+	More complete function prototypes were added in FastLabel.c, and K&R
+	syntax was replaced.  The Description string is now initialized in all
+	cases, eliminating junk text in the legend.  There are still memory
+	leaks.
