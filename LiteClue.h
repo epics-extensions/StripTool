@@ -1,6 +1,6 @@
 /* 
 LiteClue.h - Public definitions for LiteClue widget
-	See LiteClue documentation
+        See LiteClue documentation
 
 Copyright 1996 COMPUTER GENERATION, INC.,
 
@@ -48,13 +48,13 @@ $log
  * New resource names
  */
 
-#define XgcNcancelWaitPeriod	 "cancelWaitPeriod"
-#define XgcNwaitPeriod	 "waitPeriod"
+#define XgcNcancelWaitPeriod     "cancelWaitPeriod"
+#define XgcNwaitPeriod   "waitPeriod"
 /*
  * New resource classes
  */
-#define XgcCCancelWaitPeriod	"cancelWaitPeriod"
-#define XgcCWaitPeriod	"WaitPeriod"
+#define XgcCCancelWaitPeriod    "cancelWaitPeriod"
+#define XgcCWaitPeriod  "WaitPeriod"
 
 extern WidgetClass xcgLiteClueWidgetClass; 
 typedef struct _LiteClueClassRec *XcgLiteClueWidgetClass;

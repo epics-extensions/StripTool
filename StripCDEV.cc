@@ -8,22 +8,22 @@
  *-----------------------------------------------------------------------------
  */
 
-#include "StripCDEV.h"
+#include "StripDAQ.h"
 #include <cdevSystem.h>
 #include <cdevRequestObject.h>
 #include <cdevCallback.h>
 #include <cdevData.h>
 #include <math.h>
 
-#define CDEV_POLL_PERIOD	0.3
+#define CDEV_POLL_PERIOD        0.3
 
-#define MAX_BUF_LEN		256
-#define DEFAULT_ATTR		"VAL"
+#define MAX_BUF_LEN             256
+#define DEFAULT_ATTR            "VAL"
 
-#define DEF_DEVATTR_UNITS	"undefined"
-#define DEF_DEVATTR_PRECISION	4
-#define DEF_DEVATTR_DISPLO	-1.0
-#define DEF_DEVATTR_DISPHI	1.0
+#define DEF_DEVATTR_UNITS       "undefined"
+#define DEF_DEVATTR_PRECISION   4
+#define DEF_DEVATTR_DISPLO      -1.0
+#define DEF_DEVATTR_DISPHI      1.0
 
 typedef enum
 {
@@ -36,7 +36,7 @@ typedef enum
 }
 DevAttr;
 
-static char	*DevAttrStr[DEVATTR_COUNT] =
+static char     *DevAttrStr[DEVATTR_COUNT] =
 {
   "value",
   "units",
@@ -47,45 +47,45 @@ static char	*DevAttrStr[DEVATTR_COUNT] =
 
 typedef struct _DeviceData
 {
-  cdevCallback		*cb;
-  char			buf[MAX_BUF_LEN];
-  char			*dev, *attr;
-  int			tag;
-  double		value;
-  struct _StripCDEVInfo	*this_;
+  cdevCallback          *cb;
+  char                  buf[MAX_BUF_LEN];
+  char                  *dev, *attr;
+  int                   tag;
+  double                value;
+  struct _StripDAQInfo  *this_;
 }
 DeviceData;
   
 
-typedef struct _StripCDEVInfo
+typedef struct _StripDAQInfo
 {
-  Strip		strip;
-  DeviceData	dev_data[STRIP_MAX_CURVES];
-} StripCDEVInfo;
+  Strip         strip;
+  DeviceData    dev_data[STRIP_MAX_CURVES];
+} StripDAQInfo;
       
 
 /* ====== Prototypes ====== */
-static void	fd_callback	(int, int, void *);
-static void	work_callback	(XtPointer, int *, XtInputId *);
-static void	poll_callback	(XtPointer, XtIntervalId *);
-static void	data_callback	(int,
+static void     fd_callback     (int, int, void *);
+static void     work_callback   (XtPointer, int *, XtInputId *);
+static void     poll_callback   (XtPointer, XtIntervalId *);
+static void     data_callback   (int,
                                  void *,
                                  cdevRequestObject &,
                                  cdevData &);
-static double	get_value	(void *);
+static double   get_value       (void *);
 
 /*
- * StripCDEV_initialize
+ * StripDAQ_initialize
  */
-StripCDEV	StripCDEV_initialize	(Strip strip)
+StripDAQ        StripDAQ_initialize     (Strip strip)
 {
-  cdevSystem	&system = cdevSystem::defaultSystem();
-  StripCDEVInfo	*scd = NULL;
-  int		status;
-  int		fd[MAX_BUF_LEN];
-  int		i;
+  cdevSystem    &system = cdevSystem::defaultSystem();
+  StripDAQInfo  *scd = NULL;
+  int           status;
+  int           fd[MAX_BUF_LEN];
+  int           i;
 
-  if ((scd = (StripCDEVInfo *)calloc (sizeof (StripCDEVInfo), 1)) != NULL)
+  if ((scd = (StripDAQInfo *)calloc (sizeof (StripDAQInfo), 1)) != NULL)
   {
     scd->strip = strip;
     for (i = 0; i < STRIP_MAX_CURVES; i++)
@@ -116,17 +116,17 @@ StripCDEV	StripCDEV_initialize	(Strip strip)
     }
   }
   
-  return (StripCDEV)scd;
+  return (StripDAQ)scd;
 }
 
 
 /*
- * StripCDEV_terminate
+ * StripDAQ_terminate
  */
-void	StripCDEV_terminate	(StripCDEV the_scd)
+void    StripDAQ_terminate      (StripDAQ the_scd)
 {
-  StripCDEVInfo	*scd = (StripCDEVInfo *)the_scd;
-  int		i;
+  StripDAQInfo  *scd = (StripDAQInfo *)the_scd;
+  int           i;
   
   for (i = 0; i < STRIP_MAX_CURVES; i++)
   {
@@ -138,20 +138,20 @@ void	StripCDEV_terminate	(StripCDEV the_scd)
 
 
 /*
- * StripCDEV_request_connect
+ * StripDAQ_request_connect
  */
-int	StripCDEV_request_connect	(StripCurve curve, void *the_scd)
+int     StripDAQ_request_connect        (StripCurve curve, void *the_scd)
 {
-  StripCDEVInfo		*scd = (StripCDEVInfo *)the_scd;
-  DeviceData		*dd;
-  cdevSystem		&system = cdevSystem::defaultSystem();
-  cdevRequestObject	*request;
-  cdevData		data;
-  int			i;
-  int			status;
-  int			ret_val;
-  char			msg_buf[MAX_BUF_LEN];
-  int			tag;
+  StripDAQInfo          *scd = (StripDAQInfo *)the_scd;
+  DeviceData            *dd;
+  cdevSystem            &system = cdevSystem::defaultSystem();
+  cdevRequestObject     *request;
+  cdevData              data;
+  int                   i;
+  int                   status;
+  int                   ret_val;
+  char                  msg_buf[MAX_BUF_LEN];
+  int                   tag;
 
   for (i = 0; i < STRIP_MAX_CURVES; i++)
     if (scd->dev_data[i].cb == 0)
@@ -169,8 +169,8 @@ int	StripCDEV_request_connect	(StripCurve curve, void *the_scd)
          dd->attr++);
     if (*dd->attr == '.')
     {
-      *dd->attr = '\0';	/* separate the device from the attribute */
-      dd->attr++;		/* point at the attribute string */
+      *dd->attr = '\0'; /* separate the device from the attribute */
+      dd->attr++;               /* point at the attribute string */
     }
     else dd->attr = DEFAULT_ATTR;
 
@@ -202,19 +202,21 @@ int	StripCDEV_request_connect	(StripCurve curve, void *the_scd)
 
 
 /*
- * StripCDEV_request_disconnect
+ * StripDAQ_request_disconnect
  */
-int	StripCDEV_request_disconnect	(StripCurve curve, void *)
+int     StripDAQ_request_disconnect     (StripCurve curve, void *)
 {
-  DeviceData		*dd;
-  cdevSystem		&system = cdevSystem::defaultSystem();
-  cdevRequestObject	*request;
-  int			status;
-  int			ret_val;
-  char			msg_buf[MAX_BUF_LEN];
+  DeviceData            *dd;
+  cdevSystem            &system = cdevSystem::defaultSystem();
+  cdevRequestObject     *request;
+  int                   status;
+  int                   ret_val;
+  char                  msg_buf[MAX_BUF_LEN];
 
-  dd = (DeviceData *)StripCurve_getattr_val
-    (curve, STRIPCURVE_FUNCDATA);
+  dd = (DeviceData *)StripCurve_getattr_val (curve, STRIPCURVE_FUNCDATA);
+
+  /* this will happen if a non-CA curve is submitted for disconnect */
+  if (!cd) return 1;
 
   if (dd->cb != 0)
   {
@@ -223,7 +225,7 @@ int	StripCDEV_request_disconnect	(StripCurve curve, void *)
     if (request) {
       status = request->sendCallback (0, *dd->cb);
       system.flush();
-      delete dd->cb;		// this seems like a bad idea!
+      delete dd->cb;            // this seems like a bad idea!
     }
     dd->cb = 0;
     dd->tag = -1;
@@ -238,12 +240,12 @@ int	StripCDEV_request_disconnect	(StripCurve curve, void *)
 /*
  * fd_callback
  *
- *	Add new file descriptors to select upon.
- *	Remove old file descriptors from selection.
+ *      Add new file descriptors to select upon.
+ *      Remove old file descriptors from selection.
  */
-static void	fd_callback	(int fd, int opened, void *data)
+static void     fd_callback     (int fd, int opened, void *data)
 {
-  StripCDEVInfo	*scd = (StripCDEVInfo *)data;
+  StripDAQInfo  *scd = (StripDAQInfo *)data;
   if (opened)
     Strip_addfd (scd->strip, fd, work_callback, (XtPointer)scd);
   else Strip_clearfd (scd->strip, fd);
@@ -253,11 +255,11 @@ static void	fd_callback	(int fd, int opened, void *data)
 /*
  * work_callback
  *
- *	Gives control to cdev for a while.
+ *      Gives control to cdev for a while.
  */
-static void	work_callback		(XtPointer	BOGUS(data),
-                                         int 		*fd,
-                                         XtInputId 	*BOGUS(id))
+static void     work_callback           (XtPointer      BOGUS(data),
+                                         int            *fd,
+                                         XtInputId      *BOGUS(id))
 {
   cdevSystem::defaultSystem().pend(*fd);
 }
@@ -266,11 +268,11 @@ static void	work_callback		(XtPointer	BOGUS(data),
 /*
  * poll_callback
  *
- *	Gives control to cdev for a while.
+ *      Gives control to cdev for a while.
  */
-static void	poll_callback		(XtPointer arg, XtIntervalId *)
+static void     poll_callback           (XtPointer arg, XtIntervalId *)
 {
-  Strip	strip = (Strip)arg;
+  Strip strip = (Strip)arg;
   cdevSystem::defaultSystem().poll();
   Strip_addtimeout (strip, CDEV_POLL_PERIOD, poll_callback, (XtPointer)strip);
 }
@@ -279,24 +281,24 @@ static void	poll_callback		(XtPointer arg, XtIntervalId *)
 /*
  * data_callback
  */
-static void	data_callback	(int			status,
-                                 void 			*arg,
-                                 cdevRequestObject 	&,
-                                 cdevData 		&data)
+static void     data_callback   (int                    status,
+                                 void                   *arg,
+                                 cdevRequestObject      &,
+                                 cdevData               &data)
 {
-  StripCurve		curve = (StripCurve)arg;
-  DeviceData		*dd;
-  cdevSystem		&system = cdevSystem::defaultSystem();
-  cdevRequestObject	*request;
-  double		lo, hi;
-  int			p;
-  char			msg_buf[MAX_BUF_LEN];
-  cdevData		temp_dat;
+  StripCurve            curve = (StripCurve)arg;
+  DeviceData            *dd;
+  cdevSystem            &system = cdevSystem::defaultSystem();
+  cdevRequestObject     *request;
+  double                lo, hi;
+  int                   p;
+  char                  msg_buf[MAX_BUF_LEN];
+  cdevData              temp_dat;
 
   union _val {
-    int		i;
-    double	d;
-    char	*s;
+    int         i;
+    double      d;
+    char        *s;
   } val;
 
   /* first, get the DeviceData structure from the curve */
@@ -397,7 +399,7 @@ static void	data_callback	(int			status,
 #if 0
     fprintf
       (stdout,
-       "StripCDEV, data_callback(): %s.%s = %12.8f\n",
+       "StripDAQ, data_callback(): %s.%s = %12.8f\n",
        dd->dev, dd->attr, dd->value);
     fflush (stdout);
 #endif
@@ -415,11 +417,11 @@ static void	data_callback	(int			status,
 /*
  * get_value
  *
- *	Returns the current value specified by the CurveData passed in.
+ *      Returns the current value specified by the CurveData passed in.
  */
-static double	get_value	(void *data)
+static double   get_value       (void *data)
 {
-  DeviceData	*dd = (DeviceData *)data;
+  DeviceData    *dd = (DeviceData *)data;
 
   return dd->value;
 }

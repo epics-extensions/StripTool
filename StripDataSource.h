@@ -18,17 +18,41 @@
 
 /* ======= Data Types ======= */
 
-typedef void *	StripDataSource;
+typedef void *  StripDataSource;
 
 typedef enum
 {
-  DATASTAT_PLOTABLE	= 1	/* the point is plotable */
+  SDS_REFRESH_ALL, SDS_JOIN_NEW
+}
+sdsRenderTechnique;
+
+/* sdsTransform
+ *
+ *      Function to transform a set of real values into a set
+ *      of plottable values.
+ *
+ *      The first parameter references some client-specific
+ *      data used to compute the transform.  The second and
+ *      third parameters are, respectively, the input and
+ *      output arrays.  The transform routine must guarantee
+ *      that these can both point to the same memory without
+ *      ill effects (allowing an in-place transformation).
+ *      The last parameter indicates the length of the arrays.
+ */
+typedef void    (*sdsTransform) (void *,        /* transform data */
+                                 double *,      /* before */
+                                 double *,      /* after */
+                                 int);          /* num points */
+
+typedef enum
+{
+  DATASTAT_PLOTABLE     = 1     /* the point is plotable */
 } DataStatus;
 
 /* ======= Attributes ======= */
 typedef enum
 {
-  SDS_NUMSAMPLES = 1,	/* (size_t)	number of samples to keep 	rw */
+  SDS_NUMSAMPLES = 1,   /* (size_t)     number of samples to keep       rw */
   SDS_LAST_ATTRIBUTE
 } SDSAttribute;
 
@@ -39,141 +63,117 @@ typedef enum
 /*
  * StripDataSource_init
  *
- *	Creates a new strip data structure, setting all values to defaults.
+ *      Creates a new strip data structure, setting all values to defaults.
  */
-StripDataSource 	StripDataSource_init	(StripHistory);
+StripDataSource         StripDataSource_init    (StripHistory);
 
 
 /*
  * StripDataSource_delete
  *
- *	Destroys the specified data buffer.
+ *      Destroys the specified data buffer.
  */
-void 	StripDataSource_delete	(StripDataSource);
+void    StripDataSource_delete  (StripDataSource);
 
 
 /*
  * StripDataSource_set/getattr
  *
- *	Sets or gets the specified attribute, returning true on success.
+ *      Sets or gets the specified attribute, returning true on success.
  */
-int 	StripDataSource_setattr	(StripDataSource, ...);
-int	StripDataSource_getattr	(StripDataSource, ...);
+int     StripDataSource_setattr (StripDataSource, ...);
+int     StripDataSource_getattr (StripDataSource, ...);
 
 
 /*
  * StripDataSource_addcurve
  *
- *	Tells the DataSource to acquire data for the given curve whenever
- *	a sample is requested.
+ *      Tells the DataSource to acquire data for the given curve whenever
+ *      a sample is requested.
  */
-int 	StripDataSource_addcurve	(StripDataSource, StripCurve);
+int     StripDataSource_addcurve        (StripDataSource, StripCurve);
 
 
 /*
  * StripDataSource_removecurve
  *
- *	Removes the given curve from those the DataSource knows.
+ *      Removes the given curve from those the DataSource knows.
  */
-int	StripDataSource_removecurve	(StripDataSource, StripCurve);
+int     StripDataSource_removecurve     (StripDataSource, StripCurve);
 
 
 /*
  * StripDataSource_sample
  *
- *	Tells the buffer to sample the data for all curves it knows about.
+ *      Tells the buffer to sample the data for all curves it knows about.
  */
-void	StripDataSource_sample	(StripDataSource);
+void    StripDataSource_sample  (StripDataSource);
 
 
 /*
  * StripDataSource_init_range
  *
- *	Initializes DataSource for subsequent retrievals.  After this routine
- *	is called, and until it is called again, all requests for data or
- *	time stamps will only return data inside the range specified here.
- *	(The endpoints are included).  The number returned is the total
- *	number of samples contained on the range.
+ *      Initializes DataSource for subsequent retrievals.  After this routine
+ *      is called, and until it is called again, all requests for data or
+ *      time stamps will only return data inside the range specified here.
+ *      (The endpoints are included).  Returns true iff some data is available
+ *      for plotting.
+ *
+ *      technique:              refresh all, join new
+ *
+ *      This specifies the technique to be used in subsequent render calls.
  */
-size_t	StripDataSource_init_range	(StripDataSource,
-					 struct timeval *,  /* begin */
-					 struct timeval *); /* end */
-
-
-/* StripDataSource_segmentify
- *
- *	Generates a vector description of the data on the current
- *	range for the specified curve, given the following mapping
- *     	information:
- *
- *	origin location:	x0, y0
- *	origin value:		t0, v0
- *	bin sizes:		fx, fy
- *	# horiz. bins		n_bins
- *
- *	The resulting data is stored as a series of line segments,
- *	which can then be retrieved via segments().
- *
- *	Returns the number of XSegment structures required to
- *	represent the data.
- *
- *	Assumes init_range() has already been called.
- */
-size_t	StripDataSource_segmentify	(StripDataSource,
-                                         StripCurve,
-                                         int, int,		/* x0, y0 */
-                                         struct timeval,	/* t0 */
-                                         double,		/* v0 */
-                                         double, double,	/* fx, fy */
-                                         int);			/* n_bins */
-
-
-/* StripDataSource_segments
- *
- *	Points the referenced pointer to the array of segments generated
- *	on the most recent call to segmentify() for the given curve.
- *	Returns number of segments.
- */
-size_t	StripDataSource_segments	(StripDataSource,
-                                         StripCurve,
-                                         XSegment **);
+int     StripDataSource_init_range      (StripDataSource,
+                                         struct timeval *,      /* begin */
+                                         double,                /* bin size */
+                                         int,                   /* n bins */
+                                         sdsRenderTechnique);
  
 
-/*
- * StripDataSource_get_times
+/* StripDataSource_render
  *
- *	Points the parameter argumnet to an array of time stamps.  The length
- *	Of the array is returned.  Subsequent calls will return consecutive
- *	chunks of time stamps until no more exist on the initialized range,
- *	at which point a value of zero will be returned.
- */
-size_t	StripDataSource_get_times	(StripDataSource, struct timeval **);
-
-
-/*
- * StripDataSource_get_data
+ *      Bins the data on the current range for the specified curve, given
+ *      transform functions for both the x and y axes.
  *
- *	Behavior is same as get_times(), above, except that the data points
- *	for the specified curve are contained in the returned array.
+ *      The resulting data is stored as a series of line segments,
+ *      the starting address of which will be written into the supplied
+ *      pointer location.  The number of generated segments is returned.
+ *
+ *      Note that the referenced XSegment array is a static buffer,
+ *      so its contents are only good until the next call to render(),
+ *      at which point they will be overwritten.
+ *
+ *      If the prevailing technique (as specified in previous call to
+ *      init_range()) is JOIN_NEW, then only that data which has
+ *      accumulated since the last call will be rendered, and it
+ *      will be joined to the previous endpoints if appropriate.
+ *
+ *      In order to accomplish this, the endpoints from the resulting
+ *      (joined) range are remembered at the end of the routine.
+ *
+ *      Assumes init_range() has already been called.
  */
-size_t	StripDataSource_get_data	(StripDataSource,
-					 StripCurve,
-                                         double **,
-                                         char **);
+size_t  StripDataSource_render  (StripDataSource,
+                                 StripCurve,
+                                 sdsTransform,          /* x transform */
+                                 void *,                /* x transform data */
+                                 sdsTransform,          /* y transform */
+                                 void *,                /* y transform data */
+                                 XSegment **);          /* result */
 
 
 /*
  * StripDataSource_dump
  *
- *	Causes all data for the specified curves, on the given time range,
- *	to be dumped out to the specified file.  If the curves array is
- *	NULL, all curves are assumed.  If begin and/or end times are NULL,
- *	then all available data are dumped.
+ *      Causes all data for the specified curves, on the given time range,
+ *      to be dumped out to the specified file.  If the curves array is
+ *      NULL, all curves are assumed.  If begin and/or end times are NULL,
+ *      then all available data are dumped.
  */
-int	StripDataSource_dump		(StripDataSource,
-					 StripCurve[],
-					 struct timeval *,	/* begin */
-					 struct timeval *,	/* end */
-					 FILE *);
+int     StripDataSource_dump            (StripDataSource,
+                                         StripCurve[],
+                                         struct timeval *,      /* begin */
+                                         struct timeval *,      /* end */
+                                         FILE *);
 
 #endif

@@ -19,18 +19,18 @@
 #include <X11/Xlib.h>
 
 /* ======= Data Types ======= */
-typedef void	(*CDcallback)	(void *, cColor *);	/* client, call data */
-typedef void *	ColorDialog;
+typedef void    (*CDcallback)   (void *, cColor *);     /* client, call data */
+typedef void *  ColorDialog;
 
-ColorDialog	ColorDialog_init	(Widget,		/* parent */
-					 char *,		/* title */
-					 StripConfig *);
-void		ColorDialog_delete	(ColorDialog);
-void		ColorDialog_popup	(ColorDialog,
-					 char *,
-					 cColor *,
-					 CDcallback, /* called on Ok, Apply */
-					 void *);    /* callback data */
-void		ColorDialog_popdown	(ColorDialog);
+ColorDialog     ColorDialog_init        (Widget,                /* parent */
+                                         char *,                /* title */
+                                         StripConfig *);
+void            ColorDialog_delete      (ColorDialog);
+void            ColorDialog_popup       (ColorDialog,
+                                         char *,
+                                         cColor *,
+                                         CDcallback, /* called on Ok, Apply */
+                                         void *);    /* callback data */
+void            ColorDialog_popdown     (ColorDialog);
 
 #endif

@@ -19,71 +19,23 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_PRE		32
-#define MAX_LEN		64
-#define EXP_DIGITS	3	/* digits in exp numerical portion */
-#define EXP_LEN		(2+EXP_DIGITS)	/* length of exponent string */
+#define MAX_PRE         32
+#define MAX_LEN         64
+#define EXP_DIGITS      3       /* digits in exp numerical portion */
+#define EXP_LEN         (2+EXP_DIGITS)  /* length of exponent string */
 
+static char             *StripVersion   = "2.4b8";
+unsigned char   Strip_x_error_code = Success;
 
-#if 0
-#define STRIP_MAX_FONTS 16
-static char		*FontNameTable[STRIP_MAX_FONTS] = {
-  "widgetDM_4",
-  "widgetDM_6",
-  "widgetDM_8",
-  "widgetDM_10",
-  "widgetDM_12",
-  "widgetDM_14",
-  "widgetDM_16",
-  "widgetDM_18",
-  "widgetDM_20",
-  "widgetDM_22",
-  "widgetDM_24",
-  "widgetDM_30",
-  "widgetDM_36",
-  "widgetDM_40",
-  "widgetDM_48",
-  "widgetDM_60",
-};
-#else
-#define FONT_FAMILY	"helvetica-bold"
-#define STRIP_MAX_FONTS 11
-static char		*FontNameTable[STRIP_MAX_FONTS] = {
-  "*" FONT_FAMILY "-r-normal--8-*",
-  "*" FONT_FAMILY "-r-normal--10-*",
-  "*" FONT_FAMILY "-r-normal--11-*",
-  "*" FONT_FAMILY "-r-normal--12-*",
-  "*" FONT_FAMILY "-r-normal--14-*",
-  "*" FONT_FAMILY "-r-normal--17-*",
-  "*" FONT_FAMILY "-r-normal--18-*",
-  "*" FONT_FAMILY "-r-normal--20-*",
-  "*" FONT_FAMILY "-r-normal--24-*",
-  "*" FONT_FAMILY "-r-normal--25-*",
-  "*" FONT_FAMILY "-r-normal--34-*",
-};
-#endif
-
-static XFontStruct 	*font_table[STRIP_MAX_FONTS];
-
-static char	*StripCharSetChars[STRIPCHARSET_COUNT] = {
-  "blah!!",
-  TIME_CHARACTERS,
-  REALNUM_CHARACTERS
-};
-static int	StripCharSetMaxCharlen[STRIPCHARSET_COUNT][STRIP_MAX_FONTS];
-static int	fonts_loaded = 0;
-static int	num_fonts_loaded = 0;
-
-
-float	vertical_pixels_per_mm;
-float	horizontal_pixels_per_mm;
+float   vertical_pixels_per_mm;
+float   horizontal_pixels_per_mm;
 
 /*
  * StripMisc_init
  *
- *	Initializes global constants.
+ *      Initializes global constants.
  */
-void	StripMisc_init	(Display *display, int screen)
+void    StripMisc_init  (Display *display, int screen)
 {
   horizontal_pixels_per_mm = 
     ((float)DisplayWidth(display, screen) /
@@ -95,218 +47,24 @@ void	StripMisc_init	(Display *display, int screen)
 }
 
 
-/*
- * load_fonts
+/* strip_version
  */
-static int	load_fonts	(Display *d)
+char    *strip_version  (void)
 {
-  int		i, j, k;
-  char		c[2];
-  double	pixels_per_mm;
-
-  pixels_per_mm = (double)DisplayHeight (d, DefaultScreen (d)) /
-    (double)DisplayHeightMM (d, DefaultScreen (d));
-
-  for (i = num_fonts_loaded = 0; i < STRIP_MAX_FONTS; i++)
-  {
-    if ((font_table[i] = XLoadQueryFont (d, FontNameTable[i])) == NULL)
-    {
-      fprintf
-        (stderr,
-         "StripMisc:\n"
-         "  load_fonts: unable to load font %s.\n"
-         "  ...using default font, %s, instead.\n",
-         FontNameTable[i],
-         STRIP_FALLBACK_FONT_STR);
-      font_table[i] = XLoadQueryFont (d, STRIP_FALLBACK_FONT_STR);
-      if (font_table[i] == NULL)
-      {
-        fprintf
-          (stderr, "Oops, that didn't work!  Can't load any fonts\n");
-        exit (1);
-      }
-    }
-
-    j = font_table[i]->descent + font_table[i]->ascent;
-    k = (int)(pixels_per_mm * STRIP_FONT_MAXHEIGHT_MM);
-    if (j > k)
-    {
-      XFreeFont (d, font_table[i]);
-      font_table[i] = NULL;
-      break;
-    }
-
-    num_fonts_loaded++;
-  }
-
-  
-  c[1] = '\0';
-
-  for (i = 0; i < STRIPCHARSET_COUNT; i++)
-    for (j = 0; j < num_fonts_loaded; j++)
-    {
-      StripCharSetMaxCharlen[i][j] = 0;
-      if (i == STRIPCHARSET_ALL)
-        StripCharSetMaxCharlen[i][j] = font_table[j]->max_bounds.width;
-      else for (k = 0; StripCharSetChars[i][k]; k++)
-      {
-        c[0] = StripCharSetChars[i][k];
-        StripCharSetMaxCharlen[i][j] = max
-          (StripCharSetMaxCharlen[i][j], XTextWidth (font_table[j], c, 1));
-      }
-    }
-  
-
-  fonts_loaded = 1;
-  return 1;
+  return StripVersion;
 }
 
 
 /*
- * get_font
+ * load_fonts
  */
-XFontStruct	*get_font	(Display 	*display,
-				 int 		h,
-				 char 		*txt,
-				 int 		w,
-				 int		n,
-				 StripCharSet	s)
+void    get_current_time        (struct timeval *tv)
 {
-  int a, b, i, d;
-
-  if (!fonts_loaded) load_fonts (display);
-
-  a = 0;
-  b = num_fonts_loaded - 1;
-  
-  while (a < b)
-  {
-    i = (b-a)/2 + a;
-
-    d = font_table[i]->ascent + font_table[i]->descent - h;
-
-    if (d > 0)	/* font height is too big */
-      b = i-1;
-    else if (d < 0)	/* font height is too small */
-      a = i+1;
-    else break;
-  }
-
-  if (i <= 0)
-    i = 0;
-  else if (i >= num_fonts_loaded)
-    i = num_fonts_loaded - 1;
-  else if (d > 0)
-    i--;
-  else if (d < 0)
-    i++;
-
-  if (txt != NULL)
-    while ((i > 0) && (XTextWidth (font_table[i], txt, strlen (txt)) > w))
-      i--;
-  else while ((i > 0) && ((StripCharSetMaxCharlen[s][i] * n) > w))
-    i--;
-
-  if ((i < 0) || (i >= num_fonts_loaded))
-  {
-    fprintf (stdout, "StripMisc:get_font(): Arggh! bad font index\n");
-    fflush (stdout);
-    exit (1);
-  }
-  return font_table[i];
+  gettimeofday (tv, 0);
 }
 
 
-/*
- * shrink_font
- */
-XFontStruct	*shrink_font	(XFontStruct *font)
-{
-  XFontStruct	*ret = 0;
-  int		i;
-  
-  for (i = 0; i < num_fonts_loaded; i++)
-    if (font_table[i] == font) break;
-
-  if (i > 0) ret = font_table[i-1];
-
-  return ret;
-}
-
-
-
-struct timeval 	*add_times
-(struct timeval *result, struct timeval *t1, struct timeval *t2)
-{
-  result->tv_sec = t1->tv_sec + t2->tv_sec +
-    ((t1->tv_usec + t2->tv_usec) / (unsigned long)ONE_MILLION);
-  result->tv_usec = (t1->tv_usec + t2->tv_usec) % (long)ONE_MILLION;
-  
-  return result;
-}
-
-struct timeval	*dbl2time	(struct timeval *result, double d)
-{
-  result->tv_sec = (unsigned long)d;
-  result->tv_usec = (d - result->tv_sec) * (long)ONE_MILLION;
-  return result;
-}
-
-double 		*time2dbl	(double *result, struct timeval *t)
-{
-  *result = t->tv_sec;
-  *result += (double)t->tv_usec / ONE_MILLION;
-  return result;
-}
-
-/*
- * subtract_times:
- *
- * This function fills the *result timeval structure with the value (t1 - t2),
- * and returns the corresponding difference in seconds as a double.  If
- * t2 > t1, then a negative number is returned and the contents of result
- * are undefined.
- */
-double	subtract_times
-(struct timeval *result, struct timeval *t2, struct timeval *t1)
-{
-  double	retval;
-
-  result->tv_sec = t1->tv_sec;
-  result->tv_usec = t1->tv_usec;
-
-  if (t2->tv_sec > t1->tv_sec)
-    retval = -1;
-  else
-  {
-    if (result->tv_usec < t2->tv_usec)
-    {
-      result->tv_usec += ONE_MILLION;
-      result->tv_sec--;
-    }
-      
-    if (result->tv_sec < t2->tv_sec)
-      retval = -1;
-    else
-    {
-      result->tv_sec -= t2->tv_sec;
-      result->tv_usec -= t2->tv_usec;
-      retval = (double)result->tv_sec +
-        (double)result->tv_usec / (double)ONE_MILLION;
-    }
-  }
-  return retval;
-}
-
-int 	compare_times (struct timeval *t1, struct timeval *t2)
-{
-  int 	retval;
-
-  retval = (int)((double)t1->tv_sec - (double)t2->tv_sec);
-  return retval;
-}
-
-char	*time_str (struct timeval *t)
+char    *time2str (struct timeval *t)
 {
   static char buf[512];
 
@@ -318,9 +76,9 @@ char	*time_str (struct timeval *t)
 /*
  * window_isviewable
  */
-int	window_isviewable	(Display *d, Window w)
+int     window_isviewable       (Display *d, Window w)
 {
-  XWindowAttributes	xwa;
+  XWindowAttributes     xwa;
 
   XGetWindowAttributes (d, w, &xwa);
   return (xwa.map_state == IsViewable);
@@ -330,9 +88,9 @@ int	window_isviewable	(Display *d, Window w)
 /*
  * window_ismapped
  */
-int	window_ismapped		(Display *d, Window w)
+int     window_ismapped         (Display *d, Window w)
 {
-  XWindowAttributes	xwa;
+  XWindowAttributes     xwa;
 
   XGetWindowAttributes (d, w, &xwa);
   return (xwa.map_state != IsUnmapped);
@@ -342,7 +100,7 @@ int	window_ismapped		(Display *d, Window w)
 /*
  * window_map
  */
-void	window_map		(Display *d, Window w)
+void    window_map              (Display *d, Window w)
 {
   XMapRaised (d, w);
 }
@@ -351,62 +109,13 @@ void	window_map		(Display *d, Window w)
 /*
  * window_unmap
  */
-void	window_unmap	(Display *d, Window w)
+void    window_unmap    (Display *d, Window w)
 {
   XUnmapWindow (d, w);
 }
 
 
-double	scale_value	(double x, int scale)
-{
-  switch (scale)
-  {
-      case STRIPSCALE_LINEAR:
-        break;
-
-      case STRIPSCALE_LOG_10:
-        if (ABS(x) > DBL_EPSILON)
-          x = (x > 0? log10(x) : -log10(ABS(x)));
-        break;
-
-      default:
-        fprintf (stderr, "scale_value: unknown scale type: %d\n", scale);
-        break;
-  }
-
-  return x;
-}
-
-
-
-/*
- * transform_value
- *
- */
-void	transform_value	(double	val_in,
-                         short 	*val_out,
-                         short 	min_coord,
-                         short 	max_coord,
-                         double min_val,
-                         double max_val,
-                         int 	sigdig,
-                         int 	scale)
-{
-  if (scale == STRIPSCALE_LINEAR)
-  {
-    *val_out = (short)
-      ((max_coord - min_coord + 1) *
-      ((max_val - val_in) / (max_val - min_val)));
-  }
-  else
-  {
-    fprintf (stderr, "log scale is not yet supported!\n");
-    *val_out = (short)min_coord;
-  }
-}
-
-
-void	sec2hms	(unsigned sec, int *h, int *m, int *s)
+void    sec2hms (unsigned sec, int *h, int *m, int *s)
 {
   *s = sec;
   *h = *s / 3600;
@@ -416,14 +125,14 @@ void	sec2hms	(unsigned sec, int *h, int *m, int *s)
 }
 
 
-char	*dbl2str	(double d, int p, char buf[], int n)
+char    *dbl2str        (double d, int p, char buf[], int n)
 {
 #if 0
 
   /* 
-   * <sign>	1 char
-   * <e>	1 char
-   * <sign>	1 char
+   * <sign>     1 char
+   * <e>        1 char
+   * <sign>     1 char
    * <exponent> 1-3 chars
    *
    * Also, if the field width is less than the precision
@@ -435,33 +144,33 @@ char	*dbl2str	(double d, int p, char buf[], int n)
    * number will include an exponent, and if so, how many digits
    * the exponent will include.
    */
-#define	STR_SIZE	1023
-  static char		str[STR_SIZE+1];
+#define STR_SIZE        1023
+  static char           str[STR_SIZE+1];
   
   sprintf (str, "% #*.*g", n, p);
   strncpy (buf, str, n);
   buf[n] = 0;
   
 #else
-  int	decpt, sign;
-  char	tmp[MAX_LEN+1];
-  char	e_str[EXP_LEN+1];
-  char	e_cnt;
-  int	i = 0, j = 0;
+  int   decpt, sign;
+  char  tmp[MAX_LEN+1];
+  char  e_str[EXP_LEN+1];
+  char  e_cnt;
+  int   i = 0, j = 0;
 
   memset (e_str, EXP_LEN+1, 1);
   e_str[0] = 'e';
 
   strcpy (tmp, ecvt (d, n, &decpt, &sign));
   buf[i++] = sign? '-' : ' ';
-		   
+                   
   e_str[1] = (decpt > 0? '+' : '-');
   
-  if (decpt > 0)		/* magnitude >= 1? */
+  if (decpt > 0)                /* magnitude >= 1? */
   {
-    if (p > 0)		/* print some digits after decimal point */
+    if (p > 0)          /* print some digits after decimal point */
     {
-      if (decpt+p > n-2)	/* need scientific notation */
+      if (decpt+p > n-2)        /* need scientific notation */
       {
         int2str (decpt-1, &e_str[2], 2);
         for (e_cnt = 0; e_str[e_cnt]; e_cnt++);
@@ -474,7 +183,7 @@ char	*dbl2str	(double d, int p, char buf[], int n)
         }
         strcpy (&buf[i], e_str);
       }
-      else			/* print out d+p digits */
+      else                      /* print out d+p digits */
       {
         for (; decpt > 0; decpt--) buf[i++] = tmp[j++];
         buf[i++] = '.';
@@ -482,9 +191,9 @@ char	*dbl2str	(double d, int p, char buf[], int n)
         buf[i++] = '\0';
       }
     }
-    else			/* not interested in digits after decimal */
+    else                        /* not interested in digits after decimal */
     {
-      if (decpt > n-1)		/* need scientific notation */
+      if (decpt > n-1)          /* need scientific notation */
       {
         
       }
@@ -492,13 +201,13 @@ char	*dbl2str	(double d, int p, char buf[], int n)
       buf[i++] = 0;
     }
   }
-  else 				/* magnitude < 1*/
+  else                          /* magnitude < 1*/
   {
-    if (p > 0)		/* */
+    if (p > 0)          /* */
     {
-      if (p+decpt > 0)		/* print some digits out */
+      if (p+decpt > 0)          /* print some digits out */
       {
-        if (p-decpt > n-3)	/* need scientific notation */
+        if (p-decpt > n-3)      /* need scientific notation */
         {
           int2str (-(decpt-1), &e_str[2], 2);
           for (e_cnt = 0; e_str[e_cnt]; e_cnt++);
@@ -511,7 +220,7 @@ char	*dbl2str	(double d, int p, char buf[], int n)
           }
           strcpy (&buf[i], e_str);
         }
-        else		/* print 0.(-decpt zeroes)(p+decpt digits) */
+        else            /* print 0.(-decpt zeroes)(p+decpt digits) */
         {
           buf[i++] = '0';
           buf[i++] = '.';
@@ -521,7 +230,7 @@ char	*dbl2str	(double d, int p, char buf[], int n)
           buf[i++] = '\0';
         }
       }
-      else			/* number too small --effectively zero */
+      else                      /* number too small --effectively zero */
       {
         buf[i++] = '0';
         buf[i++] = '.';
@@ -529,7 +238,7 @@ char	*dbl2str	(double d, int p, char buf[], int n)
         buf[i++] = '\0';
       }
     }
-    else			/* effectively zero */
+    else                        /* effectively zero */
     {
       buf[i++] = '0';
       buf[i++] = '\0';
@@ -546,13 +255,13 @@ char	*dbl2str	(double d, int p, char buf[], int n)
 }
 
 
-char	*int2str	(int x, char buf[], int n)
+char    *int2str        (int x, char buf[], int n)
 {
-  static char	digits[10] = 
+  static char   digits[10] = 
   {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9'};
 
-  char	tmp[MAX_LEN];
-  int	i, j;
+  char  tmp[MAX_LEN];
+  int   i, j;
 
   /* convert digits to characters (reverse order) */
   for (i = 0; x != 0; i++)
@@ -572,7 +281,7 @@ char	*int2str	(int x, char buf[], int n)
 
 
 /* ====== MessageBox stuff ====== */
-static void	MessageBox_cb		(Widget, XtPointer, XtPointer);
+static void     MessageBox_cb           (Widget, XtPointer, XtPointer);
 
 typedef enum
 {
@@ -584,14 +293,26 @@ MsgBoxEvent;
 /*
  * MessageBox_popup
  */
-void	MessageBox_popup 	(Widget 	parent,
-				 Widget		*message_box,
-				 char 		*msg_txt,
-				 char 		*ok_txt)
+void    MessageBox_popup        (Widget         parent,
+                                 Widget         *message_box,
+                                 int            type,
+                                 char           *title,
+                                 char           *btn_txt,
+                                 char           *format,
+                                 ...)
 {
-  XmString	msg;
-  XmString	ok;
+  va_list       args;
+  XmString      xstr_title;
+  XmString      xstr_msg;
+  XmString      xstr_btn;
+  char          buf[2048];
 
+  /* make string */
+  va_start (args, format);
+  vsprintf (buf, format, args);
+  va_end (args);
+
+  /* initialize widget if necessary */
   if (*message_box != (Widget)0)
     if (parent != XtParent (*message_box))
     {
@@ -601,18 +322,19 @@ void	MessageBox_popup 	(Widget 	parent,
   if (*message_box == (Widget)0)
     *message_box = XmCreateMessageDialog (parent, "Oops", NULL, 0);
   
-  msg = XmStringCreateLocalized (msg_txt);
-  if (ok_txt == NULL) ok_txt = "Ok";
-  ok = XmStringCreateLocalized (ok_txt);
+  xstr_msg = XmStringCreateLocalized (buf);
+  xstr_btn = XmStringCreateLocalized (btn_txt);
+  xstr_title = XmStringCreateLocalized (title);
 
   XtVaSetValues
     (*message_box,
-     XmNdialogType,		XmDIALOG_MESSAGE,
-     XmNdefaultButtonType,	XmDIALOG_OK_BUTTON,
-     XmNnoResize,		True,
-     XmNdefaultPosition,	False,
-     XmNmessageString,		msg,
-     XmNokLabelString,		ok,
+     XmNdialogType,             type,
+     XmNdefaultButtonType,      XmDIALOG_OK_BUTTON,
+     XmNnoResize,               True,
+     XmNdefaultPosition,        False,
+     XmNdialogTitle,            xstr_title,
+     XmNmessageString,          xstr_msg,
+     XmNokLabelString,          xstr_btn,
      NULL);
 
   XtUnmanageChild
@@ -625,8 +347,9 @@ void	MessageBox_popup 	(Widget 	parent,
   XtAddCallback
     (*message_box, XmNmapCallback, MessageBox_cb, (XtPointer)MSGBOX_MAP);
 
-  XmStringFree (msg);
-  XmStringFree (ok);
+  XmStringFree (xstr_msg);
+  XmStringFree (xstr_btn);
+  XmStringFree (xstr_title);
 
   XtManageChild (*message_box);
   XtPopup (XtParent (*message_box), XtGrabNone);
@@ -635,17 +358,17 @@ void	MessageBox_popup 	(Widget 	parent,
 /*
  * MessageBox_cb
  */
-static void	MessageBox_cb	(Widget w, XtPointer client, XtPointer BOGUS(1))
+static void     MessageBox_cb   (Widget w, XtPointer client, XtPointer BOGUS(1))
 {
-  MsgBoxEvent		event = (MsgBoxEvent)client;
-  Window		root, child;
-  int			root_x, root_y;
-  int			win_x, win_y;
-  unsigned		mask;
-  int			screen;
-  Display		*display;
-  XWindowAttributes	xwa;
-  Dimension		width, height;
+  MsgBoxEvent           event = (MsgBoxEvent)client;
+  Window                root, child;
+  int                   root_x, root_y;
+  int                   win_x, win_y;
+  unsigned              mask;
+  int                   screen;
+  Display               *display;
+  XWindowAttributes     xwa;
+  Dimension             width, height;
 
   switch (event)
   {
@@ -671,8 +394,8 @@ static void	MessageBox_cb	(Widget w, XtPointer client, XtPointer BOGUS(1))
          * pointer currently resides */
         XtVaSetValues
           (w,
-           XmNx,			xwa.x + ((xwa.width - (int)width)/2),
-           XmNy,			xwa.y + ((xwa.height - (int)height)/2),
+           XmNx,                        xwa.x + ((xwa.width - (int)width)/2),
+           XmNy,                        xwa.y + ((xwa.height - (int)height)/2),
            NULL);
       
         break;
@@ -685,28 +408,22 @@ static void	MessageBox_cb	(Widget w, XtPointer client, XtPointer BOGUS(1))
 }
 
 
-char	*GetFileName 	(char *fullName)
+char    *basename       (char *path)
 {
-  char *copyFullName;
-  char *fileName = 0;
-  
-  if (fullName)
+  char  *p = 0;
+
+  if (path)
   {
-    if (copyFullName = strdup(fullName)) 
-    {
-      if (strtok(copyFullName, "/"))
-      {
-        char * tmp;
-        
-        while (tmp = strtok(0, "/"))
-          fileName = tmp;
-        fileName = strdup(fileName?fileName:fullName);
-      }
-      free(copyFullName);
-    }
+    /* find end of string */
+    for (p = path; *p; p++);
+
+    /* move backwards, looking for '/' character, or
+     * beginning of string --whichever comes first. */
+    while ((p > path) && (*p != '/')) p--;
+    if (*p == '/') p++;
   }
 
-  return fileName;
+  return p;
 }
 
 

@@ -18,6 +18,7 @@
 #include <math.h>
 #include <time.h>
 #include <sys/time.h>
+#include <stdarg.h>
 
 /*
  * this is some serious brain-damage
@@ -29,18 +30,14 @@
 #if defined(__cplusplus) || defined(C_plusplus)
 #  define BOGUS(x)
 #else
-#  define BOGUS(x)	BOGUS_ARG_ ## x
+#  define BOGUS(x)      BOGUS_ARG_ ## x
 #endif
 
-#define STRIPCURVE_PENDOWN	1
-#define STRIPCURVE_PLOTTED	1
+#define STRIPCURVE_PENDOWN      1
+#define STRIPCURVE_PLOTTED      1
 
-#define ONE_MILLION		1000000.0
-#define ONE_THOUSAND		1000.0
-
-#define TIME_CHARACTERS		"0123456789:"
-#define REALNUM_CHARACTERS	"+-0123456789.e"
-
+#define ONE_MILLION             1000000.0
+#define ONE_THOUSAND            1000.0
 
 #ifndef max
 #define max(a,b) ((a)>(b)?(a):(b))
@@ -57,144 +54,131 @@
 #  define ABS(x)        ((x) < 0? (-(x)) : (x))
 #endif
 
-/* ====== Enumerations ====== */
-typedef enum _StripScaleType
-{
-  STRIPSCALE_LINEAR = 0,
-  STRIPSCALE_LOG_10,
-  STRIPSCALE_NUM_TYPES
-}
-StripScaleType;
-
-
-typedef enum
-{
-  STRIPCHARSET_ALL,	/* all characters in the font */
-  STRIPCHARSET_TIME,	/* TIME_CHARACTERS */
-  STRIPCHARSET_REALNUM,	/* REALNUM_CHARACTERS */
-  STRIPCHARSET_COUNT
-}
-StripCharSet;
-
-
 /* ====== Various useful constants initialized by StripMisc_init() ====== */
-extern float	vertical_pixels_per_mm;
-extern float	horizontal_pixels_per_mm;
+extern float            vertical_pixels_per_mm;
+extern float            horizontal_pixels_per_mm;
+
+/* Strip_x_error_code
+ *
+ *      This value is set by the X error handler (in Strip.c) any time
+ *      it is invoked.  In order to catch an error, Synchronize the X
+ *      server, set this variable to Success, make an X protocol request,
+ *      then check it again.  If changed, then the indicated error has
+ *      occurred.  Unsynchronize afterwards!
+ */
+extern unsigned char    Strip_x_error_code;
 
 /*
  * StripMisc_init
  *
- *	Initializes global constants.
+ *      Initializes global constants.
  */
-void	StripMisc_init	(Display *, int);	/* display, screen */
+void    StripMisc_init  (Display *, int);       /* display, screen */
 
 
-/* ====== Various Font Data and Functions ====== */
-
-/*
- * get_font
+/* strip_version
  *
- *	Returns a pointer to the XFontStruct which most closely matches
- *	the requirements.
- *
- *	The height and width specify a bounding box into which the text must
- *	fit.  If text is NULL, then it and the width field are ignored and
- *	a font is selected on the basis of height alone, unless num_characters
- *	is non-zero in which case a font is chosen such that any string
- *	composed of num_characters characters from the specified character
- *	set is less than or equal to width pixels wide.
+ *      Returns a string describing the current version.
  */
-XFontStruct	*get_font	(Display *,
-				 int,		/* height */
-				 char *,	/* text */
-				 int,		/* width */
-				 int,		/* num characters */
-				 StripCharSet);	/* indicates a character set */
-
-
-/*
- * shrink_font
- *
- *	Given an XFontStruct pointer returned from get_font(), this
- *	routine will return a pointer to the next smaller font, if
- *	one is available, otherwise 0.
- */
-XFontStruct	*shrink_font	(XFontStruct *);
-
+char    *strip_version  (void);
 
 
 /* ====== Various Time Functions ====== */
 
-struct timeval 	*add_times	(struct timeval *,      /* result */
-                                 struct timeval *,      /* operand 1 */
-                                 struct timeval *);     /* operand 2 */
+/* get_current_time
+ *
+ *      Stores current time in the supplied buffer.
+ */
+void            get_current_time        (struct timeval *);
 
-struct timeval 	*dbl2time	(struct timeval *, double);
+/* time2str
+ *
+ *      Returns pointer to converted time rep.
+ */
+char            *time2str       (struct timeval *);
 
-double	 	*time2dbl	(double *, struct timeval *);
 
-double          subtract_times  (struct timeval *,      /* result */
-                                 struct timeval *,      /* right operand */
-                                 struct timeval *);     /* left operand */
+/* dbl2time
+ */
+#define dbl2time(t,d) \
+(void) \
+((t)->tv_sec = (unsigned long)(d), \
+ (t)->tv_usec = ((d) - (t)->tv_sec) * (long)ONE_MILLION)
 
-int             compare_times   (struct timeval *,      /* left operand */
-                                 struct timeval *);     /* right operand */
+/* time2dbl
+ */
+#define time2dbl(t) \
+(double)((double)(t)->tv_sec + ((double)(t)->tv_usec / (double)ONE_MILLION))
 
-char		*time_str 	(struct timeval *);
+/* add_times
+ */
+#define add_times(s,a,b) \
+(void) \
+((s)->tv_sec = (a)->tv_sec + (b)->tv_sec + \
+ (((a)->tv_usec + (b)->tv_usec) / (unsigned long)ONE_MILLION), \
+ (s)->tv_usec = ((a)->tv_usec + (b)->tv_usec) % (long)ONE_MILLION)
+
+/* diff_times
+ */
+#define diff_times(s,b,a) \
+(void) \
+( (s)->tv_sec = (a)->tv_sec, (s)->tv_usec = (a)->tv_usec, \
+  ( ((b)->tv_sec > (a)->tv_sec) \
+    ? ((s)->tv_sec = 0, (s)->tv_usec = 0) \
+    : ((((s)->tv_usec < (b)->tv_usec) \
+        ? ((s)->tv_usec += ONE_MILLION, (s)->tv_sec--) \
+        : 0), \
+       ( ((s)->tv_sec < (b)->tv_sec) \
+         ? ((s)->tv_sec = 0, (s)->tv_usec = 0) \
+         : ((s)->tv_sec -= (b)->tv_sec, (s)->tv_usec -= (b)->tv_usec) ))))
+
+/* compare_times
+ */
+#define compare_times(a,b) \
+(int) \
+(((a)->tv_sec > (b)->tv_sec)? 1 : \
+ (((a)->tv_sec < (b)->tv_sec)? -1 : ((a)->tv_usec - (b)->tv_usec)))
+
+/* subtract_times
+ */
+#define subtract_times(s,b,a) \
+(double) \
+((compare_times((a),(b)) >= 0) \
+ ? (diff_times((s),(b),(a)), time2dbl((s))) \
+ : (diff_times((s),(a),(b)), -time2dbl((s)))) 
 
 
 /* ====== Various Window Functions ====== */
 
-int	window_isviewable	(Display *, Window);
-int	window_ismapped		(Display *, Window);
-void	window_map		(Display *, Window);
-void	window_unmap		(Display *, Window);
+int     window_isviewable       (Display *, Window);
+int     window_ismapped         (Display *, Window);
+void    window_map              (Display *, Window);
+void    window_unmap            (Display *, Window);
 
-void	MessageBox_popup	(Widget,	/* parent */
-				 Widget *,	/* MessageBox */
-				 char *,	/* message */
-				 char *);	/* button label */
+void    MessageBox_popup        (Widget,        /* parent */
+                                 Widget *,      /* MessageBox */
+                                 int,           /* type: XmDIALOG_XXX */
+                                 char *,        /* title */
+                                 char *,        /* button label */
+                                 char *,        /* message format */
+                                 ...);          /* message args */
 
 /* ====== Miscellaneous ====== */
 
-/*
- * scale_value
+void    sec2hms (unsigned sec, int *h, int *m, int *s);
+
+char    *dbl2str        (double,        /* value */
+                         int,           /* precision: num digits after radix */
+                         char[],        /* result buffer */
+                         int);          /* max length of converted string */
+
+char    *int2str        (int x, char buf[], int n);
+
+
+/* basename
  *
- *	Returns the appropriately scaled value.  When the
- *	scale type is a logarithmic function and the value
- *	is zero, zero is returned.  Also, if value is
- *	negative, the log of the absolute value is generated
- *	and then negated for the final product.
+ *      Returns the filename portion of a fully qualified path.
  */
-double	scale_value	(double, int);	/* value, scale type */
-
-/*
- * transform_value
- *
- *	Transforms the given value from the real number line to
- *	the coordinate number line, using the given scale method,
- *	coordinate range and value range to produce the appropriate
- *	mapping.  The significant digits are used to determine
- *	how many of orders of magnitude exist between 1 and 0
- *	when the scale method is logarithmic.
- */
-void	transform_value	(double, short *,	/* value in, value out */
-                         short, short,		/* coord min/max */
-                         double, double,	/* value min/max */
-                         int,			/* sig digits */
-                         int);			/* scale method */
-
-
-void	sec2hms	(unsigned sec, int *h, int *m, int *s);
-
-char	*dbl2str	(double,	/* value */
-			 int,		/* precision: num digits after radix */
-			 char[],	/* result buffer */
-			 int);		/* max length of converted string */
-
-char	*int2str	(int x, char buf[], int n);
-
-
-char 	*GetFileName 	(char *); /*VTR*/
+char    *basename       (char *);
 
 #endif

@@ -30,14 +30,14 @@
 #include <limits.h>
 
 #if !defined (PI)
-#define PI	3.14159265358979323846
+#define PI      3.14159265358979323846
 #endif
 
-#define DEF_WOFFSET			3
+#define DEF_WOFFSET                     3
 
 /* the minimum/maximum values for the sides of the palette entry rectangles */
-#define PALETTE_ENTRY_SIDE_MM_MIN	3.5
-#define PALETTE_ENTRY_SIDE_MM_MAX	4.5
+#define PALETTE_ENTRY_SIDE_MM_MIN       3.5
+#define PALETTE_ENTRY_SIDE_MM_MAX       4.5
 
 typedef enum
 {
@@ -45,9 +45,9 @@ typedef enum
 }
 ColorComponent;
 
-#define Grey 	NUM_COLOR_COMPONENTS
+#define Grey    NUM_COLOR_COMPONENTS
 
-char	*ColorComponentStr[NUM_COLOR_COMPONENTS] =
+char    *ColorComponentStr[NUM_COLOR_COMPONENTS] =
 {
   "Red", "Green", "Blue"
 };
@@ -55,67 +55,67 @@ char	*ColorComponentStr[NUM_COLOR_COMPONENTS] =
 /*
  * Structure used for sorting colors into a useful visual palette
  *
- *	H, S, I ==> Hue, Saturation, Intensity
+ *      H, S, I ==> Hue, Saturation, Intensity
  */
 typedef struct _ColorSortInfo
 {
-  XColor	xcolor;
-  float		H, S, I;
+  XColor        xcolor;
+  float         H, S, I;
 }
 ColorSortInfo;
 
 typedef struct
 {
-  Display		*display;
-  Colormap		cmap;
-  GC			gc;
+  Display               *display;
+  Colormap              cmap;
+  GC                    gc;
 
   struct _palette
   {
-    Widget		canvas;
-    Pixmap		pixmap;
-    Dimension		w, h;
-    Dimension		w_entry, h_entry;
-    XColor		colors[CCM_MAX_PALETTE_SIZE];
-    int			n_colors;
-    int			n_entries;
-    int			shift;
-    int			built;
-  } 			palette;
+    Widget              canvas;
+    Pixmap              pixmap;
+    Dimension           w, h;
+    Dimension           w_entry, h_entry;
+    XColor              colors[CCM_MAX_PALETTE_SIZE];
+    int                 n_colors;
+    int                 n_entries;
+    int                 shift;
+    int                 built;
+  }                     palette;
     
-  Widget		shell;
-  Widget		lbl;
-  Widget		cell_lbl;
-  Widget		cell_btn;
-  Widget		slider[NUM_COLOR_COMPONENTS];
-  Widget		color_area;
-  Widget		arrow_left, arrow_right;
-  Widget		btn_ok, btn_apply, btn_dismiss, btn_cancel;
-  Widget		message_box;
-  int			local_writable;
-  cColor		color, orig_color;
-  cColor		white, black;
-  StripConfig		*config;
-  CDcallback		user_func;
-  void			*user_arg;
+  Widget                shell;
+  Widget                lbl;
+  Widget                cell_lbl;
+  Widget                cell_btn;
+  Widget                slider[NUM_COLOR_COMPONENTS];
+  Widget                color_area;
+  Widget                arrow_left, arrow_right;
+  Widget                btn_ok, btn_apply, btn_dismiss, btn_cancel;
+  Widget                message_box;
+  int                   local_writable;
+  cColor                color, orig_color;
+  cColor                white, black;
+  StripConfig           *config;
+  CDcallback            user_func;
+  void                  *user_arg;
 }
 ColorDialogInfo;
 
 /* ====== Callback Functions ====== */
-static void	cellbtn_event	(Widget, XtPointer, XtPointer);
-static void 	slider_event 	(Widget, XtPointer, XtPointer);
-static void 	ctrlbtn_event 	(Widget, XtPointer, XtPointer);
-static void	canvas_event	(Widget, XtPointer, XtPointer);
-static void	arrow_event	(Widget, XtPointer, XtPointer);
+static void     cellbtn_event   (Widget, XtPointer, XtPointer);
+static void     slider_event    (Widget, XtPointer, XtPointer);
+static void     ctrlbtn_event   (Widget, XtPointer, XtPointer);
+static void     canvas_event    (Widget, XtPointer, XtPointer);
+static void     arrow_event     (Widget, XtPointer, XtPointer);
 
 
 /* ====== static functions ====== */
 /*
  * paint_palette
  */
-static void	paint_palette	(ColorDialogInfo *cd)
+static void     paint_palette   (ColorDialogInfo *cd)
 {
-  int		i, j, x, w;
+  int           i, j, x, w;
   
   /* clear the pixmap by painting it black */
   XSetForeground
@@ -128,7 +128,7 @@ static void	paint_palette	(ColorDialogInfo *cd)
   
   x = 0;
   w = (int)(cd->palette.w / (float)cd->palette.w_entry);/* entries per row */
-  w *= cd->palette.w_entry;				/* multiple of w_entry */
+  w *= cd->palette.w_entry;                             /* multiple of w_entry */
   for (i = 0;
        (i < cd->palette.n_entries) && ((i+j) < cd->palette.n_colors);
        i++)
@@ -147,7 +147,7 @@ static void	paint_palette	(ColorDialogInfo *cd)
 /*
  * set_sliders
  */
-static void	set_sliders	(ColorDialogInfo *cd, XColor *xc)
+static void     set_sliders     (ColorDialogInfo *cd, XColor *xc)
 {
   XmScaleSetValue (cd->slider[Red], xc->red);
   XmScaleSetValue (cd->slider[Green], xc->green);
@@ -158,11 +158,11 @@ static void	set_sliders	(ColorDialogInfo *cd, XColor *xc)
 /*
  * display_color
  */
-static void	display_color	(ColorDialogInfo *cd, XColor *xcolor)
+static void     display_color   (ColorDialogInfo *cd, XColor *xcolor)
 {
-  float	x, y;
-  float	r, g, b;
-  Pixel	pixel;
+  float x, y;
+  float r, g, b;
+  Pixel pixel;
   
   XtVaSetValues (cd->color_area, XmNbackground, xcolor->pixel, 0);
   XtVaSetValues (cd->cell_lbl, XmNbackground, xcolor->pixel, 0);
@@ -187,9 +187,9 @@ static void	display_color	(ColorDialogInfo *cd, XColor *xcolor)
 /*
  * apply_color
  */
-static void	apply_color	(ColorDialogInfo *cd, XColor *xc)
+static void     apply_color     (ColorDialogInfo *cd, XColor *xc)
 {
-  int	stat;
+  int   stat;
   
   cd->color.xcolor.red = xc->red;
   cd->color.xcolor.green = xc->green;
@@ -209,10 +209,10 @@ static void	apply_color	(ColorDialogInfo *cd, XColor *xc)
 /*
  * apply_cellstat
  */
-static void	apply_cellstat	(ColorDialogInfo *cd, int writable)
+static void     apply_cellstat  (ColorDialogInfo *cd, int writable)
 {
-  XmString	xstr_lbl;
-  XmString	xstr_btn;
+  XmString      xstr_lbl;
+  XmString      xstr_btn;
 
   if (writable)
   {
@@ -235,7 +235,7 @@ static void	apply_cellstat	(ColorDialogInfo *cd, int writable)
 /*
  * reset_stuff
  */
-static void	reset_stuff	(ColorDialogInfo *cd)
+static void     reset_stuff     (ColorDialogInfo *cd)
 {
   /* if the current color cell was locally allocated, free it.
    * Likewise, if the current original color was writable, we
@@ -249,9 +249,9 @@ static void	reset_stuff	(ColorDialogInfo *cd)
 }
 
 
-#define GRAY_SATURATION	.05
-#define GRAY_INTENSITY	.05
-int	compare_hsi	(const void *pa, const void *pb)
+#define GRAY_SATURATION .05
+#define GRAY_INTENSITY  .05
+int     compare_hsi     (const void *pa, const void *pb)
 {
   ColorSortInfo *a = (ColorSortInfo *)pa;
   ColorSortInfo *b = (ColorSortInfo *)pb;
@@ -288,14 +288,14 @@ int	compare_hsi	(const void *pa, const void *pb)
 /*
  * ColorDialog_init
  */
-ColorDialog	ColorDialog_init	(Widget			parent,
-                                         char 			*title,
-                                         StripConfig		*config)
+ColorDialog     ColorDialog_init        (Widget                 parent,
+                                         char                   *title,
+                                         StripConfig            *config)
 {
-  ColorDialogInfo	*cd;
-  Widget		base_form, form, top, bot, rowcol;
-  Widget		w;
-  int			i, a, b, l, z;
+  ColorDialogInfo       *cd;
+  Widget                base_form, form, top, bot, rowcol;
+  Widget                w;
+  int                   i, a, b, l, z;
 
   if ((cd = (ColorDialogInfo *)malloc (sizeof (ColorDialogInfo))) != NULL)
   {
@@ -317,34 +317,34 @@ ColorDialog	ColorDialog_init	(Widget			parent,
 
     cd->shell = XtVaCreatePopupShell
       ("ColorDialog",
-       topLevelShellWidgetClass, 	parent,
-       XmNdeleteResponse,		XmUNMAP,
-       XmNmappedWhenManaged,		False,
-       XmNtitle,			title == NULL? "Modify Color" : title,
-       XmNvisual,			config->xvi.visual,
-       XmNcolormap,			cd->cmap,
+       topLevelShellWidgetClass,        parent,
+       XmNdeleteResponse,               XmUNMAP,
+       XmNmappedWhenManaged,            False,
+       XmNtitle,                        title == NULL? "Modify Color" : title,
+       XmNvisual,                       config->xvi.visual,
+       XmNcolormap,                     cd->cmap,
        NULL);
     
     base_form = XtVaCreateManagedWidget
       ("form",
-       xmFormWidgetClass,		cd->shell,
-       XmNfractionBase,			9,
-       XmNnoResize,			True,
-       XmNresizable,			False,
-       XmNresizePolicy,			XmRESIZE_NONE,
-       XmNverticalSpacing,		DEF_WOFFSET,
-       XmNhorizontalSpacing,		DEF_WOFFSET,
+       xmFormWidgetClass,               cd->shell,
+       XmNfractionBase,                 9,
+       XmNnoResize,                     True,
+       XmNresizable,                    False,
+       XmNresizePolicy,                 XmRESIZE_NONE,
+       XmNverticalSpacing,              DEF_WOFFSET,
+       XmNhorizontalSpacing,            DEF_WOFFSET,
        NULL);
 
     /* button row along bottom
      */
     rowcol = XtVaCreateManagedWidget
       ("buttonRowColumn",
-       xmRowColumnWidgetClass,		base_form,
-       XmNtopAttachment,		XmATTACH_NONE,
-       XmNleftAttachment,		XmATTACH_FORM,
-       XmNrightAttachment,		XmATTACH_FORM,
-       XmNbottomAttachment,		XmATTACH_FORM,
+       xmRowColumnWidgetClass,          base_form,
+       XmNtopAttachment,                XmATTACH_NONE,
+       XmNleftAttachment,               XmATTACH_FORM,
+       XmNrightAttachment,              XmATTACH_FORM,
+       XmNbottomAttachment,             XmATTACH_FORM,
        0);
 
     cd->btn_ok = XtVaCreateManagedWidget
@@ -367,24 +367,24 @@ ColorDialog	ColorDialog_init	(Widget			parent,
      */
     bot = XtVaCreateManagedWidget
       ("bottomSeparator",
-       xmSeparatorWidgetClass,		base_form,
-       XmNtopAttachment,		XmATTACH_NONE,
-       XmNleftAttachment,		XmATTACH_FORM,
-       XmNrightAttachment,		XmATTACH_FORM,
-       XmNbottomAttachment,		XmATTACH_WIDGET,
-       XmNbottomWidget,			rowcol,
+       xmSeparatorWidgetClass,          base_form,
+       XmNtopAttachment,                XmATTACH_NONE,
+       XmNleftAttachment,               XmATTACH_FORM,
+       XmNrightAttachment,              XmATTACH_FORM,
+       XmNbottomAttachment,             XmATTACH_WIDGET,
+       XmNbottomWidget,                 rowcol,
        0);
 
     cd->cell_btn = XtVaCreateManagedWidget
       ("cellStatusButton",
-       xmPushButtonWidgetClass,		base_form,
-       XmNtopAttachment,		XmATTACH_NONE,
-       XmNleftAttachment,		XmATTACH_FORM,
-       XmNrightAttachment,		XmATTACH_FORM,
-       XmNbottomAttachment,		XmATTACH_WIDGET,
-       XmNbottomWidget,			bot,
-       XmNbottomOffset,			DEF_WOFFSET,
-       XmNalignment,			XmALIGNMENT_CENTER,
+       xmPushButtonWidgetClass,         base_form,
+       XmNtopAttachment,                XmATTACH_NONE,
+       XmNleftAttachment,               XmATTACH_FORM,
+       XmNrightAttachment,              XmATTACH_FORM,
+       XmNbottomAttachment,             XmATTACH_WIDGET,
+       XmNbottomWidget,                 bot,
+       XmNbottomOffset,                 DEF_WOFFSET,
+       XmNalignment,                    XmALIGNMENT_CENTER,
        XmNsensitive,
        (Bool) !cColorManager_readonly (cd->config->scm),
        0);
@@ -392,12 +392,12 @@ ColorDialog	ColorDialog_init	(Widget			parent,
 
     bot = XtVaCreateManagedWidget
       ("bottomSeparator",
-       xmSeparatorWidgetClass,		base_form,
-       XmNtopAttachment,		XmATTACH_NONE,
-       XmNleftAttachment,		XmATTACH_FORM,
-       XmNrightAttachment,		XmATTACH_FORM,
-       XmNbottomAttachment,		XmATTACH_WIDGET,
-       XmNbottomWidget,			cd->cell_btn,
+       xmSeparatorWidgetClass,          base_form,
+       XmNtopAttachment,                XmATTACH_NONE,
+       XmNleftAttachment,               XmATTACH_FORM,
+       XmNrightAttachment,              XmATTACH_FORM,
+       XmNbottomAttachment,             XmATTACH_WIDGET,
+       XmNbottomWidget,                 cd->cell_btn,
        0);
 
 
@@ -405,43 +405,43 @@ ColorDialog	ColorDialog_init	(Widget			parent,
      */
     form = XtVaCreateManagedWidget
       ("colorPaletteForm",
-       xmFormWidgetClass,		base_form,
-       XmNtopAttachment,		XmATTACH_FORM,
-       XmNleftAttachment,		XmATTACH_FORM,
-       XmNrightAttachment,		XmATTACH_FORM,
-       XmNbottomAttachment,		XmATTACH_NONE,
+       xmFormWidgetClass,               base_form,
+       XmNtopAttachment,                XmATTACH_FORM,
+       XmNleftAttachment,               XmATTACH_FORM,
+       XmNrightAttachment,              XmATTACH_FORM,
+       XmNbottomAttachment,             XmATTACH_NONE,
        0);
 
     cd->arrow_left = XtVaCreateManagedWidget
       ("arrowLeft",
-       xmArrowButtonWidgetClass,	form,
-       XmNtopAttachment,		XmATTACH_FORM,
-       XmNleftAttachment,		XmATTACH_FORM,
-       XmNrightAttachment,		XmATTACH_NONE,
-       XmNbottomAttachment,		XmATTACH_FORM,
-       XmNarrowDirection,		XmARROW_LEFT,
+       xmArrowButtonWidgetClass,        form,
+       XmNtopAttachment,                XmATTACH_FORM,
+       XmNleftAttachment,               XmATTACH_FORM,
+       XmNrightAttachment,              XmATTACH_NONE,
+       XmNbottomAttachment,             XmATTACH_FORM,
+       XmNarrowDirection,               XmARROW_LEFT,
        0);
     cd->arrow_right = XtVaCreateManagedWidget
       ("arrowRight",
-       xmArrowButtonWidgetClass,	form,
-       XmNtopAttachment,		XmATTACH_FORM,
-       XmNleftAttachment,		XmATTACH_NONE,
-       XmNrightAttachment,		XmATTACH_FORM,
-       XmNbottomAttachment,		XmATTACH_FORM,
-       XmNarrowDirection,		XmARROW_RIGHT,
+       xmArrowButtonWidgetClass,        form,
+       XmNtopAttachment,                XmATTACH_FORM,
+       XmNleftAttachment,               XmATTACH_NONE,
+       XmNrightAttachment,              XmATTACH_FORM,
+       XmNbottomAttachment,             XmATTACH_FORM,
+       XmNarrowDirection,               XmARROW_RIGHT,
        0);
     XtAddCallback (cd->arrow_left, XmNactivateCallback, arrow_event, cd);
     XtAddCallback (cd->arrow_right, XmNactivateCallback, arrow_event, cd);
 
     cd->palette.canvas = XtVaCreateManagedWidget
       ("colorPaletteDrawingArea",
-       xmDrawingAreaWidgetClass,	form,
-       XmNtopAttachment,		XmATTACH_FORM,
-       XmNleftAttachment,		XmATTACH_WIDGET,
-       XmNleftWidget,			cd->arrow_left,
-       XmNrightAttachment,		XmATTACH_WIDGET,
-       XmNrightWidget,			cd->arrow_right,
-       XmNbottomAttachment,		XmATTACH_NONE,
+       xmDrawingAreaWidgetClass,        form,
+       XmNtopAttachment,                XmATTACH_FORM,
+       XmNleftAttachment,               XmATTACH_WIDGET,
+       XmNleftWidget,                   cd->arrow_left,
+       XmNrightAttachment,              XmATTACH_WIDGET,
+       XmNrightWidget,                  cd->arrow_right,
+       XmNbottomAttachment,             XmATTACH_NONE,
        0);
     XtAddCallback (cd->palette.canvas, XmNinputCallback, canvas_event, cd);
     XtAddCallback (cd->palette.canvas, XmNexposeCallback, canvas_event, cd);
@@ -450,13 +450,13 @@ ColorDialog	ColorDialog_init	(Widget			parent,
      */
     top = XtVaCreateManagedWidget
       ("topSeparator",
-       xmSeparatorWidgetClass,		base_form,
-       XmNtopAttachment,		XmATTACH_WIDGET,
-       XmNtopWidget,			form,
-       XmNtopOffset,			DEF_WOFFSET,
-       XmNleftAttachment,		XmATTACH_FORM,
-       XmNrightAttachment,		XmATTACH_FORM,
-       XmNbottomAttachment,		XmATTACH_NONE,
+       xmSeparatorWidgetClass,          base_form,
+       XmNtopAttachment,                XmATTACH_WIDGET,
+       XmNtopWidget,                    form,
+       XmNtopOffset,                    DEF_WOFFSET,
+       XmNleftAttachment,               XmATTACH_FORM,
+       XmNrightAttachment,              XmATTACH_FORM,
+       XmNbottomAttachment,             XmATTACH_NONE,
        0);
 
 
@@ -464,62 +464,62 @@ ColorDialog	ColorDialog_init	(Widget			parent,
      */
     form = XtVaCreateManagedWidget
       ("rgbForm",
-       xmFormWidgetClass,		base_form,
-       XmNshadowType,			XmSHADOW_ETCHED_IN,
-       XmNresizePolicy,			XmRESIZE_NONE,
-       XmNtopAttachment,		XmATTACH_WIDGET,
-       XmNtopWidget,			top,
-       XmNtopOffset,			DEF_WOFFSET,
-       XmNleftAttachment,		XmATTACH_NONE,
-       XmNrightAttachment,		XmATTACH_FORM,
-       XmNbottomAttachment,		XmATTACH_WIDGET,
-       XmNbottomWidget,			bot,
-       XmNbottomOffset,			DEF_WOFFSET,
+       xmFormWidgetClass,               base_form,
+       XmNshadowType,                   XmSHADOW_ETCHED_IN,
+       XmNresizePolicy,                 XmRESIZE_NONE,
+       XmNtopAttachment,                XmATTACH_WIDGET,
+       XmNtopWidget,                    top,
+       XmNtopOffset,                    DEF_WOFFSET,
+       XmNleftAttachment,               XmATTACH_NONE,
+       XmNrightAttachment,              XmATTACH_FORM,
+       XmNbottomAttachment,             XmATTACH_WIDGET,
+       XmNbottomWidget,                 bot,
+       XmNbottomOffset,                 DEF_WOFFSET,
        0);
     w = XtVaCreateManagedWidget
       ("Color Definition",
-       xmLabelWidgetClass,		form,
-       XmNtopAttachment,		XmATTACH_FORM,
-       XmNleftAttachment,		XmATTACH_FORM,
-       XmNrightAttachment,		XmATTACH_NONE,
-       XmNbottomAttachment,		XmATTACH_NONE,
+       xmLabelWidgetClass,              form,
+       XmNtopAttachment,                XmATTACH_FORM,
+       XmNleftAttachment,               XmATTACH_FORM,
+       XmNrightAttachment,              XmATTACH_NONE,
+       XmNbottomAttachment,             XmATTACH_NONE,
        0);
 
     cd->slider[Red] = XtVaCreateManagedWidget
       ("redSlider",
-       xmScaleWidgetClass,		form,
-       XmNorientation,			XmHORIZONTAL,
-       XmNminimum,			cd->black.xcolor.red,
-       XmNmaximum,			cd->white.xcolor.red,
-       XmNtopAttachment,		XmATTACH_WIDGET,
-       XmNtopWidget,			w,
-       XmNleftAttachment,		XmATTACH_FORM,
-       XmNrightAttachment,		XmATTACH_FORM,
-       XmNbottomAttachment,		XmATTACH_NONE,
+       xmScaleWidgetClass,              form,
+       XmNorientation,                  XmHORIZONTAL,
+       XmNminimum,                      cd->black.xcolor.red,
+       XmNmaximum,                      cd->white.xcolor.red,
+       XmNtopAttachment,                XmATTACH_WIDGET,
+       XmNtopWidget,                    w,
+       XmNleftAttachment,               XmATTACH_FORM,
+       XmNrightAttachment,              XmATTACH_FORM,
+       XmNbottomAttachment,             XmATTACH_NONE,
        NULL);
     cd->slider[Green] = XtVaCreateManagedWidget
       ("greenSlider",
-       xmScaleWidgetClass,		form,
-       XmNorientation,			XmHORIZONTAL,
-       XmNminimum,			cd->black.xcolor.green,
-       XmNmaximum,			cd->white.xcolor.green,
-       XmNtopAttachment,		XmATTACH_WIDGET,
-       XmNtopWidget,			cd->slider[Red],
-       XmNleftAttachment,		XmATTACH_FORM,
-       XmNrightAttachment,		XmATTACH_FORM,
-       XmNbottomAttachment,		XmATTACH_NONE,
+       xmScaleWidgetClass,              form,
+       XmNorientation,                  XmHORIZONTAL,
+       XmNminimum,                      cd->black.xcolor.green,
+       XmNmaximum,                      cd->white.xcolor.green,
+       XmNtopAttachment,                XmATTACH_WIDGET,
+       XmNtopWidget,                    cd->slider[Red],
+       XmNleftAttachment,               XmATTACH_FORM,
+       XmNrightAttachment,              XmATTACH_FORM,
+       XmNbottomAttachment,             XmATTACH_NONE,
        NULL);
     cd->slider[Blue] = XtVaCreateManagedWidget
       ("blueSlider",
-       xmScaleWidgetClass,		form,
-       XmNorientation,			XmHORIZONTAL,
-       XmNminimum,			cd->black.xcolor.blue,
-       XmNmaximum,			cd->white.xcolor.blue,
-       XmNtopAttachment,		XmATTACH_WIDGET,
-       XmNtopWidget,			cd->slider[Green],
-       XmNleftAttachment,		XmATTACH_FORM,
-       XmNrightAttachment,		XmATTACH_FORM,
-       XmNbottomAttachment,		XmATTACH_NONE,
+       xmScaleWidgetClass,              form,
+       XmNorientation,                  XmHORIZONTAL,
+       XmNminimum,                      cd->black.xcolor.blue,
+       XmNmaximum,                      cd->white.xcolor.blue,
+       XmNtopAttachment,                XmATTACH_WIDGET,
+       XmNtopWidget,                    cd->slider[Green],
+       XmNleftAttachment,               XmATTACH_FORM,
+       XmNrightAttachment,              XmATTACH_FORM,
+       XmNbottomAttachment,             XmATTACH_NONE,
        NULL);
 
     for (i = 0; i < NUM_COLOR_COMPONENTS; i++)
@@ -531,35 +531,35 @@ ColorDialog	ColorDialog_init	(Widget			parent,
     w = form;
     cd->color_area = XtVaCreateManagedWidget
       ("cellColorInfoForm",
-       xmFormWidgetClass,		base_form,
-       XmNshadowType,			XmSHADOW_ETCHED_IN,
-       XmNresizePolicy,			XmRESIZE_NONE,
-       XmNtopAttachment,		XmATTACH_WIDGET,
-       XmNtopWidget,			top,
-       XmNtopOffset,			DEF_WOFFSET,
-       XmNleftAttachment,		XmATTACH_FORM,
-       XmNrightAttachment,		XmATTACH_WIDGET,
-       XmNrightWidget,			form,
-       XmNbottomAttachment,		XmATTACH_WIDGET,
-       XmNbottomWidget,			bot,
-       XmNbottomOffset,			DEF_WOFFSET,
+       xmFormWidgetClass,               base_form,
+       XmNshadowType,                   XmSHADOW_ETCHED_IN,
+       XmNresizePolicy,                 XmRESIZE_NONE,
+       XmNtopAttachment,                XmATTACH_WIDGET,
+       XmNtopWidget,                    top,
+       XmNtopOffset,                    DEF_WOFFSET,
+       XmNleftAttachment,               XmATTACH_FORM,
+       XmNrightAttachment,              XmATTACH_WIDGET,
+       XmNrightWidget,                  form,
+       XmNbottomAttachment,             XmATTACH_WIDGET,
+       XmNbottomWidget,                 bot,
+       XmNbottomOffset,                 DEF_WOFFSET,
        NULL);
 
     cd->lbl = XtVaCreateManagedWidget
       ("cellUserLabel",
-       xmLabelWidgetClass,		cd->color_area,
-       XmNtopAttachment,		XmATTACH_FORM,
-       XmNleftAttachment,		XmATTACH_FORM,
-       XmNrightAttachment,		XmATTACH_NONE,
-       XmNbottomAttachment,		XmATTACH_NONE,
+       xmLabelWidgetClass,              cd->color_area,
+       XmNtopAttachment,                XmATTACH_FORM,
+       XmNleftAttachment,               XmATTACH_FORM,
+       XmNrightAttachment,              XmATTACH_NONE,
+       XmNbottomAttachment,             XmATTACH_NONE,
        0);
     cd->cell_lbl = XtVaCreateManagedWidget
       ("cellStatusLabel",
-       xmLabelWidgetClass,		cd->color_area,
-       XmNtopAttachment,		XmATTACH_NONE,
-       XmNleftAttachment,		XmATTACH_FORM,
-       XmNrightAttachment,		XmATTACH_FORM,
-       XmNbottomAttachment,		XmATTACH_FORM,
+       xmLabelWidgetClass,              cd->color_area,
+       XmNtopAttachment,                XmATTACH_NONE,
+       XmNleftAttachment,               XmATTACH_FORM,
+       XmNrightAttachment,              XmATTACH_FORM,
+       XmNbottomAttachment,             XmATTACH_FORM,
        0);
       
     XtRealizeWidget (cd->shell);
@@ -567,8 +567,8 @@ ColorDialog	ColorDialog_init	(Widget			parent,
     /* create the palette pixmap, and graphics context */
     XtVaGetValues
       (cd->palette.canvas,
-       XmNwidth,			&cd->palette.w,
-       XmNheight,			&cd->palette.h,
+       XmNwidth,                        &cd->palette.w,
+       XmNheight,                       &cd->palette.h,
        0);
     cd->palette.pixmap = XCreatePixmap
       (cd->display, XtWindow (cd->palette.canvas),
@@ -630,9 +630,9 @@ ColorDialog	ColorDialog_init	(Widget			parent,
 /*
  * ColorDialog_delete
  */
-void		ColorDialog_delete	(ColorDialog the_cd)
+void            ColorDialog_delete      (ColorDialog the_cd)
 {
-  ColorDialogInfo	*cd = (ColorDialogInfo *)the_cd;
+  ColorDialogInfo       *cd = (ColorDialogInfo *)the_cd;
   XtDestroyWidget (cd->shell);
   XFreePixmap (cd->display, cd->palette.pixmap);
   XFreeGC (cd->display, cd->gc);
@@ -643,17 +643,17 @@ void		ColorDialog_delete	(ColorDialog the_cd)
 /*
  * ColorDialog_popup
  */
-void		ColorDialog_popup	(ColorDialog	the_cd,
-					 char 		*title,
-                                         cColor	*color,
-					 CDcallback	func,
-					 void		*arg)
+void            ColorDialog_popup       (ColorDialog    the_cd,
+                                         char           *title,
+                                         cColor *color,
+                                         CDcallback     func,
+                                         void           *arg)
 {
-  static ColorSortInfo	hsi[CCM_MAX_PALETTE_SIZE];
-  ColorDialogInfo	*cd = (ColorDialogInfo *)the_cd;
-  XmString		str;
-  float			r, g, b, z;
-  int			i;
+  static ColorSortInfo  hsi[CCM_MAX_PALETTE_SIZE];
+  ColorDialogInfo       *cd = (ColorDialogInfo *)the_cd;
+  XmString              str;
+  float                 r, g, b, z;
+  int                   i;
 
   reset_stuff (cd);
 
@@ -738,9 +738,9 @@ void		ColorDialog_popup	(ColorDialog	the_cd,
 /*
  * ColorDialog_popdown
  */
-void	ColorDialog_popdown	(ColorDialog the_cd)
+void    ColorDialog_popdown     (ColorDialog the_cd)
 {
-  ColorDialogInfo	*cd = (ColorDialogInfo *)the_cd;
+  ColorDialogInfo       *cd = (ColorDialogInfo *)the_cd;
 
   XUnmapWindow (XtDisplay (cd->shell), XtWindow (cd->shell));
 
@@ -754,13 +754,13 @@ void	ColorDialog_popdown	(ColorDialog the_cd)
 /*
  * cellbtn_event
  */
-static void	cellbtn_event	(Widget		BOGUS(w),
-                                 XtPointer	client_data,
-                                 XtPointer	BOGUS(call_data))
+static void     cellbtn_event   (Widget         BOGUS(w),
+                                 XtPointer      client_data,
+                                 XtPointer      BOGUS(call_data))
 {
-  ColorDialogInfo	*cd = (ColorDialogInfo *)client_data;
-  int			stat;
-  cColor		sc;
+  ColorDialogInfo       *cd = (ColorDialogInfo *)client_data;
+  int                   stat;
+  cColor                sc;
 
   /* if the current color is writable, we need to free it,
    * otherwise, try to grab a writable color cell */
@@ -787,7 +787,8 @@ static void	cellbtn_event	(Widget		BOGUS(w),
     }
     else
       MessageBox_popup
-        (cd->shell, &cd->message_box, "No available color cells!", "Yikes");
+        (cd->shell, &cd->message_box, XmDIALOG_WARNING, "No Colors",
+         "Yikes", "No available color cells!");
   }
   
   set_sliders (cd, &cd->color.xcolor);
@@ -799,13 +800,13 @@ static void	cellbtn_event	(Widget		BOGUS(w),
 /*
  * slider_event
  */
-static void 	slider_event	(Widget 	BOGUS(w),
-                                 XtPointer	client_data,
-                                 XtPointer 	BOGUS(call_data))
+static void     slider_event    (Widget         BOGUS(w),
+                                 XtPointer      client_data,
+                                 XtPointer      BOGUS(call_data))
 {
-  ColorDialogInfo	*cd = (ColorDialogInfo *)client_data;
-  int			val;
-  XColor		xcolor;
+  ColorDialogInfo       *cd = (ColorDialogInfo *)client_data;
+  int                   val;
+  XColor                xcolor;
 
   XmScaleGetValue (cd->slider[Red], &val);
   xcolor.red = val; 
@@ -821,11 +822,11 @@ static void 	slider_event	(Widget 	BOGUS(w),
 /*
  * ctrlbtn_event
  */
-static void 	ctrlbtn_event	(Widget 	w,
-                                 XtPointer	client_data,
-                                 XtPointer	BOGUS(1))
+static void     ctrlbtn_event   (Widget         w,
+                                 XtPointer      client_data,
+                                 XtPointer      BOGUS(1))
 {
-  ColorDialogInfo	*cd = (ColorDialogInfo *)client_data;
+  ColorDialogInfo       *cd = (ColorDialogInfo *)client_data;
 
   if (w == cd->btn_dismiss)
   {
@@ -855,13 +856,13 @@ static void 	ctrlbtn_event	(Widget 	w,
 /*
  * canvas_event
  */
-static void 	canvas_event	(Widget 	BOGUS(w),
-                                 XtPointer	client_data,
-                                 XtPointer	call_data)
+static void     canvas_event    (Widget         BOGUS(w),
+                                 XtPointer      client_data,
+                                 XtPointer      call_data)
 {
-  ColorDialogInfo		*cd = (ColorDialogInfo *)client_data;
-  XmDrawingAreaCallbackStruct	*cbs = (XmDrawingAreaCallbackStruct *)call_data;
-  int				x, y, i;
+  ColorDialogInfo               *cd = (ColorDialogInfo *)client_data;
+  XmDrawingAreaCallbackStruct   *cbs = (XmDrawingAreaCallbackStruct *)call_data;
+  int                           x, y, i;
 
   if (cbs->reason == XmCR_INPUT)
   {
@@ -870,8 +871,8 @@ static void 	canvas_event	(Widget 	BOGUS(w),
       x = cbs->event->xbutton.x;
       y = cbs->event->xbutton.y;
 
-      x /= cd->palette.w_entry;			/* column slected */
-      y /= cd->palette.h_entry;			/* row selected */
+      x /= cd->palette.w_entry;                 /* column slected */
+      y /= cd->palette.h_entry;                 /* row selected */
 
       i = (cd->palette.w / cd->palette.w_entry);/* num entries in a row */
       i *= y;
@@ -897,11 +898,11 @@ static void 	canvas_event	(Widget 	BOGUS(w),
 /*
  * arrow_event
  */
-static void 	arrow_event	(Widget 	w,
-                                 XtPointer	client_data,
-                                 XtPointer	BOGUS(call_data))
+static void     arrow_event     (Widget         w,
+                                 XtPointer      client_data,
+                                 XtPointer      BOGUS(call_data))
 {
-  ColorDialogInfo	*cd = (ColorDialogInfo *)client_data;
+  ColorDialogInfo       *cd = (ColorDialogInfo *)client_data;
 
   if (w == cd->arrow_left)
   {

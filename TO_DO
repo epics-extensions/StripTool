@@ -1,10 +1,11 @@
-- log axis along with other functions
 - changing precision to significant digits
 - autoscaling option
-- better time axis representation
-- explicit data buffer specs; option to freeze chart after buffer is filled
-- load history (archived) data
+- option to freeze chart after buffer is filled
 - multiple strip charts per window
 - expression evaluation
 - SDDS export
-- Waveform support
+- waveform support
+- push data to archiver
+- descriptive comments for curves
+- labels on graph
+- remote control

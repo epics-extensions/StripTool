@@ -12,75 +12,96 @@
 #ifndef _StripDefines
 #define _StripDefines
 
+#define STRIPGRAPH_TITLE        "StripTool Graph Window"
+#define STRIPGRAPH_ICON_NAME    "Graph"
+#define STRIPDIALOG_TITLE       "StripTool Controls"
+#define STRIPDIALOG_ICON_NAME   "Controls"
+
 /* the maximum number of curves
  *
  * Note: increasing this value will require modifying StripConfig
  */
 #if !defined (STRIP_MAX_CURVES)
-#  define STRIP_MAX_CURVES	10
+#  define STRIP_MAX_CURVES      10
+#endif
+
+/* user and site application defaults files
+ * The site default file is first read, then the user default.
+ * Both of these are read after the X-toolkit has finished
+ * its own resource merging, so these will both override
+ * .Xdefaults files and command-line parameters.
+ */
+#define STRIP_USER_DEFAULTS_FILE        ".StripToolrc"
+
+#define STRIP_SITE_DEFAULTS_FILE_ENV    "STRIP_SITE_DEFAULTS"
+#ifndef STRIP_SITE_DEFAULTS_FILE
+#  define STRIP_SITE_DEFAULTS_FILE      "/cs/op/lib/stripTool/.StripToolrc"
 #endif
 
 
 /* maximum number of bytes to use for caching sampled data */
-#define STRIP_MAX_CACHE_BYTES		(8L*1024L*1024L)	/* 8 megs */
+#define STRIP_MAX_CACHE_BYTES           (8L*1024L*1024L)        /* 8 megs */
 
 /* the maximum number of characters in a curve's name string */
-#define STRIP_MAX_NAME_CHAR		63
+#define STRIP_MAX_NAME_CHAR             63
 
 /* the maximum number of characters in a curve's engineering units string */
-#define STRIP_MAX_EGU_CHAR		31
+#define STRIP_MAX_EGU_CHAR              31
 
 /* the maximum number of characters in a curve's comment string */
-#define STRIP_MAX_COMMENT_CHAR		255
+#define STRIP_MAX_COMMENT_CHAR          255
 
 /* the smallest fraction of a second which is still accurate */
-#define STRIP_TIMER_ACCURACY		0.001
+#define STRIP_TIMER_ACCURACY            0.001
 
 /* timeout period for handling Channel Access events */
-#define STRIP_CA_PEND_TIMEOUT		0.001
+#define STRIP_CA_PEND_TIMEOUT           0.001
 
 /* timeout period for handling cdev events */
-#define STRIP_CDEV_PEND_TIMEOUT		0.005
+#define STRIP_CDEV_PEND_TIMEOUT         0.005
 
 /* number of seconds to wait for a curve to connect to its data source
  * before taking some action */
-#define STRIP_CONNECTION_TIMEOUT	5.0
+#define STRIP_CONNECTION_TIMEOUT        5.0
 
 /* the default fallback font name */
-#define STRIP_FALLBACK_FONT_STR		"*fixed-medium-r-normal--10*"
+#define STRIP_FALLBACK_FONT_STR         "*fixed-medium-r-normal--10*"
 
 /* the default dimensions (in millimeters) for the graph window */
-#define STRIP_GRAPH_WIDTH_MM		200.0
-#define STRIP_GRAPH_HEIGHT_MM		100.0
+#define STRIP_GRAPH_WIDTH_MM            200.0
+#define STRIP_GRAPH_HEIGHT_MM           100.0
 
 /* the default number of seconds of data displayed on plot */
-#define STRIP_DEFAULT_TIMESPAN		300
+#define STRIP_DEFAULT_TIMESPAN          300
 
 /* the maximum font height (in millimeters) */
-#define STRIP_FONT_MAXHEIGHT_MM		4.0
+#define STRIP_FONT_MAXHEIGHT_MM         4.0
 
 /* the default directory in which to find configuration files */
 #ifndef STRIP_CONFIGFILE_DIR
-#  define STRIP_CONFIGFILE_DIR		"."
+#  define STRIP_CONFIGFILE_DIR          "."
 #endif
 
 /* the default configuration filename */
-#define STRIP_DEFAULT_FILENAME		"StripTool.config"
+#define STRIP_DEFAULT_FILENAME          "StripTool.config"
 
 /* the default wildcard for finding configuration files */
 #ifndef STRIP_CONFIGFILE_PATTERN
-#define STRIP_CONFIGFILE_PATTERN	"*"
+#define STRIP_CONFIGFILE_PATTERN        "*"
 #endif
 
-/* the default printer stuff */
-#ifndef STRIP_PRINTER_DEVNAME
-#define STRIP_PRINTER_DEVNAME		"pjetxl"
+#define STRIP_PRINTER_NAME_ENV                  "STRIP_PRINTER_NAME"
+#define STRIP_PRINTER_DEVICE_ENV                "STRIP_PRINTER_DEVICE"
+#define STRIP_PRINTER_NAME_FALLBACK_ENV         "PSPRINTER"
+
+#define STRIP_PRINTER_DEVICE_FALLBACK           "ps"
+
+/* hard-coded printer info --fallback fallback */
+#ifndef STRIP_PRINTER_DEVICE
+#define STRIP_PRINTER_DEVICE            "pjetxl"
 #endif
 #ifndef STRIP_PRINTER_NAME
-#define STRIP_PRINTER_NAME		"mcc104c"
-#endif
-#ifndef STRIP_PRINTER_ISCOLOR
-#define STRIP_PRINTER_ISCOLOR		1
+#define STRIP_PRINTER_NAME              "mcc104c"
 #endif
 
 #endif

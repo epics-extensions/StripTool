@@ -7,21 +7,37 @@
 #
 # options
 #
+# STRIP_DAQ
+#	base name of module implementing daq functions.
+#	default is StripCDEV
+#
+# STRIP_HISTORY
+#	base name of mudule implementing history functions.
+#	default is StripHistoryNULL
+#
+# DEBUG_EVENT
+#	YES	print out event management messages.
+#
+# DEBUG_COLORALLOC
+#	YES	print out color management diagnostics.
+#
 # HAVE_XPM
 #	YES	use xpm to create cute color icon
 #
 # USE_CLUES
 #	YES	use pop-up clues for buttons
 #
-# USE_ARCHIVE_DATASRC
-#	YES	uses archive data	(not yet implemented)
-#
 # PURIFY
 #	YES	Instruments code with purify
+#
+# QUANTIFY
+#	YES	Instruments code with quantify
 #
 PROGNAME	= StripTool.cdev
 
 USE_CLUES	= YES
+STRIP_DAQ	= StripCA
+STRIP_HISTORY	= StripHistoryNULL
 
 TARGET_DIR	= $(LIBDIR)
 ARCH		= hp700
@@ -44,11 +60,25 @@ MOTIF_LIB	= -L/usr/lib/Motif1.2 -lXm
 
 LIBS		= $(MOTIF_LIB) $(X11_LIB) $(CDEV_LIB) $(EPICS_LIB) -lm
 CXX_FLAGS	= $(MOTIF_INC) $(X11_INC) $(CDEV_INC) $(EPICS_INC)
-CXX_FLAGS	+= -O
+CXX_FLAGS	+= -g
 CXX_FLAGS	+= -I.
 CXX_FLAGS	+= -DUSE_CDEV -DHP_UX -DUNIX -D__STDC__ -D_HPUX_SOURCE
 CXX_FLAGS	+= -D_OS_MAJOR_=9 -D_OS_MINOR_=7 -D_HAS_CA
 CXX_FLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
+
+ifeq ($(DEBUG_EVENT), YES)
+	CXX_FLAGS	+= -DDEBUG_EVENT
+endif
+
+ifeq ($(DEBUG_COLORALLOC), YES)
+	CXX_FLAGS	+= -DDEBUG_COLORALLOC
+endif
+
+ifneq ($(STRIP_CONFIGFILE_DIR),)
+	CXX_FLAGS 	+= -DSTRIP_CONFIGFILE_DIR=$(STRIP_CONFIGFILE_DIR)
+else
+	CXX_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
+endif
 
 ifeq ($(HAVE_XPM), YES)
   XPM_INC	= -I/usr/user1/larrieu/include/X11
@@ -58,16 +88,16 @@ ifeq ($(HAVE_XPM), YES)
 endif
 
 modules		= StripConfig
-modules		+= cColorManager
 modules		+= StripCurve
 modules		+= Strip
 modules		+= StripDialog
 modules		+= StripDataSource
 modules		+= StripGraph
 modules		+= StripMisc
+modules		+= StripAxis
+modules		+= StripLegend
+modules		+= cColorManager
 modules		+= ColorDialog
-modules		+= Axis
-modules		+= Legend
 modules		+= StripCDEV
 modules		+= StripTool
 
@@ -80,13 +110,22 @@ ifeq ($(PURIFY), YES)
   CXX_LINK	:= purify $(CXX_LINK)
 endif
 
+ifeq ($(QUANTIFY), YES)
+  CXX_LINK	:= quantify $(CXX_LINK)
+endif
+
 objects		= $(addprefix $(TARGET_DIR)/,$(addsuffix .o,$(modules)))
 
-
-
-
 .PHONY: build
-build: $(TARGET_DIR) $(TARGET_DIR)/$(PROGNAME)
+build: 
+	@echo ============================================================
+	@echo This makefile is out of date.  Please let me know if you are
+	@echo aiming to use StripTool with cdev.  Thanks, Chris L.
+	@echo ============================================================
+
+
+.PHONY: real-build
+real-build: $(TARGET_DIR) $(TARGET_DIR)/$(PROGNAME)
 
 
 $(TARGET_DIR):

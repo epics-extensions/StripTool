@@ -1,6 +1,6 @@
 -----------------------------------------------------------------------------
- Copyright (c) 1996 Southeastern Universities Research Association,
-                    Continuous Electron Beam Accelerator Facility
+ Copyright (c) 1996-1999 Southeastern Universities Research Association,
+                         Continuous Electron Beam Accelerator Facility
 
  This software was developed under a United States Government license
  described in the NOTICE file included as part of this distribution.
@@ -18,7 +18,7 @@ the directory under $CDEV/lib where the libraries exist, respectively.  In
 either case, make sure that $EPICS points to the base of the EPICS
 distribution.  Type "make build".
 
-  Many defaults and compiled-in values are defined in StripDefines.h.  You
+  Several defaults and compiled-in values are defined in StripDefines.h.  You
 might want to look in here to see if there is anything you want to change.
 
-  Any comments or suggestions, please email me: larrieu@cebaf.gov
+  Any comments or suggestions, please email me: larrieu@jlab.org
