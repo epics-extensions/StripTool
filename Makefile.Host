@@ -6,46 +6,94 @@
 # EPICS
 #	root directory of EPICS distribution
 #
+# STRIP_DAQ
+#	base name of module implementing daq functions.
+#	default is StripCA
+#
+# STRIP_HISTORY
+#	base name of mudule implementing history functions.
+#	default is StripHistoryNULL
+#
+# DEBUG_EVENT
+#	YES	print out event management messages.
+#
+# DEBUG_COLORALLOC
+#	YES	print out color management diagnostics.
+#
 # HAVE_XPM
 #	YES	use xpm to create cute color icon
+#
+# HAVE_XMU
+#	YES	include editres support
 #
 # USE_CLUES
 #	YES	use pop-up clues for buttons
 #
-# USE_ARCHIVE_DATASRC
-#	YES	uses archive data	(not yet implemented)
+# USE_PSPRINTER
+#	YES	use $PSPRINTER environment variable for postscript printer.
+#		Default is to use the printer defined in StripDefines.h
 #
 # PURIFY
 #	YES	Instruments code with purify
+#
+#
+# QUANTIFY
+#	YES	Instruments code with quantify
+#	PRECISE	sets auto data collection off, and includes code to monitor 
+#		specific portions of StripTool.  Requires quantify.h.
 #
 # LIBTYPE
 #	ARCHIVE		force archive libraries
 #	SHARED		force shared libraries
 #	NULL		(if not defined) default
+ifndef EPICS
+EPICS	= ../../..
+endif
+TOP	= $(EPICS)
+include $(EPICS)/config/CONFIG_EXTENSIONS
 
-TOP	= ../../..
-include $(TOP)/config/CONFIG_EXTENSIONS
-
-# Can't use CMPLR=STRICT: uses non-ansi stdup,gcvt ecvt
-CMPLR = ANSI
-
+USE_PSPRINTER	= YES
 LIBTYPE		= DEFAULT
 USE_CLUES	= YES
+#HAVE_XPM	= YES
+#HAVE_XMU	= YES
+#HAVE_X11R6	= YES
+STRIP_DAQ	= StripCA
+STRIP_HISTORY	= StripHistoryNULL
 
-USR_CFLAGS	= -DUSE_CA
-USR_CFLAGS	+= -DUSE_PSPRINTER
+XPM_INC		= $(HOME)/include
+XPM_LIB		= $(HOME)/lib
+XMU_INC		= $(HOME)/include
+XMU_LIB		= $(HOME)/lib
+
+ifeq ($(HAVE_X11R6), YES)
+  X11_INC	:= /usr/include/X11R6
+  MOTIF_INC	:= /usr/include/Motif1.2
+  X11_LIB	:= /usr/lib/X11R6
+  MOTIF_LIB	:= /usr/lib/Motif1.2_R6
+  XMU_INC	:= /usr/contrib/X11R6/include
+  XMU_LIB	:= /usr/contrib/X11R6/lib
+endif
+
+
+
 USR_CFLAGS 	+= -I$(MOTIF_INC)
 USR_CFLAGS	+= -I$(X11_INC)
-USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
-#USR_CFLAGS 	+= -DDEBUG_EVENT
-#USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\".\"
-#USR_CFLAGS 	+= -DDEBUG_COLORALLOC
 
-#CFLAGS          += -g
-#CFLAGS         += -pg
-#CFLAGS         += -p
-#CFLAGS         += -O
 
+ifeq ($(DEBUG_EVENT), YES)
+	USR_CFLAGS	+= -DDEBUG_EVENT
+endif
+
+ifeq ($(DEBUG_COLORALLOC), YES)
+	USR_CFLAGS	+= -DDEBUG_COLORALLOC
+endif
+
+ifneq ($(STRIP_CONFIGFILE_DIR),)
+	USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=$(STRIP_CONFIGFILE_DIR)
+else
+	USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
+endif
 
 #
 # the $(LINK.c) macro uses the c compiler for linking, so linker
@@ -64,9 +112,13 @@ endif
 
 
 
-USR_LDFLAGS += -L$(EPICS_EXTENSIONS_LIB)
+USR_LDFLAGS 	+= -L$(EPICS_EXTENSIONS_LIB)
 USR_LDFLAGS	+= -L$(MOTIF_LIB)
 USR_LDFLAGS	+= -L$(X11_LIB) 
+
+USR_LDLIBS 	= -lXm -lXt -lX11 -lXext
+USR_LDLIBS	+= -lca -lDb -lCom
+USR_LDLIBS	+= -lm
 
 USR_LIBS_DEFAULT += ca Db Com Xm Xt X11 Xext
 USR_LIBS_Linux += ca Db Com Xm Xt X11 Xext Xp
@@ -89,53 +141,78 @@ XlibGUI_DIR = $(X11_LIB)
 Xlib_DIR = $(X11_LIB)
 
 ifeq ($(HAVE_XPM), YES)
-  XPM_INC	= $(HOME)/include
-  XPM_LIB	= $(HOME)/lib
   USR_CFLAGS	+= -DUSE_XPM
   USR_CFLAGS	+= -I$(XPM_INC)
-  USR_LDFLAGS	+= -L$(XPM_LIB) $(USR_LDFLAGS)
-  USR_LIBS	+= Xpm $(USR_LIBS)
+  USR_LDFLAGS	:= -L$(XPM_LIB) $(USR_LDFLAGS)
+  USR_LDLIBS	:= -lXpm $(USR_LDLIBS)
+endif
+
+
+ifeq ($(HAVE_XMU), YES)
+  USR_CFLAGS	+= -DUSE_XMU
+  USR_CFLAGS	+= -I$(XMU_INC)
+  USR_LDFLAGS	:= -L$(XMU_LIB) $(USR_LDFLAGS)
+  USR_LDLIBS	:= -lXmu $(USR_LDLIBS)
 endif
 
 
 MODULES		= StripConfig
-MODULES		+= cColorManager
 MODULES		+= StripCurve
 MODULES		+= Strip
 MODULES		+= StripDialog
 MODULES		+= StripDataSource
-MODULES		+= StripHistory
+MODULES		+= $(STRIP_HISTORY)
 MODULES		+= StripGraph
 MODULES		+= StripMisc
+MODULES		+= cColorManager
 MODULES		+= ColorDialog
-MODULES		+= Axis
-MODULES		+= Legend
 MODULES		+= StripTool
-MODULES		+= StripCA
+MODULES		+= $(STRIP_DAQ)
+MODULES		+= jlAxis
+MODULES		+= jlLegend
+MODULES		+= ComboBox
+MODULES		+= Tabs
+MODULES		+= x_rotate
+MODULES		+= rotated
 
-# freeware components
 ifeq ($(USE_CLUES), YES)
   USR_CFLAGS	+= -DUSE_CLUES
   MODULES	+= LiteClue
 endif
 
 SRCS		= $(patsubst %, %.c, $(MODULES))
+OBJS 		= $(patsubst %, %.o, $(MODULES))
 
 PROD		= StripTool
 
 ifeq ($(PURIFY), YES)
   PROD		= StripTool.purify
-  LINK.cc	= purify $(CXX) -o $@ $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS)
-  LINK.c	= $(LINK.cc)
+  LINK.cc	= purify  $(CXX) -o $@ $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS)
+  LINK.c	= purify  $(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(LDFLAGS)
   HOST_OPT	= NO
 endif
 
 ifeq ($(QUANTIFY), YES)
   PROD		= StripTool.quantify
-  LINK.cc	= quantify $(CXX) -o $@ $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS)
-  LINK.c	= $(LINK.cc)
+  LINK.cc	= quantify  $(CXX) -o $@ $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS)
+  LINK.c	= quantify  $(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(LDFLAGS)
   HOST_OPT	= NO
 endif
 
-include $(TOP)/config/RULES.Host
+ifeq ($(QUANTIFY), PRECISE)
+  PROD		= StripTool.quantify-precise
+  LINK.cc	= quantify -record-data=no  $(CXX) -o $@ $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS)
+  LINK.c	= quantify -record-data=no  $(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(LDFLAGS)
+  USR_CFLAGS	+= -DQUANTIFY_PRECISE
+  USR_CFLAGS	+= -I/usr/csite1/pure/quantify-3.1-hpux
+  HOST_OPT	= NO
+endif
 
+include $(EPICS)/config/RULES.Host
+
+xxx:
+	@echo LINK.c=$(LINK.c)
+	@echo LINK.cc=$(LINK.cc)
+	@echo HOST_OPT=$(HOST_OPT)
+	@echo COMPILE.c=$(COMPILE.c)
+	@echo COMPILE.cc=$(COMPILE.cc)
