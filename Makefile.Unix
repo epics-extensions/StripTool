@@ -18,11 +18,12 @@
 #	directory under $(CDEV)/lib where the cdev library exists
 #
 # LIBTYPE
-#	ARCHIVE	for archive libraries
-#	SHARED	for shared libraries
-#	NULL	(if not defined) default
+#	ARCHIVE_LIB	force archive libraries
+#	SHARED_LIB	force shared libraries
+#	NULL		(if not defined) default
 
-EPICS         = ../../../..
+EPICS		= ../../../..
+
 include Target.include
 include $(EPICS)/config/CONFIG_EXTENSIONS
 
@@ -30,33 +31,37 @@ include $(EPICS)/config/CONFIG_EXTENSIONS
 STRIP_DATASRC	= CA
 #CDEV		= XXX
 #LIBDIR		= XXX
-LIBTYPE		= ARCHIVE
+LIBTYPE		= DEFAULT
 
 
 USR_CFLAGS 	= -I$(MOTIF_INC)
 USR_CFLAGS	+= -I$(X11_INC)
-USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
+#USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
+USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\".\"
 #CFLAGS          += -g
 #CFLAGS         += -pg
 #CFLAGS         += -p
 #CFLAGS         += +O4
 #CFLAGS         += -O2
-#CFLAGS         += -O
+CFLAGS         += -O
 #CFLAGS         += -DDEBUG_EVENT
 UNIX_OPT_FLAGS  =
 
 
 #
+# if linking with cdev, force static library
+#
+ifeq ($(STRIP_DATASRC), CDEV)
+	LIBTYPE = ARCHIVE_LIB
+endif
+#
 # the $(LINK.c) macro uses the c compiler for linking, so linker
 # options must be passed through the compiler via the -W switch
 #
-
-ifeq ($(LIBTYPE), ARCHIVE)
-	ifeq ($(HOST_ARCH),hp700)
-		USR_LDFLAGS	+= -Wl,-a,archive
-	endif
+ifeq ($(LIBTYPE), ARCHIVE_LIB)
+	USR_LDFLAGS	+= -Wl,-a,archive
 endif
-ifeq ($(LIBTYPE), SHARED)
+ifeq ($(LIBTYPE), SHARED_LIB)
 	USR_LDFLAGS	+= -Wl,-a,shared
 endif
 

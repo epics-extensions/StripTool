@@ -55,9 +55,23 @@
 #  define STRIP_CONFIGFILE_DIR		"."
 #endif
 
+/* the default configuration filename */
+#define STRIP_DEFAULT_FILENAME		"StripTool.config"
+
 /* the default wildcard for finding configuration files */
 #ifndef STRIP_CONFIGFILE_PATTERN
 #define STRIP_CONFIGFILE_PATTERN	"*"
+#endif
+
+/* the default printer stuff */
+#ifndef STRIP_PRINTER_DEVNAME
+#define STRIP_PRINTER_DEVNAME		"pjetxl"
+#endif
+#ifndef STRIP_PRINTER_NAME
+#define STRIP_PRINTER_NAME		"mcc104c"
+#endif
+#ifndef STRIP_PRINTER_ISCOLOR
+#define STRIP_PRINTER_ISCOLOR		1
 #endif
 
 #endif

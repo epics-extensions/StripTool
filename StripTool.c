@@ -71,6 +71,16 @@ main (int argc, char *argv[])
      STRIP_DISCONNECT_FUNC,	request_disconnect,
      0);
 
+  /* look for and load defaults file */
+  if ((f = fopen (STRIP_DEFAULT_FILENAME, "r")) != NULL)
+    {
+      fprintf
+	(stdout, "StripTool: using default file, %s.\n",
+	 STRIP_DEFAULT_FILENAME);
+      Strip_readconfig (strip, f, STRIPCFGMASK_ALL);
+      fclose (f);
+    }
+
   /* now load a config file if requested */
   if (argc >= 2)
     if (f = fopen (argv[1], "r"))
@@ -84,7 +94,6 @@ main (int argc, char *argv[])
 	   (stdout,
 	    "StripTool: can't open %s; using default config.\n",
 	    argv[1]);
-  else fprintf (stdout, "StripTool: using default config.\n");
   
   status = 0;
   Strip_go (strip);

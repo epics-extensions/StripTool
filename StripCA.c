@@ -225,8 +225,7 @@ static void	connect_callback	(struct connection_handler_args args)
 	(stderr,
 	 "StripCA connect_callback: IOC unavailable for %s\n",
 	 ca_name (args.chid));
-      StripCurve_setstat
-	(curve, STRIPCURVE_WAITING | STRIPCURVE_CHECK_CONNECT);
+      Strip_setwaiting (cd->this->strip, curve);
       break;
       
     case cs_conn:
@@ -357,8 +356,17 @@ static void	data_callback		(struct event_handler_args args)
     {
       if (StripCurve_getstat (curve, STRIPCURVE_WAITING))
 	{
-	  StripCurve_setattr (curve, STRIPCURVE_SAMPLEFUNC, value_callback, 0);
-	  Strip_setconnected (cd->this->strip, curve);
+	  if (!StripCurve_getstat (curve, STRIPCURVE_CONNECTED))
+	    {
+	      StripCurve_setattr
+		(curve, STRIPCURVE_SAMPLEFUNC, value_callback, 0);
+	      Strip_setconnected (cd->this->strip, curve);
+	    }
+	  else
+	    {
+	      StripCurve_clearstat (curve, STRIPCURVE_WAITING);
+	      StripCurve_clearstat (curve, STRIPCURVE_CHECK_CONNECT);
+	    }
 	}
       sts = (struct dbr_sts_double *)args.dbr;
       cd->value = sts->value;

@@ -104,6 +104,7 @@ ColorDialog	ColorDialog_init	(Display *d, Colormap c, char *title)
 	 XmNdeleteResponse,		XmUNMAP,
 	 XmNmappedWhenManaged,		False,
 	 XmNtitle,			title == NULL? "Modify Color" : title,
+	 XmNcolormap,			cd->cmap,
 	 NULL);
       base_form = XtVaCreateManagedWidget
 	("form",

@@ -217,6 +217,7 @@ typedef struct
   SDTimeInfo		time_info;
   SDGraphInfo		graph_info;
   Widget		shell, curve_form, data_form, graph_form, connect_txt;
+  Widget		message_box;
   SDWindowMenuInfo	window_menu_info;
 
   struct		_fs	/* file selection box */
@@ -359,6 +360,7 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
   Dimension		dim1, dim2;
   Dimension		widths[SDCURVE_LAST_ATTRIBUTE];
   Dimension		row_height;
+  Colormap		cmap;
 
   if ((sd = (StripDialogInfo *)malloc (sizeof (StripDialogInfo))) != NULL)
     {
@@ -380,6 +382,7 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
       sd->sdcurve_count = 0;
       sd->time_info.modifying = 0;
       sd->graph_info.modifying = 0;
+      sd->message_box = (Widget)0;
 
       sd->display = d;
 
@@ -398,8 +401,8 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 sd);
 
       /* initialize the color editor */
-      sd->clrdlg = ColorDialog_init
-	(sd->display, StripConfig_getcmap (sd->config), "Strip ColorEditor");
+      cmap = StripConfig_getcmap (sd->config);
+      sd->clrdlg = ColorDialog_init (sd->display, cmap, "Strip ColorEditor");
 
       
       sd->shell = XtVaAppCreateShell
@@ -407,6 +410,7 @@ StripDialog	StripDialog_init	(Display *d, StripConfig *cfg)
 	 topLevelShellWidgetClass,	sd->display,
 	 XmNdeleteResponse,		XmDO_NOTHING,
 	 XmNmappedWhenManaged,		False,
+	 XmNcolormap,			cmap,
 	 NULL);
       base_form = XtVaCreateManagedWidget
 	("form",
@@ -2991,7 +2995,12 @@ static void	fsdlg_cb	(Widget w, XtPointer data, XtPointer call)
 		if (XmToggleButtonGetState (sd->fs.tgl[i]))
 		  sd->fs.mask |= FsDlgTglVal[i];
 	      if (sd->fs.state == FSDLG_SAVE)
-		StripConfig_write (sd->config, f, sd->fs.mask);
+		{
+		  if (!StripConfig_write (sd->config, f, sd->fs.mask))
+		    MessageBox_popup
+		      (sd->shell, &sd->message_box,
+		       "Unable to write file", "Ok");
+		}
 	      else
 		{
 		  if (StripConfig_load (sd->config, f, sd->fs.mask))
@@ -3001,8 +3010,19 @@ static void	fsdlg_cb	(Widget w, XtPointer data, XtPointer call)
 		      StripConfig_update
 			(sd->config, sd->fs.mask | STRIPCFGMASK_TITLE);
 		    }
+		  else
+		    {
+		      MessageBox_popup
+			(sd->shell, &sd->message_box,
+			 "Unable to load file", "Ok");
+		    }
 		}
 	      fclose (f);
+	    }
+	  else
+	    {
+	      MessageBox_popup
+		(sd->shell, &sd->message_box, "Unable to open file", "Ok");
 	    }
 	}
 }

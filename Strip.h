@@ -161,6 +161,15 @@ void	Strip_setconnected	(Strip, StripCurve);
 
 
 /*
+ * Strip_setwating
+ *
+ *	Informs the Strip object that the specified curve is waiting to
+ *	reestablish a link to its data source.
+ */
+void	Strip_setwaiting	(Strip, StripCurve);
+
+
+/*
  * Strip_disconnectcurve
  *
  *	Like Strip_connectcurve.  Calls user-supplied disconnect callback, and

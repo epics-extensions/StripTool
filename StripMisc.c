@@ -12,6 +12,9 @@
 #include "StripMisc.h"
 #include "StripDefines.h"
 
+#include <Xm/Xm.h>
+#include <Xm/MessageB.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -420,4 +423,118 @@ char	*int2str	(int x, char buf[], int n)
   /* fill in rest of buffer with number string */
   for (i -= 1; i >= 0; i--) buf[j++] = tmp[i];
   buf[j++] = '\0';
+}
+
+
+/* ====== MessageBox stuff ====== */
+static void	MessageBox_cb		(Widget, XtPointer, XtPointer);
+
+typedef enum
+{
+  MSGBOX_OK = 0,
+  MSGBOX_MAP
+}
+MsgBoxEvent;
+
+/*
+ * MessageBox_popup
+ */
+void	MessageBox_popup 	(Widget 	parent,
+				 Widget		*message_box,
+				 char 		*msg_txt,
+				 char 		*ok_txt)
+{
+  XmString	msg;
+  XmString	ok;
+
+  if (*message_box != (Widget)0)
+    if (parent != XtParent (*message_box))
+      {
+	XtDestroyWidget (*message_box);
+	*message_box = (Widget)0;
+      }
+  if (*message_box == (Widget)0)
+    *message_box = XmCreateMessageDialog (parent, "Oops", NULL, 0);
+  
+  msg = XmStringCreateLocalized (msg_txt);
+  if (ok_txt == NULL) ok_txt = "Ok";
+  ok = XmStringCreateLocalized (ok_txt);
+
+  XtVaSetValues
+    (*message_box,
+     XmNdialogType,		XmDIALOG_MESSAGE,
+     XmNdefaultButtonType,	XmDIALOG_OK_BUTTON,
+     XmNnoResize,		True,
+     XmNdefaultPosition,	False,
+     XmNmessageString,		msg,
+     XmNokLabelString,		ok,
+     NULL);
+
+  XtUnmanageChild
+    (XmMessageBoxGetChild (*message_box, XmDIALOG_CANCEL_BUTTON));
+  XtUnmanageChild
+    (XmMessageBoxGetChild (*message_box, XmDIALOG_HELP_BUTTON));
+
+  XtAddCallback
+    (*message_box, XmNokCallback, MessageBox_cb, (XtPointer)MSGBOX_OK);
+  XtAddCallback
+    (*message_box, XmNmapCallback, MessageBox_cb, (XtPointer)MSGBOX_MAP);
+
+  XmStringFree (msg);
+  XmStringFree (ok);
+
+  XtManageChild (*message_box);
+  XtPopup (XtParent (*message_box), XtGrabNone);
+}
+
+/*
+ * MessageBox_cb
+ */
+static void	MessageBox_cb	(Widget w, XtPointer client, XtPointer blah)
+{
+  MsgBoxEvent		event = (MsgBoxEvent)client;
+  Window		root, child;
+  int			root_x, root_y;
+  int			win_x, win_y;
+  unsigned		mask;
+  int			screen;
+  Display		*display;
+  XWindowAttributes	xwa;
+  Dimension		width, height;
+
+  switch (event)
+    {
+    case MSGBOX_MAP:
+
+      /* find out where the pointer is */
+      display = XtDisplay (w);
+      screen = DefaultScreen (display);
+      XQueryPointer
+	(XtDisplay (w), RootWindow (display, screen), 
+	 &root, &child,
+	 &root_x, &root_y,
+	 &win_x, &win_y,
+	 &mask);
+
+      if (child != (Window)0)
+	XGetWindowAttributes (display, child, &xwa);
+      else XGetWindowAttributes (display, root, &xwa);
+
+      XtVaGetValues (w, XmNwidth, &width, XmNheight, &height, NULL);
+
+      /* place the dialog box in the center of the window in which the
+       * pointer currently resides */
+      XtVaSetValues
+	(w,
+	 XmNx,			xwa.x + ((xwa.width - (int)width)/2),
+	 XmNy,			xwa.y + ((xwa.height - (int)height)/2),
+	 NULL);
+      
+      break;
+
+
+    case MSGBOX_OK:
+
+      break;
+    }
 }

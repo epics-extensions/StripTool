@@ -196,7 +196,8 @@ StripConfig	*StripConfig_init	(Display 		*dpy,
 	      (stderr,
 	       "StripConfig_init(): can't allocate %d private colorcells\n",
 	       STRIPCONFIG_NUMCOLORS);
-	    exit (1);
+	    free (scfg);
+	    return NULL;
 	  }
 
 	scfg->title			= STRIPDEF_TITLE;
@@ -667,7 +668,7 @@ int	StripConfig_write	(StripConfig 		*scfg,
 		  get_xcolor (scfg, scfg->Color.color[9], &color_def);
 		  break;
 		}
-	      fprintf (f, "%s%*hu%*hu%*hu\n",
+	      fprintf (f, "%s%-*hu%-*hu%-*hu\n",
 		       fbuf,
 		       NUMERIC_COLUMNWIDTH, color_def.red,
 		       NUMERIC_COLUMNWIDTH, color_def.green,
@@ -705,7 +706,7 @@ int	StripConfig_write	(StripConfig 		*scfg,
 		  j = scfg->Option.graph_linewidth;
 		  break;
 		case STRIPCFGMASK_OPTION_LEGEND_VISIBLE:
-		  j = scfg->Option.graph_linewidth;
+		  j = scfg->Option.legend_visible;
 		  break;
 		}
 	      fprintf (f, "%s%d\n", fbuf, j);

@@ -93,6 +93,11 @@ int	window_ismapped		(Display *, Window);
 void	window_map		(Display *, Window);
 void	window_unmap		(Display *, Window);
 
+void	MessageBox_popup	(Widget,	/* parent */
+				 Widget *,	/* MessageBox */
+				 char *,	/* message */
+				 char *);	/* button label
+
 
 
 /* ====== Miscellaneous ====== */

@@ -16,15 +16,25 @@
 #include "StripMisc.h"
 /* #include "StripCmdln.h" */
 
+#ifdef HP_UX
+#  include <unistd.h>
+#else
+#ifdef SOLARIS
+#  include <unistd.h>
+#else
+#  include <vfork.h>
+#endif
+#endif
+
 #include <fdmgr.h>
 #include <Xm/Xm.h>
 #include <Xm/DrawingA.h>
 #include <Xm/DialogS.h>
-#include <Xm/MessageB.h>
 #include <Xm/Form.h>
 #include <Xm/Label.h>
 #include <Xm/PushB.h>
 #include <Xm/Separator.h>
+#include <Xm/MessageB.h>
 #include <Xm/List.h>
 #include <Xm/FileSB.h>
 #include <X11/Xlib.h>
@@ -76,6 +86,15 @@ typedef struct _ListDialog
 }
 ListDialog;
 
+/* ====== PrintInfo stuff ====== */
+typedef struct _PrintInfo
+{
+  char		dev_name[32];
+  char		pr_name[32];
+  char		is_color;
+}
+PrintInfo;
+
 /* ====== Strip stuff ====== */
 typedef enum
 {
@@ -93,6 +112,7 @@ typedef struct _StripInfo
   Widget		popup_menu, message_box;
   Widget		fs_dlg;
   StripStatus		status;
+  char			app_name[128];
 
   /* == fdmgr stuff == */
   void			*fdmgr_context;
@@ -103,12 +123,14 @@ typedef struct _StripInfo
   StripCurveInfo	curves[STRIP_MAX_CURVES];
   StripDataBuffer	data;
   StripGraph		graph;
+  PrintInfo		print_info;
   ListDialog		*list_dlg;
 
   /* == Callback stuff == */
   StripCallback		connect_func, disconnect_func, client_io_func;
   void 			*connect_data, *disconnect_data, *client_io_data;
   int			client_registered;
+  int			grab_count;
 
   /* timing and event stuff */
   StripEventMask	event_mask;
@@ -151,6 +173,7 @@ static void	Strip_dispatch		(StripInfo *);
 static void	Strip_eventmgr		(void *);
 
 static void	Strip_process_X		(void *);
+static void	Strip_child_msg		(void *);
 static void	Strip_config_callback	(StripConfigMask, void *);
 
 static void	Strip_forgetcurve	(StripInfo *, StripCurve);
@@ -170,9 +193,6 @@ static void	PopupMenu_position	(Widget, XButtonPressedEvent *);
 static void	PopupMenu_popup		(Widget);
 static void	PopupMenu_popdown	(Widget);
 static void	PopupMenu_cb		(Widget, XtPointer, XtPointer);
-
-static void	MessageBox_popup	(Widget, Widget *, char *, char *);
-static void	MessageBox_cb		(Widget, XtPointer, XtPointer);
 
 static void	fsdlg_popup		(StripInfo *, fsdlg_functype);
 static void	fsdlg_cb		(Widget, XtPointer, XtPointer);
@@ -198,29 +218,54 @@ Strip	Strip_init	(char *app_name, int *argc, char *argv[])
   int			i;
   double		tmp_dbl;
   Dimension		width, height;
-  XSetWindowAttributes	xwa;
+  XSetWindowAttributes	xswa;
+  XWindowAttributes	xwa;
   SDWindowMenuItem	wm_items[STRIPWINDOW_COUNT];
-  String		fallback[1] = { '\0' };
+  String		*fallback = NULL;
 
 
   if ((si = (StripInfo *)malloc (sizeof (StripInfo))) != NULL)
     {
       /* create the application context and shell */
       XtSetLanguageProc (NULL, NULL, NULL);
-      app_name = (app_name? app_name : argv[0]);
+      strcpy (si->app_name, (app_name? app_name : argv[0]));
       si->toplevel = XtVaAppInitialize
-	(&si->app, (String)app_name, (XrmOptionDescList)0,
-	 (Cardinal)0, argc, (String *)argv, (String *)fallback,
+	(&si->app, (String)si->app_name, (XrmOptionDescList)0,
+	 (Cardinal)0, argc, (String *)argv, fallback,
 	 XmNmappedWhenManaged, False,
 	 NULL);
+
       XtRealizeWidget (si->toplevel);
-      si->display 	= XtDisplay (si->toplevel);
+      si->display = XtDisplay (si->toplevel);
+
+      cmap = DefaultColormapOfScreen (XtScreen (si->toplevel));
+      if (!(si->config = StripConfig_init (si->display, cmap, NULL, 0)))
+	{
+	  fprintf (stderr, "Strip_init(): trying virtual colormap...");
+	  XGetWindowAttributes (si->display, XtWindow (si->toplevel), &xwa);
+	  cmap = XCreateColormap
+	    (si->display, XtWindow (si->toplevel), xwa.visual, AllocNone);
+	  if (!(si->config = StripConfig_init (si->display, cmap, NULL, 0)))
+	    {
+	      fprintf (stderr, " no such luck!\n");
+	      free (si);
+	      XtDestroyWidget (si->toplevel);
+	      XFreeColormap (si->display, cmap);
+	      return NULL;
+	    }
+	  else
+	    {
+	      fprintf (stderr, " Ok!  Screen may technicolor.\n");
+	      XtVaSetValues (si->toplevel, XmNcolormap, cmap, NULL);
+	    }
+	}
 
       si->shell = XtVaAppCreateShell
 	(NULL,				"StripGraph",
 	 topLevelShellWidgetClass,	si->display,
 	 XmNdeleteResponse,		XmDO_NOTHING,
 	 XmNmappedWhenManaged,		False,
+	 XmNcolormap,			cmap,
 	 NULL);
       width = (Dimension)
 	((double)DisplayWidth (si->display, DefaultScreen (si->display)) /
@@ -248,10 +293,6 @@ Strip	Strip_init	(char *app_name, int *argc, char *argv[])
 
       si->fs_dlg = 0;
 
-      cmap = DefaultColormapOfScreen (XtScreen (si->shell));
-
-      si->config = StripConfig_init (si->display, cmap, NULL, 0);
-
       for (i = 0; i < STRIPWINDOW_COUNT; i++)
 	{
 	  strcpy (wm_items[i].name, StripWindowTypeStr[i]);
@@ -278,7 +319,7 @@ Strip	Strip_init	(char *app_name, int *argc, char *argv[])
 	 STRIPDIALOG_WINDOW_MENU,	wm_items, STRIPWINDOW_COUNT,
 	 0);
 
-      si->data		= StripDataBuffer_init ();
+      si->data = StripDataBuffer_init ();
       tmp_dbl = ceil
 	((double)si->config->Time.timespan /
 	 si->config->Time.sample_interval);
@@ -288,7 +329,7 @@ Strip	Strip_init	(char *app_name, int *argc, char *argv[])
       */
       StripDataBuffer_setattr (si->data, SDB_NUMSAMPLES, (size_t)tmp_dbl, 0);
       
-      si->graph		= StripGraph_init
+      si->graph = StripGraph_init
 	(si->display, XtWindow (si->canvas), si->config);
       StripGraph_setattr
 	(si->graph,
@@ -320,6 +361,11 @@ Strip	Strip_init	(char *app_name, int *argc, char *argv[])
 	  si->curves[i].status		= 0;
 	}
 
+      strcpy (si->print_info.dev_name, STRIP_PRINTER_DEVNAME);
+      strcpy (si->print_info.pr_name, STRIP_PRINTER_NAME);
+      si->print_info.is_color = STRIP_PRINTER_ISCOLOR;
+      si->grab_count = 0;
+
       si->fdmgr_context = fdmgr_init ();
       fd = ConnectionNumber (si->display);
       Strip_addfd (si, fd, Strip_process_X, si);
@@ -335,14 +381,14 @@ Strip	Strip_init	(char *app_name, int *argc, char *argv[])
       /* this little snippet insures that an expose event will be generated
        * every time the window is resized --not just when its size increases
        */
-      xwa.bit_gravity = ForgetGravity;
-      xwa.background_pixel = si->config->Color.background;
+      xswa.bit_gravity = ForgetGravity;
+      xswa.background_pixel = si->config->Color.background;
       XChangeWindowAttributes
 	(si->display, XtWindow (si->canvas),
-	 CWBitGravity | CWBackPixel, &xwa);
+	 CWBitGravity | CWBackPixel, &xswa);
       XChangeWindowAttributes
 	(si->display, XtWindow (si->shell),
-	 CWBitGravity | CWBackPixel, &xwa);
+	 CWBitGravity | CWBackPixel, &xswa);
       XtAddCallback (si->canvas, XmNresizeCallback, callback, si);
       XtAddCallback (si->canvas, XmNexposeCallback, callback, si);
       XtAddCallback (si->canvas, XmNinputCallback, callback, si);
@@ -361,6 +407,8 @@ Strip	Strip_init	(char *app_name, int *argc, char *argv[])
 void	Strip_delete	(Strip the_strip)
 {
   StripInfo	*si = (StripInfo *)the_strip;
+  Colormap	cmap = StripConfig_getcmap (si->config);
+  Display	*disp = si->display;
 
   StripGraph_delete 		(si->graph);
   StripDataBuffer_delete 	(si->data);
@@ -369,6 +417,7 @@ void	Strip_delete	(Strip the_strip)
   ListDialog_delete		(si->list_dlg);
 
   XtDestroyWidget (si->toplevel);
+  XFreeColormap (disp, cmap);
   free (si);
 }
 
@@ -626,15 +675,8 @@ int	Strip_connectcurve	(Strip the_strip, StripCurve the_curve)
       gettimeofday (&sci->connect_request, &tz);
       
       if (ret_val = si->connect_func (the_curve, si->connect_data))
-	{
-	  if (!StripCurve_getstat (the_curve,  STRIPCURVE_CONNECTED))
-	    {
-	      Strip_watchevent (si, STRIPEVENTMASK_CHECK_CONNECT);
-	      curve[0] = the_curve;
-	      curve[1] = (StripCurve)0;
-	      ListDialog_addcurves (si->list_dlg, curve);
-	    }
-	}
+	if (!StripCurve_getstat (the_curve,  STRIPCURVE_CONNECTED))
+	  Strip_setwaiting (the_strip, the_curve);
     }
   else
     {
@@ -658,9 +700,15 @@ void	Strip_setconnected	(Strip the_strip, StripCurve the_curve)
   StripCurve		curve[2];
   int			*n;
 
-  StripDialog_addcurve (si->dialog, the_curve);
-  StripDataBuffer_addcurve (si->data, the_curve);
-  StripGraph_addcurve (si->graph, the_curve);
+  /* add the curve to the various modules only once --the first time it
+   * is connected
+   */
+  if (!StripCurve_getstat (the_curve, STRIPCURVE_CONNECTED))
+    {
+      StripDialog_addcurve (si->dialog, the_curve);
+      StripDataBuffer_addcurve (si->data, the_curve);
+      StripGraph_addcurve (si->graph, the_curve);
+    }
 
   StripCurve_clearstat
     (the_curve, STRIPCURVE_WAITING | STRIPCURVE_CHECK_CONNECT);
@@ -679,6 +727,24 @@ void	Strip_setconnected	(Strip the_strip, StripCurve the_curve)
   ListDialog_removecurves (si->list_dlg, curve);
   if (ListDialog_count (si->list_dlg) == 0)
     ListDialog_popdown (si->list_dlg);
+}
+
+
+/*
+ * Strip_setwaiting
+ */
+void	Strip_setwaiting	(Strip the_strip, StripCurve the_curve)
+{
+  StripInfo		*si = (StripInfo *)the_strip;
+  StripCurveInfo	*sci = (StripCurveInfo *)the_curve;
+  StripCurve		curve[2];
+
+  StripCurve_setstat
+    (the_curve, STRIPCURVE_WAITING | STRIPCURVE_CHECK_CONNECT);
+  Strip_watchevent (si, STRIPEVENTMASK_CHECK_CONNECT);
+  curve[0] = the_curve;
+  curve[1] = (StripCurve)0;
+  ListDialog_addcurves (si->list_dlg, curve);
 }
 
 
@@ -1342,7 +1408,7 @@ static void	dlgrequest_dismiss	(void *client, void *call)
       StripDialog_getattr (si->dialog, STRIPDIALOG_SHELL_WIDGET, &tmp_w, 0);
       MessageBox_popup
 	(tmp_w, &si->message_box,
-	 "You can't dismiss all your windows", "I see");
+	 "You can't dismiss all your windows", "Ok");
     }
 }
 
@@ -1545,6 +1611,9 @@ static void	PopupMenu_cb	(Widget w, XtPointer client, XtPointer blah)
 {
   PopupMenuItem	item = (PopupMenuItem)client;
   StripInfo	*si;
+  Widget        tmp_w;
+  char		cmd_buf[256];
+  pid_t		pid;
 
   XtVaGetValues (XtParent(w), XmNuserData, &si, NULL);
 
@@ -1555,11 +1624,37 @@ static void	PopupMenu_cb	(Widget w, XtPointer client, XtPointer blah)
       break;
       
     case POPUPMENU_PRINT:
-      fprintf (stdout, "Print\n");
+      /* fprintf (stdout, "Print\n");
+       */
+      window_map (si->display, XtWindow(si->shell));
+      sprintf
+	(cmd_buf,
+	 "xwd -id %d"
+	 " | xpr -device %s %s"
+	 " | lp -d%s -onb",
+	 XtWindow (si->shell),
+	 si->print_info.dev_name,
+	 si->print_info.is_color? " " : "-gray 4",
+	 si->print_info.pr_name);
+      
+      if (pid = fork ())
+	{
+	  execl ("/bin/sh", "sh", "-c", cmd_buf, 0);
+	  exit (0);
+	}
       break;
       
     case POPUPMENU_SNAPSHOT:
-      fprintf (stdout, "Snapshot\n");
+      window_map (si->display, XtWindow(si->shell));
+      sprintf
+	(cmd_buf,
+	 "xwd -id %d | xwud -raw",
+	 XtWindow (si->shell));
+      if (pid = fork ())
+	{
+	  execl ("/bin/sh", "sh", "-c", cmd_buf, 0);
+	  exit (0);
+	}
       break;
       
     case POPUPMENU_DUMP:
@@ -1571,125 +1666,12 @@ static void	PopupMenu_cb	(Widget w, XtPointer client, XtPointer blah)
 	window_unmap (si->display, XtWindow (si->shell));
       else MessageBox_popup
 	(si->shell, &si->message_box,
-	 "Do you really want to dismiss away all your windows?",
-	 "No, not really");
+	 "You can't dismiss all your windows",
+	 "Ok");
       break;
       
     case POPUPMENU_QUIT:
       dlgrequest_quit ((void *)si, NULL);
-      break;
-    }
-}
-
-
-
-/* ====== MessageBox stuff ====== */
-typedef enum
-{
-  MSGBOX_OK = 0,
-  MSGBOX_MAP
-}
-MsgBoxEvent;
-
-/*
- * MessageBox_popup
- */
-static void	MessageBox_popup 	(Widget 	parent,
-					 Widget		*message_box,
-					 char 		*msg_txt,
-					 char 		*ok_txt)
-{
-  XmString	msg;
-  XmString	ok;
-
-  if (*message_box != (Widget)0)
-    if (parent != XtParent (*message_box))
-      {
-	XtDestroyWidget (*message_box);
-	*message_box = (Widget)0;
-      }
-  if (*message_box == (Widget)0)
-    *message_box = XmCreateMessageDialog (parent, "Oops", NULL, 0);
-  
-  msg = XmStringCreateLocalized (msg_txt);
-  if (ok_txt == NULL) ok_txt = "Ok";
-  ok = XmStringCreateLocalized (ok_txt);
-
-  XtVaSetValues
-    (*message_box,
-     XmNdialogType,		XmDIALOG_MESSAGE,
-     XmNdefaultButtonType,	XmDIALOG_OK_BUTTON,
-     XmNnoResize,		True,
-     XmNdefaultPosition,	False,
-     XmNmessageString,		msg,
-     XmNokLabelString,		ok,
-     NULL);
-
-  XtUnmanageChild
-    (XmMessageBoxGetChild (*message_box, XmDIALOG_CANCEL_BUTTON));
-  XtUnmanageChild
-    (XmMessageBoxGetChild (*message_box, XmDIALOG_HELP_BUTTON));
-
-  XtAddCallback
-    (*message_box, XmNokCallback, MessageBox_cb, (XtPointer)MSGBOX_OK);
-  XtAddCallback
-    (*message_box, XmNmapCallback, MessageBox_cb, (XtPointer)MSGBOX_MAP);
-
-  XmStringFree (msg);
-  XmStringFree (ok);
-
-  XtManageChild (*message_box);
-  XtPopup (XtParent (*message_box), XtGrabNone);
-}
-
-/*
- * MessageBox_cb
- */
-static void	MessageBox_cb	(Widget w, XtPointer client, XtPointer blah)
-{
-  MsgBoxEvent		event = (MsgBoxEvent)client;
-  Window		root, child;
-  int			root_x, root_y;
-  int			win_x, win_y;
-  unsigned		mask;
-  int			screen;
-  Display		*display;
-  XWindowAttributes	xwa;
-  Dimension		width, height;
-
-  switch (event)
-    {
-    case MSGBOX_MAP:
-
-      /* find out where the pointer is */
-      display = XtDisplay (w);
-      screen = DefaultScreen (display);
-      XQueryPointer
-	(XtDisplay (w), RootWindow (display, screen), 
-	 &root, &child,
-	 &root_x, &root_y,
-	 &win_x, &win_y,
-	 &mask);
-
-      if (child != (Window)0)
-	XGetWindowAttributes (display, child, &xwa);
-      else XGetWindowAttributes (display, root, &xwa);
-
-      XtVaGetValues (w, XmNwidth, &width, XmNheight, &height, NULL);
-
-      /* place the dialog box in the center of the window in which the
-       * pointer currently resides */
-      XtVaSetValues
-	(w,
-	 XmNx,			xwa.x + ((xwa.width - (int)width)/2),
-	 XmNy,			xwa.y + ((xwa.height - (int)height)/2),
-	 NULL);
-      
-      break;
-
-
-    case MSGBOX_OK:
-
       break;
     }
 }
