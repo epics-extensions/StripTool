@@ -13,6 +13,10 @@
 #define DEBUG_ASSERT 0
 #define PRINT_DESC_ERRORS
 
+/* Keep in mind the interface does not respond for this time and that
+   most of the search requests are at the beginning of the sequence */
+#define RETRY_TIMEOUT 1.0
+
 #include "StripDAQ.h"
 
 #include <cadef.h>
@@ -35,25 +39,25 @@ typedef struct _StripDAQInfo
 
 
 /* ====== Prototypes ====== */
-static void     addfd_callback          (void *, int, int);
-static void     timeout_callback        (XtPointer, XtIntervalId *);
-static void     work_callback           (XtPointer, int *, XtInputId *);
-static void     connect_callback        (struct connection_handler_args);
-static void     info_callback           (struct event_handler_args);
-static void     data_callback           (struct event_handler_args);
-static double   get_value               (void *);
+static void addfd_callback (void *, int, int);
+static void timeout_callback (XtPointer, XtIntervalId *);
+static void work_callback (XtPointer, int *, XtInputId *);
+static void connect_callback (struct connection_handler_args);
+static void info_callback (struct event_handler_args);
+static void data_callback (struct event_handler_args);
+static double get_value (void *);
 #ifdef PEND_DESCRIPTION
-static void     getDescriptionRecord    (char *name,char *description);
+static void getDescriptionRecord (char *name,char *description);
 #else
-static void     requestDescRecord       (StripCurve curve);
-static void     desc_connect_callback   (struct connection_handler_args);
-static void     desc_info_callback      (struct event_handler_args args);
+static void requestDescRecord (StripCurve curve);
+static void desc_connect_callback (struct connection_handler_args);
+static void desc_info_callback (struct event_handler_args args);
 #endif
 
 /*
  * StripDAQ_initialize
  */
-StripDAQ                StripDAQ_initialize     (Strip strip)
+StripDAQ StripDAQ_initialize (Strip strip)
 {
   StripDAQInfo  *sca = NULL;
   int           status;
@@ -88,7 +92,7 @@ StripDAQ                StripDAQ_initialize     (Strip strip)
 /*
  * StripDAQ_terminate
  */
-void            StripDAQ_terminate      (StripDAQ the_sca)
+void StripDAQ_terminate (StripDAQ the_sca)
 {
   ca_task_exit ();
 }
@@ -100,7 +104,7 @@ void            StripDAQ_terminate      (StripDAQ the_sca)
  *
  *      Requests connection for the specified curve.
  */
-int     StripDAQ_request_connect        (StripCurve curve, void *the_sca)
+int StripDAQ_request_connect (StripCurve curve, void *the_sca)
 {
   StripDAQInfo  *sca = (StripDAQInfo *)the_sca;
   int           i;
@@ -161,8 +165,7 @@ int     StripDAQ_request_connect        (StripCurve curve, void *the_sca)
  *      Requests disconnection for the specified curve.
  *      Returns 0 if anything fails, otherwise 1
  */
-int     StripDAQ_request_disconnect     (StripCurve     curve,
-                                         void           *the_sca)
+int StripDAQ_request_disconnect (StripCurve curve, void *the_sca)
 {
   struct _ChannelData   *cd;
   int                   ret_val = 1;
@@ -246,6 +249,76 @@ int     StripDAQ_request_disconnect     (StripCurve     curve,
   return ret_val;
 }
 
+/*
+ * StripDAQ_retry_connections
+ *
+ *      Tries to reconnect to currently unconnected PVs.
+ */
+int StripDAQ_retry_connections (StripDAQ the_sca, Display *display)
+{
+  StripDAQInfo *sca = (StripDAQInfo *)the_sca;
+  int ret_val = 0;
+  int found = 0;
+  int i;
+  const char *pvname = NULL;
+  chid retryChid;
+  int status;
+  
+  /* Check if all channels are connected */
+  for (i = 0; i < STRIP_MAX_CURVES; i++)
+  {
+    if (sca->chan_data[i].chan_id &&
+	ca_state(sca->chan_data[i].chan_id) != cs_conn)
+    {
+	pvname=ca_name(sca->chan_data[i].chan_id);
+	if(!pvname) continue;
+	found=1;
+	break;
+    }
+  }
+  if(!found)
+  {
+    XBell (display,50);
+    return -1;
+  }
+  
+  /* Search */
+    status=ca_search_and_connect(pvname,&retryChid,NULL,NULL);
+    if(status != ECA_NORMAL)
+    {
+	fprintf(stderr,"StripDAQ_retry_connections: ca_search failed "
+	  "for %s: %s\n",
+	  pvname, ca_message(status));
+	ret_val=-1;
+    }
+    
+  /* Wait.  The searches will only continue for this time.  Keep the
+   * time short as the interface is frozen, and most of the searches
+   * occur at the start of the sequence.  Testing indicated:
+   *
+   * RETRY_TIMEOUT Searches
+   *      30          15
+   *       5          10
+   *       3           9
+   *       2           9
+   *       1           8
+   *
+   * but this may vary owing to tuning and may change with new releases.
+   */
+    ca_pend_io(RETRY_TIMEOUT);
+    
+  /* Clear the channel */
+    status = ca_clear_channel(retryChid);
+    if(status != ECA_NORMAL)
+    {
+	fprintf(stderr,"StripDAQ_retry_connections: ca_clear_channel failed "
+	  "for %s: %s\n",
+	  pvname, ca_message(status));
+	ret_val=-1;
+    }
+
+    return ret_val;
+}
 
 /*
  * addfd_callback
@@ -253,7 +326,7 @@ int     StripDAQ_request_disconnect     (StripCurve     curve,
  *      Add new file descriptors to select upon.
  *      Remove old file descriptors from selection.
  */
-static void     addfd_callback  (void *data, int fd, int active)
+static void addfd_callback (void *data, int fd, int active)
 {
   StripDAQInfo  *strip_ca = (StripDAQInfo *)data;
   if (active)
@@ -268,9 +341,9 @@ static void     addfd_callback  (void *data, int fd, int active)
  *
  *      Gives control to Channel Access for a while.
  */
-static void     work_callback           (XtPointer      BOGUS(1),
-                                         int            *BOGUS(2),
-                                         XtInputId      *BOGUS(3))
+static void work_callback (XtPointer      BOGUS(1),
+                           int            *BOGUS(2),
+                           XtInputId      *BOGUS(3))
 {
 #if 0
   /* KE: ca_pend_event will block the program unnecessarily for
@@ -286,7 +359,7 @@ static void     work_callback           (XtPointer      BOGUS(1),
 /*
  * timeout_callback
  */
-static void     timeout_callback        (XtPointer ptr, XtIntervalId *pId)
+static void timeout_callback (XtPointer ptr, XtIntervalId *pId)
 {
   Strip strip = (Strip) ptr;
 #if 0
@@ -304,7 +377,7 @@ static void     timeout_callback        (XtPointer ptr, XtIntervalId *pId)
 /*
  * connect_callback
  */
-static void     connect_callback        (struct connection_handler_args args)
+static void connect_callback (struct connection_handler_args args)
 {
   StripCurve            curve;
   struct _ChannelData   *cd;
@@ -372,7 +445,7 @@ static void     connect_callback        (struct connection_handler_args args)
 /*
  * info_callback
  */
-static void     info_callback           (struct event_handler_args args)
+static void info_callback (struct event_handler_args args)
 {
   StripCurve                    curve;
   struct _ChannelData           *cd;
@@ -449,7 +522,7 @@ static void     info_callback           (struct event_handler_args args)
 /*
  * data_callback
  */
-static void     data_callback           (struct event_handler_args args)
+static void data_callback (struct event_handler_args args)
 {
   StripCurve                    curve;
   struct _ChannelData           *cd;
@@ -488,7 +561,7 @@ static void     data_callback           (struct event_handler_args args)
  *
  *      Returns the current value specified by the CurveData passed in.
  */
-static double   get_value       (void *data)
+static double get_value (void *data)
 {
   struct _ChannelData   *cd = (struct _ChannelData *)data;
 
@@ -502,7 +575,7 @@ static double   get_value       (void *data)
  *
  *      Searches and waits for the description
  */
-static void getDescriptionRecord(char *name, char *description)
+static void getDescriptionRecord (char *name, char *description)
 {
   int status;
   chid id;
@@ -577,7 +650,7 @@ static void getDescriptionRecord(char *name, char *description)
  *
  *      Searches for the description with callback
  */
-static void requestDescRecord(StripCurve curve)
+static void requestDescRecord (StripCurve curve)
 {
   int status;
   static char desc_name[64];

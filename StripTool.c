@@ -29,8 +29,8 @@
 #define CPU_CURVE_MIN           0.00
 #define CPU_CURVE_MAX           100.00
 
-Strip   strip;
-StripDAQ        strip_daq;              /* the Strip data source */
+Strip strip;
+StripDAQ strip_daq;              /* the Strip data source */
 
 #ifdef USE_OLD_FILE_SEARCH
 static FILE     *StripTool_open_file    (char *, char *, int, char *, char *);
@@ -92,6 +92,7 @@ int StripTool_main (int argc, char *argv[])
     (strip,
      STRIP_CONNECT_FUNC,        request_connect,
      STRIP_DISCONNECT_FUNC,     request_disconnect,
+     STRIP_DAQ,                 strip_daq,
      0);
 
   /* now load a config file if requested */

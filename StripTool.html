@@ -524,15 +524,25 @@ dump the current plot data.  If SDDS is implemented, you can choose between
 ASCII and SDDS formats.  Otherwise the file is ASCII.  An existing file will
 be overwritten without notification.</p>
 
+<p><strong>Retry Connections</strong></p>
+
+<p>Causes StripTool to reissue search requests for unconnected PVs. This
+should not normally be necessary, as outstanding search requests will happen
+automatically whenever a server comes up. If StripTool is on a different
+subnet than the server, often the case when the server is a PV Gateway, then
+it may not know a server has come up, and this menu item may be useful to
+cause it to reconnect. It should be used with care as (1) it is a kludge and
+(2) it can cause unnecessary network traffic.</p>
+
+<p><strong>Quit</strong></p>
+
+<p>Terminates StripTool.</p>
+
 <p><strong>Dismiss</strong></p>
 
 <p>Dismisses the Graph Window unless it is the only remaining window.
 Otherwise, asks you if you want to exit. (At least one window needs to be
 mapped or you would not be able to control of the program.)</p>
-
-<p><strong>Quit</strong></p>
-
-<p>Terminates StripTool.</p>
 
 <h2><a name="History">History</a></h2>
 

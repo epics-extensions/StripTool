@@ -570,19 +570,19 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
        xmSeparatorGadgetClass,  w,
        NULL);
     tmp = XtVaCreateManagedWidget
-      ("dismissPushB",
-       xmPushButtonGadgetClass,     w,
-       XmNuserData,                 sd,
-       NULL);
-    XtAddCallback
-      (tmp, XmNactivateCallback, ctrl_btn_cb, (XtPointer)SDCALLBACK_DISMISS);
-    tmp = XtVaCreateManagedWidget
       ("exitPushB",
        xmPushButtonGadgetClass,     w,
        XmNuserData,                 sd,
        NULL);
     XtAddCallback
       (tmp, XmNactivateCallback, ctrl_btn_cb, (XtPointer)SDCALLBACK_QUIT);
+    tmp = XtVaCreateManagedWidget
+      ("dismissPushB",
+       xmPushButtonGadgetClass,     w,
+       XmNuserData,                 sd,
+       NULL);
+    XtAddCallback
+      (tmp, XmNactivateCallback, ctrl_btn_cb, (XtPointer)SDCALLBACK_DISMISS);
 
     sd->window_menu_info.menu = XmCreatePulldownMenu
       (menu, "windowPulldown", NULL, 0);

@@ -33,6 +33,7 @@ typedef enum
   STRIP_DISCONNECT_DATA,        /* (void *)                             rw */
   STRIP_QUIT_FUNC,              /* (StripCallback)                      rw */
   STRIP_QUIT_DATA,              /* (void *)                             rw */
+  STRIP_DAQ,                    /* (void *)                             rw */
   STRIP_LAST_ATTRIBUTE
 }
 StripAttribute;

@@ -24,7 +24,7 @@ typedef void *  StripDAQ;
  *
  *      Initializes DAQ subsystem and allocates internal resources.
  */
-StripDAQ        StripDAQ_initialize     (Strip);
+StripDAQ StripDAQ_initialize (Strip);
 
 
 /*
@@ -32,7 +32,7 @@ StripDAQ        StripDAQ_initialize     (Strip);
  *
  *      Exits Channel Access, freeing allocated resources.
  */
-void            StripDAQ_terminate      (StripDAQ);
+void StripDAQ_terminate (StripDAQ);
 
 
 /*
@@ -41,7 +41,7 @@ void            StripDAQ_terminate      (StripDAQ);
  *      Requests that the signal specified in the StripCurve be connected
  *      to the DAQ subsystem.
  */
-int             StripDAQ_request_connect        (StripCurve, void *);
+int StripDAQ_request_connect (StripCurve, void *);
 
 
 /*
@@ -50,6 +50,13 @@ int             StripDAQ_request_connect        (StripCurve, void *);
  *      Requests that the signal specified in the StripCurve be disconnected
  *      from the DAQ subsystem.
  */
-int             StripDAQ_request_disconnect     (StripCurve, void *);
+int StripDAQ_request_disconnect (StripCurve, void *);
+
+/*
+ * StripDAQ_retry_connections
+ *
+ *      Tries to reconnect to currently unconnected PVs.
+ */
+int StripDAQ_retry_connections (StripDAQ the_sca, Display *display);
 
 #endif
