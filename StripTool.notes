@@ -205,3 +205,8 @@ Replaced malloc.h with stdlib.h.
 
 Mon Mar 22, 2004 - StripTool-2-5-5-0 - evans
 Made license changes.
+
+Tue Mar 30, 2004 - StripTool-2-5-6-0 - evans
+Fixed fork() was handled backwards causing main process to print
+instead of child.  In 3.14 only main thread was passed to the
+continuing process, and it had a new PID every time printing occurred.
