@@ -63,6 +63,7 @@
 
 #define DEBUG1 0
 #define DEBUG_SDS_TIMES 0
+#define DEBUG_SDDS 0
 
 #ifdef USE_SDDS
 #include "SDDS.h"
@@ -1487,10 +1488,14 @@ StripDataSource_dump_sdds    (StripDataSource        the_sds,
   time_t                tt;
   double                time;
   int                   msec;
-  int                   i, j;
+  int                   i, i0, j, row;
   SDDS_TABLE            Table;
   long                  rowIndex;
   long                  numRows;
+
+#if DEBUG_SDDS
+  printf("StripDataSource_dump_sdds:\n");
+#endif  
 
   /* if range is not initialized, return failure */
   if (sds->idx_t0 == sds->idx_t1) return 0;
@@ -1500,7 +1505,8 @@ StripDataSource_dump_sdds    (StripDataSource        the_sds,
   if (i >= STRIP_MAX_CURVES) return 0;
 
   /* Initializes a SDDS_TABLE structure for use writing data to a SDDS file */
-  if (!SDDS_InitializeOutput(&Table,SDDS_BINARY,1L,DUMP_SDDS_DESCRIPTION,DUMP_SDDS_CONTENTS,fName))
+  if (!SDDS_InitializeOutput(&Table,SDDS_BINARY,1L,DUMP_SDDS_DESCRIPTION,
+	  DUMP_SDDS_CONTENTS,fName))
     SDDS_PrintErrors(stderr,SDDS_VERBOSE_PrintErrors|SDDS_EXIT_PrintErrors);
 
   /* Processes definition of the time column */
@@ -1513,12 +1519,14 @@ StripDataSource_dump_sdds    (StripDataSource        the_sds,
     if (sds->buffers[i].curve)
     {
       if(SDS_DUMP_NUMWIDTH>sds->buffers[i].curve->details->precision)
-        sprintf(buf,"%%%d.%dg",SDS_DUMP_NUMWIDTH,sds->buffers[i].curve->details->precision);
+        sprintf(buf,"%%%d.%dg",SDS_DUMP_NUMWIDTH,
+	    sds->buffers[i].curve->details->precision);
       else
         sprintf(buf,"%%%dg",SDS_DUMP_NUMWIDTH);
       if (SDDS_DefineColumn(&Table, sds->buffers[i].curve->details->name,NULL,
-        sds->buffers[i].curve->details->egu, sds->buffers[i].curve->details->comment,
-        buf, SDDS_DOUBLE, 0) == -1)
+		sds->buffers[i].curve->details->egu,
+		sds->buffers[i].curve->details->comment,
+		buf, SDDS_DOUBLE, 0) == -1)
         SDDS_PrintErrors(stderr, SDDS_VERBOSE_PrintErrors|SDDS_EXIT_PrintErrors);
     }
 
@@ -1527,20 +1535,44 @@ StripDataSource_dump_sdds    (StripDataSource        the_sds,
     SDDS_PrintErrors(stderr, SDDS_VERBOSE_PrintErrors|SDDS_EXIT_PrintErrors);
 
   /* Initializes a SDDS_TABLE structure */
-  numRows = ((sds->idx_t1 - sds->idx_t0 ) % sds->buf_size) + 1;
-  for (i = sds->idx_t0; i != sds->idx_t1; i = (i+1) % sds->buf_size)
-    if (!SDDS_StartTable(&Table, numRows))
-	SDDS_PrintErrors(stderr, SDDS_VERBOSE_PrintErrors|SDDS_EXIT_PrintErrors);
+  numRows = sds->count;
+  if (!SDDS_StartTable(&Table, numRows))
+    SDDS_PrintErrors(stderr, SDDS_VERBOSE_PrintErrors|SDDS_EXIT_PrintErrors);
+
+#if DEBUG_SDDS
+  printf("  sds->idx_t0=%ld sds->idx_t1=%ld sds->cur_idx=%ld sds->buf_size=%ld\n",
+    (long)sds->idx_t0,(long)sds->idx_t1,(long)sds->cur_idx,(long)sds->buf_size);
+  printf("  sds->count=%ld sds->bin_size=%g sds->n_bins=%ld\n",
+    (long)sds->count,sds->bin_size,(long)sds->n_bins);
+  printf("  numRows=%ld\n",numRows);
+#if 0
+  for(i=0; i < sds->buf_size; i++) {
+    printf("%4d",i);
+    for(j=0; j < STRIP_MAX_CURVES; j++) {
+      if (sds->buffers[j].curve) {
+	  printf(" %2d %10.4f",j,sds->buffers[j].val[i]);
+	}
+    }
+    printf("\n");
+  }
+#endif  
+#endif  
 
   /* Set SDDS table values */
   rowIndex = 0;
-  for (i = sds->idx_t0; i != sds->idx_t1; i = (i+1) % sds->buf_size)
+  /* Data is from 1 to cur_idx until it wraps, then it is from
+   * cur_idx+1 to buf_size-1 and from 0 to cur_idx. */
+  if(sds->count < sds->buf_size) i0 = 1;
+  else i0 = sds->cur_idx + 1;
+  for (row = 0; row < numRows; row++)
   {
+    /* Determine the index in the circular buffer */
+    i=(i0 + row) % sds->buf_size;
+    
     /* Format sample time column value */
     tt = (time_t)sds->times[i].tv_sec;
     msec = (int)(sds->times[i].tv_usec / ONE_THOUSAND);
     time = (double)tt + ((double)msec / (double)ONE_THOUSAND);
-
 
     /* Set time value */
     if (SDDS_SetRowValues(&Table, SDDS_SET_BY_NAME|SDDS_PASS_BY_VALUE, rowIndex,
@@ -1555,26 +1587,33 @@ StripDataSource_dump_sdds    (StripDataSource        the_sds,
         if (sds->buffers[j].stat[i] & DATASTAT_PLOTABLE)
         {
           if (SDDS_SetRowValues(&Table, SDDS_SET_BY_NAME|SDDS_PASS_BY_VALUE,
-            rowIndex, sds->buffers[j].curve->details->name, sds->buffers[j].val[i], NULL) != 1)
-            SDDS_PrintErrors(stderr, SDDS_VERBOSE_PrintErrors|SDDS_EXIT_PrintErrors);
+		    rowIndex, sds->buffers[j].curve->details->name,
+		    sds->buffers[j].val[i], NULL) != 1)
+            SDDS_PrintErrors(stderr,
+		  SDDS_VERBOSE_PrintErrors|SDDS_EXIT_PrintErrors);
         }
 #if 0
         else
         {
           if (SDDS_SetRowValues(&Table, SDDS_SET_BY_NAME|SDDS_PASS_BY_VALUE,
             rowIndex, sds->buffers[j].curve->details->name, "NaN", NULL) != 1)
-            SDDS_PrintErrors(stderr, SDDS_VERBOSE_PrintErrors|SDDS_EXIT_PrintErrors);
+            SDDS_PrintErrors(stderr,
+		  SDDS_VERBOSE_PrintErrors|SDDS_EXIT_PrintErrors);
         }
 #endif
       }
     ++rowIndex;
   }
+#if DEBUG_SDDS
+  printf("  numIndex=%ld numRows=%ld\n",rowIndex,numRows);
+#endif  
 
   /* Writes out the current data table */
   if (!SDDS_WriteTable(&Table))
     SDDS_PrintErrors(stderr, SDDS_VERBOSE_PrintErrors|SDDS_EXIT_PrintErrors);
 
-  /* Erases the data set description and frees all memory being used for a data set. */
+  /* Erases the data set description and frees all memory being used
+   * for a data set. */
   if (!SDDS_Terminate(&Table))
     SDDS_PrintErrors(stderr, SDDS_VERBOSE_PrintErrors|SDDS_EXIT_PrintErrors);
 

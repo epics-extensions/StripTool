@@ -91,11 +91,11 @@ static int debug=1;
 static int debug=0;
 #endif /*DEBUG*/
 
-#define DEBUG_PRINT1(a) if (debug) printf (a)
-#define DEBUG_PRINT2(a, b) if (debug) printf (a, b)
-#define DEBUG_PRINT3(a, b, c) if (debug) printf (a, b, c)
-#define DEBUG_PRINT4(a, b, c, d) if (debug) printf (a, b, c, d)
-#define DEBUG_PRINT5(a, b, c, d, e) if (debug) printf (a, b, c, d, e)
+#define DEBUGPRINT1(a) if (debug) printf (a)
+#define DEBUGPRINT2(a, b) if (debug) printf (a, b)
+#define DEBUGPRINT3(a, b, c) if (debug) printf (a, b, c)
+#define DEBUGPRINT4(a, b, c, d) if (debug) printf (a, b, c, d)
+#define DEBUGPRINT5(a, b, c, d, e) if (debug) printf (a, b, c, d, e)
 
 
 /* ---------------------------------------------------------------------- */
@@ -733,7 +733,7 @@ XRotDrawHorizontalString        (Display        *dpy,
     int dir, asc, desc;
     XCharStruct overall;
 
-    DEBUG_PRINT1("**\nHorizontal text.\n");
+    DEBUGPRINT1("**\nHorizontal text.\n");
 
     /* this gc has similar properties to the user's gc (including stipple) */
     my_gc=XCreateGC(dpy, drawable, 0, 0);
@@ -828,21 +828,21 @@ XRotRetrieveFromCache   (Display        *dpy,
     
     /* get font name, if it exists */
     if(XGetFontProperty(font, XA_FONT, &name_value)) {
-        DEBUG_PRINT1("got font name OK\n");
+        DEBUGPRINT1("got font name OK\n");
         font_name=XGetAtomName(dpy, name_value);
         fid=0;
     }
 #ifdef CACHE_FID
     /* otherwise rely (unreliably?) on font ID */
     else {
-        DEBUG_PRINT1("can't get fontname, caching FID\n");
+        DEBUGPRINT1("can't get fontname, caching FID\n");
         font_name=NULL;
         fid=font->fid;
     }
 #else
     /* not allowed to cache font ID's */
     else {
-        DEBUG_PRINT1("can't get fontname, can't cache\n");
+        DEBUGPRINT1("can't get fontname, can't cache\n");
         font_name=NULL;
         fid=0;
     }
@@ -870,7 +870,7 @@ XRotRetrieveFromCache   (Display        *dpy,
             if(font_name!=NULL && i1->font_name!=NULL) {
                 if(strcmp(font_name, i1->font_name)==0) {
                     item=i1;
-                    DEBUG_PRINT1("Matched against font names\n");
+                    DEBUGPRINT1("Matched against font names\n");
                 }
                 else
                     i1=i1->next;
@@ -879,7 +879,7 @@ XRotRetrieveFromCache   (Display        *dpy,
             else if(font_name==NULL && i1->font_name==NULL) {
                 if(fid==i1->fid) {
                     item=i1;
-                    DEBUG_PRINT1("Matched against FID's\n");
+                    DEBUGPRINT1("Matched against FID's\n");
                 }
                 else
                     i1=i1->next;
@@ -893,9 +893,9 @@ XRotRetrieveFromCache   (Display        *dpy,
     }
     
     if(item)
-        DEBUG_PRINT1("**\nFound target in cache.\n");
+        DEBUGPRINT1("**\nFound target in cache.\n");
     if(!item)
-        DEBUG_PRINT1("**\nNo match in cache.\n");
+        DEBUGPRINT1("**\nNo match in cache.\n");
 
     /* no match */
     if(!item) {
@@ -1358,17 +1358,17 @@ XRotAddToLinkedList     (Display *dpy, RotatedTextItem *item)
             i++;
             i1=i1->next;
         }
-        DEBUG_PRINT2("Cache has %d items.\n", i);
+        DEBUGPRINT2("Cache has %d items.\n", i);
         i1=first_text_item;
     }
 #endif
 
-    DEBUG_PRINT4("current cache size=%ld, new item=%ld, limit=%d\n",
+    DEBUGPRINT4("current cache size=%ld, new item=%ld, limit=%d\n",
                  current_size, item->size, CACHE_SIZE_LIMIT*1024);
 
     /* if this item is bigger than whole cache, forget it */
     if(item->size>CACHE_SIZE_LIMIT*1024) {
-        DEBUG_PRINT1("Too big to cache\n\n");
+        DEBUGPRINT1("Too big to cache\n\n");
         item->cached=0;
         return;
     }
@@ -1376,15 +1376,15 @@ XRotAddToLinkedList     (Display *dpy, RotatedTextItem *item)
     /* remove elements from cache as needed */
     while(i1 && current_size+item->size>CACHE_SIZE_LIMIT*1024) {
 
-        DEBUG_PRINT2("Removed %ld bytes\n", i1->size);
+        DEBUGPRINT2("Removed %ld bytes\n", i1->size);
 
         if(i1->font_name!=NULL)
-            DEBUG_PRINT5("  (`%s'\n   %s\n   angle=%f align=%d)\n",
+            DEBUGPRINT5("  (`%s'\n   %s\n   angle=%f align=%d)\n",
                          i1->text, i1->font_name, i1->angle, i1->align);
 
 #ifdef CACHE_FID
         if(i1->font_name==NULL)
-            DEBUG_PRINT5("  (`%s'\n  FID=%ld\n   angle=%f align=%d)\n",
+            DEBUGPRINT5("  (`%s'\n  FID=%ld\n   angle=%f align=%d)\n",
                          i1->text, i1->fid, i1->angle, i1->align);
 #endif /*CACHE_FID*/
 
@@ -1417,7 +1417,7 @@ XRotAddToLinkedList     (Display *dpy, RotatedTextItem *item)
 
     item->cached=1;
 
-    DEBUG_PRINT1("Added item to cache.\n");
+    DEBUGPRINT1("Added item to cache.\n");
 }
 
 

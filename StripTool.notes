@@ -216,3 +216,6 @@ Added timestamps and PV name to connection messages.  Added "Retry
 Connections" to popup menu.  Added StripDAQ to StripInfo.  Moved
 "Dismiss" to bottom of File menu instead of "Quit" to make it harder
 to Quit unintentionally..
+
+Thu Jul 22, 2004 - StripTool-2-5-7-0 - evans
+

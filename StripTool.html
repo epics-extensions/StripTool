@@ -312,10 +312,14 @@ src="StripTool.controls.png"></p>
 Options.</p>
 
 <p>To modify the Time Controls, you click the Modify Button, which is
-replaced by Cancel and Update buttons.  The values become text boxes which
-you can edit.  The new values take effect when you click Update.  The Time
-Span is specified in Hours, Minutes, and Seconds.  You can also specify the
-Ring Buffer Size, Data Sample Interval, and Graph Redraw Interval.</p>
+replaced by Cancel and Update buttons. The values become text boxes which you
+can edit. The new values take effect when you click Update. The Time Span is
+specified in Hours, Minutes, and Seconds. You can also specify the Ring
+Buffer Size, Data Sample Interval, and Graph Redraw Interval. The Time Span
+must be greater than or equal to 1 sec. The Ring Buffer Size must be from
+7,200 to 65,536 and never decreases. The Data Sample Interval must be greater
+than or equal to 0.01 sec. The Graph Redraw Interval must be greater than or
+equal to 0.1 sec.</p>
 
 <p>You modify the Graph Options individually.  The Graph Foreground, Graph
 Background, and Grid Color are modified by clicking on the colored buttons,
@@ -342,11 +346,13 @@ with a new name, with the same set of options for which parts you want to
 save.  The <strong>Save</strong> item saves the current configuration in the
 file from which it was previous loaded or saved.  The <strong>Clear</strong>
 item removes all the curves from the configuration and takes them off the
-graph.  The <strong>Dismiss Window</strong> item dismisses the Controls
+graph. The <strong>Exit Program</strong> item terminates StripTool.
+Finally,the <strong>Dismiss Window</strong> item dismisses the Controls
 Window unless it is the only remaining window. Otherwise, it asks you if you
 want to exit. (At least one window needs to be mapped or you would not be
-able to control of the program.)  Finally, the <strong>Exit Program</strong>
-item terminates StripTool.</p>
+able to control of the program.). This item is at the end so you are less
+likely to terminate StripTool when you only intended to close the Controls
+Window.</p>
 
 <p><strong>Window</strong></p>
 
@@ -520,9 +526,10 @@ window to dismiss it.  Not implemented for WIN32.  See Print.</p>
 <p><strong>Dump Data...</strong></p>
 
 <p>Brings up a File Selection Dialog for you to choose a file into which to
-dump the current plot data.  If SDDS is implemented, you can choose between
-ASCII and SDDS formats.  Otherwise the file is ASCII.  An existing file will
-be overwritten without notification.</p>
+dump the current plot data. If SDDS is implemented, you can choose between
+ASCII and SDDS formats. Otherwise the file is ASCII. The ASCII dump is of the
+visible part of the plot. The SDDS dump is of the entire buffer. An existing
+file will be overwritten without notification.</p>
 
 <p><strong>Retry Connections</strong></p>
 

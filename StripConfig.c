@@ -483,7 +483,13 @@ int     StripConfig_setattr (StripConfig *scfg, ...)
 	  {
 	    tmp.i = max (tmp.i, STRIPMIN_TIME_NUM_SAMPLES);
 	    tmp.i = min (tmp.i, STRIPMAX_TIME_NUM_SAMPLES);
+#if 0	    
 	    scfg->Time.num_samples = tmp.i;
+#else
+	    /* KE: The buffer is never lowered in size.  See:
+	     * StripDataSource_setattr */
+	    scfg->Time.num_samples = max (tmp.i, scfg->Time.num_samples);
+#endif	    
 	    StripConfigMask_set
 		(&scfg->UpdateInfo.update_mask, SCFGMASK_TIME_NUM_SAMPLES);
 	  }
