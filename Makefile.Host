@@ -117,7 +117,8 @@ endif
 
 
 
-USR_LIBS	= Xm Xt X11 Xext Xp
+USR_LIBS_default	= Xm Xt X11 Xext Xp
+USR_LIBS_solaris	= Xm Xt X11 Xext
 USR_LIBS	+= ca Db Com
 SYS_PROD_LIBS	= m
 
