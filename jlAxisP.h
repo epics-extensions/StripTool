@@ -6,7 +6,8 @@
 
 #define AXIS_MAX_DIGITS       4
 #define AXIS_MAX_LABEL        32
-#define AXIS_TIC_LENGTH       7
+#define AXIS_MAJOR_TIC_LENGTH 5
+#define AXIS_MINOR_TIC_LENGTH 2
 #define AXIS_LABEL_MAX_SKEW   2
 #define AXIS_LABEL_PAD        2
 

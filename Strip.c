@@ -100,8 +100,8 @@
 
 #ifdef WIN32
 #elif 0
-// KE: Don't know what this is used with and want to make unistd.h be
-// the default.  So leave it out for now.
+/* KE: Don't know what this is used with and want to make unistd.h be
+the default.  So leave it out for now. */
 # include <vfork.h>
 #else
 # include <unistd.h>

@@ -4,12 +4,16 @@
 #include <Xm/Xm.h>
 #include <limits.h>
 
+#define AXIS_MIN_MAJOR_TICS   4
+#define AXIS_MAX_MAJOR_TICS   6
+
+
 /* AXIS_(MIN/MAX)_TICS
  *
  *      Min/max number of tics permitted on axis.
  */
-#define AXIS_MIN_TICS           3
-#define AXIS_MAX_TICS           10
+#define AXIS_MIN_TICS            AXIS_MIN_MAJOR_TICS
+#define AXIS_MAX_TICS            (AXIS_MAX_MAJOR_TICS * 12)
 
 
 /* AxisDirection

@@ -8,6 +8,7 @@
 #include <math.h>
 #include <time.h>
 
+
 #define offset(field) XtOffsetOf(AxisRec, field)
 
 #define DEFAULT_MIN_MARGIN      50
@@ -29,15 +30,53 @@ static double           TicDivisorValues[]      = {1, 2, 5, 10};
 
 enum                    TimeUnitNames
 {
-  Seconds = 0, Minutes, Hours, Days, Weeks, Years, NumTimeUnits
+  Seconds = 0, Minutes, Hours, Days, Weeks, Months, Years, NumTimeUnits
 };
 static char             *TimeUnitNameStrings[]  =
 {
-  "Seconds", "Minutes", "Hours", "Days", "Weeks", "Years"
+  "Seconds", "Minutes", "Hours", "Days", "Weeks", "Months", "Years"
 };
+
 static double           TimeUnitValues[]        =
 {
-  1, 60, 3600, 86400, 604800, 217728000
+  1,                    /* seconds */
+  60,                   /* minutes */
+  60*60,                /* hours */
+  24*60*60,             /* days */
+  7*24*60*60,           /* weeks */
+  30*24*60*60,          /* months */
+  365*24*60*60          /* years */
+};
+
+/* MaxTimeUnits
+ *
+ *  The maximum number of intervals for a particular time unit before adjusting
+ *  scale to the next.
+ */
+static int              MaxTimeIntervals[] =
+{
+  180,                  /* 3 minutes */
+  180,                  /* 3 hours */
+  72,                   /* 3 days */
+  21,                   /* 3 weeks */
+  12,                   /* ~3 months */
+  36,                   /* 3 years */
+  100                   /* a century */
+};
+
+/* TimeFormats
+ *
+ *  Format strings for strftime for corresponding level of detail
+ */
+static const char *     TimeFormats[] =
+{
+  "%H:%M:%S\n%b %d, %Y",      /* seconds */
+  "%H:%M\n%b %d, %Y",         /* minutes */
+  "%H\n%b %d, %Y",            /* hours */
+  "%a\n%b %d, %Y",            /* days */
+  "%a\n%b %d, %Y",            /* weeks */
+  "%b %Y",                    /* months */
+  "%Y"                        /* years */
 };
 
 
@@ -204,7 +243,7 @@ static char                   buf[BUF_SIZE+1];
 
 /* method prototypes
  */
-static void     ClassInitialize   (void);
+static void           ClassInitialize   (void);
 
 static void     Initialize            (Widget,  /* request */
                                      Widget,    /* new */
@@ -267,8 +306,6 @@ static void     find_good_linear_tics   (AxisWidget,    /* for XtAppErrorMsg */
                                      double,          /* min val */
                                      double,          /* max val */
                                      double *,        /* tic magnitude */
-                                     int *,           /* num minor */
-                                     int *,             /* num major */
                                      double *,        /* minor divisor */
                                      double *);       /* major divisor */
 
@@ -1307,77 +1344,378 @@ ComputeTics     (AxisWidget cw)
 static int
 ComputeTimeTics         (AxisWidget cw)
 {
-  double        *m = TimeUnitValues;
-  double        n[NumTimeUnits];
-  double        m_minor, m_major;               /* best divisor */
-  int           n_minor, n_major;               /* num tics for best div. */
-  double        q;
-  double        r;
-  double        a, b;
-  double        delta;
-  time_t        tt;
-  int           best;
-  int           i;
+  double *  m = TimeUnitValues;
+  double    m_minor, m_major;               /* best divisor */
+  double    q = 1;
+  double    r;
+  double    a, b;
+  double    delta;
+  time_t    a_secs, b_secs, secs;
+  struct tm cal = {0, 0};
+  int       best;
+  int       i;
+  int *     tm_field = 0;
+  int       interval;
+  int *     multiplier = 0;
+  int       n_units = 0;
 
   delta = cw->axis.max_val - cw->axis.min_val;
-  best = Seconds;
-  for (i = Seconds; i <= Years; i++)
-  {
-    n[i] = delta / m[i];
-    if ((n[i] > AXIS_MIN_TICS) && (n[i] < n[best]))
-      best = i;
-  }
+  for (best = Seconds; best < Years; best++)
+    if ((delta / m[best]) <= MaxTimeIntervals[best])
+      break;
 
   /* end points are in terms of best units */
   a = cw->axis.min_val / m[best];
   b = cw->axis.max_val / m[best];
+  n_units = (int)(delta / m[best]);
+
+
+  switch (best)
+  {
+  case Seconds:
+  case Minutes:
+    if (n_units <= 5)
+    {
+      m_major = 1;
+      m_minor = 1;
+    }
+    else if (n_units <= 10)
+    {
+      m_major = 2;
+      m_minor = 1;
+    }
+    else if (n_units <= 20)
+    {
+      m_major = 5;
+      m_minor = 1;
+    }
+    else if (n_units <= 40)
+    {
+      m_major = 10;
+      m_minor = 2;
+    }
+    else if (n_units < 90)
+    {
+      m_major = 20;
+      m_minor = 5;
+    }
+    else
+    {
+      m_major = 30;
+      m_minor = 5;
+    }
+    break;
+
+  case Hours:
+    if (n_units <= 5)
+    {
+      m_major = 1;
+      m_minor = 1;
+    }
+    else if (n_units < 12)
+    {
+      m_major = 2;
+      m_minor = 1;
+    }
+    else if (n_units < 20)
+    {
+      m_major = 4;
+      m_minor = 1;
+    }
+    else if (n_units < 30)
+    {
+      m_major = 6;
+      m_minor = 1;
+    }
+    else if (n_units < 60)
+    {
+      m_major = 12;
+      m_minor = 2;
+    }
+    else
+    {
+      m_major = 24;
+      m_minor = 4;
+    }
+    break;
+  
+  case Days:
+    if (n_units <= 5)
+    {
+      m_major = 1;
+      m_minor = 1;
+    }
+    else if (n_units < 12)
+    {
+      m_major = 2;
+      m_minor = 1;
+    }
+    else if (n_units < 20)
+    {
+      m_major = 4;
+      m_minor = 1;
+    }
+    else
+    {
+      m_major = 7;
+      m_minor = 1;
+    }
+    break;
+  
+  case Weeks:
+    if (n_units <= 5)
+    {
+      m_major = 1;
+      m_minor = 1;
+    }
+    else if (n_units < 12)
+    {
+      m_major = 2;
+      m_minor = 1;
+    }
+    else
+    {
+      m_major = 4;
+      m_minor = 1;
+    }
+    break;
+  
+  case Months:
+    if (n_units <= 5)
+    {
+      m_major = 1;
+      m_minor = 1;
+    }
+    else if (n_units < 10)
+    {
+      m_major = 2;
+      m_minor = 1;
+    }
+    else if (n_units < 15)
+    {
+      m_major = 3;
+      m_minor = 1;
+    }
+    else if (n_units < 20)
+    {
+      m_major = 4;
+      m_minor = 1;
+    }
+    else if (n_units < 30)
+    {
+      m_major = 6;
+      m_minor = 1;
+    }
+    else
+    {
+      m_major = 12;
+      m_minor = 2;
+    }
+    break;
+  
+  case Years:
+  default:
+    if (n_units <= 5)
+    {
+      m_major = 1;
+      m_minor = 1;
+    }
+    else if (n_units < 12)
+    {
+      m_major = 2;
+      m_minor = 1;
+    }
+    else if (n_units < 24)
+    {
+      m_major = 4;
+      m_minor = 1;
+    }
+    else if (n_units < 30)
+    {
+      m_major = 5;
+      m_minor = 1;
+    }
+    else if (n_units < 60)
+    {
+      m_major = 10;
+      m_minor = 2;
+    }
+    else if (n_units < 120)
+    {
+      m_major = 20;
+      m_minor = 5;
+    }
+    else
+    {
+      m_major = 50;
+      m_minor = 50;
+    }
+    
+    break;
+  }
 
   /* ABSTIME
    *
    *    The tic marks must fall on intuitive points, and the
-   *    values must readily present the corresponding date.
+   *    values must readily present the corresponding dates.
    */
   if (cw->axis.value_type == XjAXIS_ABSTIME)
   {
-    find_good_linear_tics
-      (cw, True, a, b, &q, &n_minor, &n_major, &m_minor, &m_major);
+    /* finding the first tic location is somewhat different for time than
+     * for real numbers, since time units don't necessarily occupy
+     * consistent intervals (for example, some years have more seconds than
+     * others).  So, in order to find the first boundary, truncate the
+     * current resolution units in the min value, and then add one.
+     */
+#if 0
+  /* KE: localtime_r is not Posix and is not available on WIN32 */
+    a_secs = (time_t)cw->axis.min_val;
+    localtime_r (&a_secs, &cal);
+#else
+    struct tm *ptm;
+    
+    a_secs = (time_t)cw->axis.min_val;
+    ptm = localtime (&a_secs);
+    if(ptm) cal = *ptm;
+#endif    
 
-    a /= q;
-    b /= q;
-
-    /* r <-- first tic location */
-    r = ceil (a / m_minor) * m_minor;
-
-    /* generate tic info */
-    i = 0;
-    while ((r - b) < DBL_EPSILON)
+    interval = (time_t)m_minor;
+    switch (best)
     {
-      /* offset of this tic from zero, within (0,1) interval */
-      cw->axis.tic_offsets[i] = r*q*m[best];
-      cw->axis.tic_lengths[i] = AXIS_TIC_LENGTH;
+    case Seconds:
+      tm_field = &cal.tm_sec;
+      break;
+      
+    case Minutes:
+      cal.tm_sec = 0;
+      tm_field = &cal.tm_min;
+      break;
+      
+    case Hours:
+      cal.tm_sec = 0;
+      cal.tm_min = 0;
+      tm_field = &cal.tm_hour;
+      break;
 
-      if (ABS (fmod (r, m_major)) > DBL_EPSILON)
+    case Days:
+      cal.tm_sec = 0;
+      cal.tm_min = 0;
+      cal.tm_hour = 0;
+      cal.tm_isdst = -1;
+      tm_field = &cal.tm_mday;
+      break;
+      
+    case Weeks:
+      cal.tm_sec = 0;
+      cal.tm_min = 0;
+      cal.tm_hour = 0;
+      cal.tm_isdst = -1;
+      cal.tm_mday -= cal.tm_wday;
+      tm_field = &cal.tm_mday;
+      interval *= 7;
+      break;
+      
+    case Months:
+      cal.tm_sec = 0;
+      cal.tm_min = 0;
+      cal.tm_hour = 0;
+      cal.tm_mday = 1;
+      cal.tm_isdst = -1;
+      tm_field = &cal.tm_mon;
+      break;
+      
+    case Years:
+      cal.tm_sec = 0;
+      cal.tm_min = 0;
+      cal.tm_hour = 0;
+      cal.tm_mday = 1;
+      cal.tm_mon = 0;
+      cal.tm_isdst = -1;
+      tm_field = &cal.tm_year;
+      break;
+    }
+
+    /* move forward to the most intuitive starting tic
+     */
+    if (mktime (&cal) < a_secs)
+    {
+      if (best == Weeks) (*tm_field) += 7;
+      else
+      {
+        if (best > Hours) cal.tm_isdst = -1;
+        (*tm_field)++;
+      }
+      mktime (&cal);
+    }
+    
+    if (best == Weeks)
+    {
+      /* nothing */
+    }
+    else if (best == Days)
+    {
+      /* nothing */
+    }
+    else
+    {
+      i = (*tm_field) % interval;
+      if (i)
+      {
+        if (best > Hours) cal.tm_isdst = -1;
+        (*tm_field) += interval - i;
+      }
+    }
+
+    /* generate the tics.
+     */
+    i = 0;
+    b_secs = (time_t)cw->axis.max_val;
+    secs = mktime (&cal);
+    while ((secs <= b_secs) && (i < AXIS_MAX_TICS))
+    {
+      int is_minor;
+
+      if (best == Days)
+      {
+        if (m_major == 1) is_minor = 0;
+        else if (m_major == 2) is_minor = !(cal.tm_wday % 2);
+        else if (m_major == 4)
+          is_minor = ((cal.tm_wday != 1) && (cal.tm_wday != 5));
+        else is_minor = cal.tm_wday;
+      }
+      else if (best == Weeks)
+      {
+        is_minor = i % (int)m_major;
+      }
+      else is_minor = (*tm_field) % (int)m_major;
+      
+      cw->axis.tic_offsets[i] = secs;
+      cw->axis.tic_lengths[i] = AXIS_MAJOR_TIC_LENGTH;
+
+      if (is_minor)
       {
         *cw->axis.tic_labels[i] = 0;
         cw->axis.tic_lengths[i] /= 2;
       }
+      
       else
       {
-        /* convert units into seconds */
-        tt = (time_t)(r*q*m[best]);
-#if 0
-        strftime (buf, BUF_SIZE, "%H:%M:%S\n%b %d, %y", localtime (&tt));
-#else	    
-	  /*KE:  gcc complains about using %y and %Y looks better anyway */
-        strftime (buf, BUF_SIZE, "%H:%M:%S\n%b %d, %Y", localtime (&tt));
-#endif
+        strftime (buf, BUF_SIZE, TimeFormats[best], localtime (&secs));
         strncpy (cw->axis.tic_labels[i], buf, AXIS_MAX_LABEL);
         cw->axis.tic_labels[i][AXIS_MAX_LABEL] = 0;
       }
 
-      r += m_minor;
+      *tm_field += interval;
+
+      /* some problems with mktime() and dst transitions */
+      if (best == Months) cal.tm_isdst = -1;
+      
+      secs = mktime (&cal);
       i++;
     }
+
+    if ( (best != Weeks) && (interval != 1) )
+      multiplier = &interval;
   }
 
   /* RELTIME
@@ -1387,16 +1725,18 @@ ComputeTimeTics         (AxisWidget cw)
    */
   else
   {
-    find_good_linear_tics
-      (cw, False, a, b, &q, &n_minor, &n_major, &m_minor, &m_major);
-
+    find_good_linear_tics (cw, False, a, b, &q, &m_minor, &m_major);
+    interval = (time_t)(m_major * q);
+    if ((cw->axis.value_type != XjAXIS_RELTIME_NUMBERS) && (interval != 1))
+      multiplier = &interval;
+    
     /* start from greatest time and move backwards */
     r = b;
     i = 0;
     while ((r-a) > -DBL_EPSILON)
     {
       cw->axis.tic_offsets[i] = r*m[best];
-      cw->axis.tic_lengths[i] = AXIS_TIC_LENGTH;
+      cw->axis.tic_lengths[i] = AXIS_MAJOR_TIC_LENGTH;
 
       if (fmod (i*m_minor, m_major) > DBL_EPSILON)
       {
@@ -1414,13 +1754,8 @@ ComputeTimeTics         (AxisWidget cw)
             ((i == 0) && (cw->axis.value_type == XjAXIS_RELTIME_NUMBERS)))
         {
           /* convert units into seconds */
-          tt = (time_t)(r*m[best]);
-#if 0
-	    strftime (buf, BUF_SIZE, "%H:%M:%S\n%b %d, %y", localtime (&tt));
-#else	    
-	    /*KE:  gcc complains about using %y and %Y looks better anyway */
-	    strftime (buf, BUF_SIZE, "%H:%M:%S\n%b %d, %Y", localtime (&tt));
-#endif
+          secs = (time_t)(r*m[best]);
+          strftime (buf, BUF_SIZE, "%H:%M:%S\n%b %d, %Y", localtime (&secs));
         }
         else sprintf (buf, "%d", (int)(r-b));
         
@@ -1434,11 +1769,10 @@ ComputeTimeTics         (AxisWidget cw)
   }
 
   /* only show multiplier if not 1, and not displaying numbers */
-  if (((int)(m_minor * q) != 1) &&
-      (cw->axis.value_type != XjAXIS_RELTIME_NUMBERS))
+  if (multiplier)
     sprintf
       (cw->axis.tic_scale, " (%s x %d)",
-       TimeUnitNameStrings[best], (int)(m_minor * q));
+       TimeUnitNameStrings[best], *multiplier);
   else
     sprintf
       (cw->axis.tic_scale, " (%s)", TimeUnitNameStrings[best]);
@@ -1466,16 +1800,15 @@ static int
 ComputeNormalTics       (AxisWidget cw)
 {
   double        m_minor, m_major;               /* best divisor */
-  int           n_minor, n_major;               /* num tics for best div. */
   double        p, q;                           /* exponent, magnitude */
   double        a, b;
   double        r, s;
+  double        rr;
   double        e;
   int           i;
 
   find_good_linear_tics
-    (cw, True, cw->axis.min_val, cw->axis.max_val,
-     &q, &n_minor, &n_major, &m_minor, &m_major);
+    (cw, True, cw->axis.min_val, cw->axis.max_val, &q, &m_minor, &m_major);
 
   e = pow (10.0, cw->axis.log_epsilon);
 
@@ -1510,44 +1843,45 @@ ComputeNormalTics       (AxisWidget cw)
 
   /* generate tic info */
   i = 0;
+  rr = r;
   while ((r - b) < DBL_EPSILON)
   {
-    /* check for bogosity in loop conditions */
-    if (i > n_minor)
-      XtAppErrorMsg
-        (XtWidgetToApplicationContext((Widget)cw),
-         "ComputeNormalTics", "badProgrammer", "Axis",
-         "Axis: a hideous bogosity has arisen!",
-         (String *)0, (Cardinal *)0);
-
-    /* if major tic, generate label string, otherwise just
-     * clear its label and halve its tic length */
-    if ((cw->axis.transform != XjAXIS_LINEAR) &&
-        (ABS((r*q) - e) <= DBL_EPSILON))
-    {
-      /* skip over this tic */
-      r += m_minor;
-      continue;
-    }
-
-    /* offset of this tic from zero, within (0,1) interval */
+    /* if major tic, generate label string, otherwise just clear its label
+     * and halve its tic length */
     cw->axis.tic_offsets[i] = r*q;
-    cw->axis.tic_lengths[i] = AXIS_TIC_LENGTH;
+    *cw->axis.tic_labels[i] = 0;
+
     
-    if (ABS (fmod (r, m_major)) > DBL_EPSILON)
+    /* if this value is within the epsilon interval for a log plot, then just
+     * ignore it. */
+    if ( (cw->axis.transform != XjAXIS_LINEAR) &&
+              (ABS((r*q) - e) <= DBL_EPSILON) )
     {
-      *cw->axis.tic_labels[i] = 0;
-      cw->axis.tic_lengths[i] /= 2;
+      /* do nothing */
     }
-    else
+    
+    /* there are problems with the mod test, owing to cumulative imprecision
+     * in floating point numbers.  Rather than test whether the value is
+     * "effectively zero", I check that the floating point remainder is
+     * less than half the minor tic interval.  This should provide sufficient
+     * tolerance to accomodate imprecise numbers without incorrectly
+     * identifying them as minor interval boundaries.
+     */
+    /*
+      if (ABS (fmod (r, m_major)) > DBL_EPSILON)
+    */
+    else if (ABS (fmod (r, m_major)) < (m_minor / 2))
     {
+      cw->axis.tic_lengths[i] = AXIS_MAJOR_TIC_LENGTH;
       sprintf (buf, "%-.*g", AXIS_MAX_DIGITS+10, r*(q/p));
       strncpy (cw->axis.tic_labels[i], buf, AXIS_MAX_LABEL);
       cw->axis.tic_labels[i][AXIS_MAX_LABEL] = 0;
     }
+
+    else cw->axis.tic_lengths[i] = AXIS_MINOR_TIC_LENGTH;
     
-    r += m_minor;
     i++;
+    r = rr + (i * m_minor);
   }
 
   /* mark epsilon, if necessary */
@@ -1556,7 +1890,7 @@ ComputeNormalTics       (AxisWidget cw)
       (cw->axis.log_epsilon_offset <= 1))
   {
     cw->axis.tic_offsets[i] = cw->axis.log_epsilon_offset;
-    cw->axis.tic_lengths[i] = AXIS_TIC_LENGTH+2;
+    cw->axis.tic_lengths[i] = AXIS_MAJOR_TIC_LENGTH+2;
     sprintf (buf, "%c1e%-d", PLUS_MINUS, (int)cw->axis.log_epsilon);
     strncpy (cw->axis.tic_labels[i], buf, AXIS_MAX_LABEL);
     cw->axis.tic_labels[i][AXIS_MAX_LABEL] = 0;
@@ -1631,7 +1965,7 @@ ComputeLogTics  (AxisWidget cw)
           cw->axis.log_epsilon_offset +
           ((r - cw->axis.log_epsilon) / cw->axis.log_delta);
         
-        cw->axis.tic_lengths[i] = AXIS_TIC_LENGTH;
+        cw->axis.tic_lengths[i] = AXIS_MAJOR_TIC_LENGTH;
         
         /* if major tic, generate label string, otherwise just
          * clear its label and halve its tic length */
@@ -1680,7 +2014,7 @@ ComputeLogTics  (AxisWidget cw)
           cw->axis.log_epsilon_offset -
           ((r - cw->axis.log_epsilon) / cw->axis.log_delta);
         
-        cw->axis.tic_lengths[i] = AXIS_TIC_LENGTH;
+        cw->axis.tic_lengths[i] = AXIS_MAJOR_TIC_LENGTH;
 
         /* if major tic, generate label string, otherwise just
          * clear its label and halve its tic length */
@@ -1708,7 +2042,7 @@ ComputeLogTics  (AxisWidget cw)
       (cw->axis.log_epsilon_index < cw->axis.log_n_powers))
   {
     cw->axis.tic_offsets[i] = cw->axis.log_epsilon_offset;
-    cw->axis.tic_lengths[i] = AXIS_TIC_LENGTH+2;
+    cw->axis.tic_lengths[i] = AXIS_MAJOR_TIC_LENGTH+2;
     sprintf (buf, "%c1e%-d", PLUS_MINUS, (int)cw->axis.log_epsilon);
     strncpy (cw->axis.tic_labels[i], buf, AXIS_MAX_LABEL);
     cw->axis.tic_labels[i][AXIS_MAX_LABEL] = 0;
@@ -1739,11 +2073,8 @@ ComputeLogTics  (AxisWidget cw)
  *      Tic placement desiderata:
  *
  *              o there must be at least AXIS_MIN_TICS major tics and
- *                no more than AXIS_MAX_TICS combined major/minor.
- *              o maximize minor tics, then minimize major tics (because
- *                these are labeled and require significant real-estate)
- *              o minor tic intervals must be integral divisors of
- *                major tic intervals.
+ *                no more than AXIS_MAX_TICS
+ *              o maximize tics
  */
 static void
 find_good_linear_tics   (AxisWidget     cw,
@@ -1751,18 +2082,16 @@ find_good_linear_tics   (AxisWidget     cw,
                          double         min_val,
                          double         max_val,
                          double         *tic_magnitude,
-                         int            *num_minor,
-                         int            *num_major,
                          double         *minor_divisor,
                          double         *major_divisor)
 {
-  double        *m = TicDivisorValues;
-  int           n[NumTicDivisors];              /* num tics for ith divisor */
-  double        m_minor = 0.0, m_major = 0.0;   /* best divisor */
-  int           n_minor, n_major;               /* num tics for best div. */
-  double        p, q;                           /* exponent, magnitude */
-  double        a, b;
-  int           i;
+  double *  m = TicDivisorValues;
+  int       n[NumTicDivisors];              /* num tics for ith divisor */
+  double    m_minor, m_major;               /* best divisor */
+  int       n_major;
+  double    p, q;                           /* exponent, magnitude */
+  double    a, b;
+  int       i;
 
   /* p <-- exponent of magnitude of delta, rounded to nearest integer */
   p = ROUND (log10 (max_val - min_val));
@@ -1779,57 +2108,19 @@ find_good_linear_tics   (AxisWidget     cw,
     else
       n[i] = (int)((b-a)/m[i]) + 1;
 
-  /* maximize minor tics, within constraints */
-  n_minor = AXIS_MIN_TICS-1;
+  /* maximize tics, within constraints */
+  n_major = 0;
+  m_major = 1;
   for (i = One; i <= Ten; i++)
-    if ((n[i] > n_minor) && (n[i] <= AXIS_MAX_TICS))
+    if ((n[i] > n_major) && (n[i] <= AXIS_MAX_MAJOR_TICS))
     {
-      n_minor = n[i];
-      m_minor = m[i];
+      n_major = n[i];
+      m_major = m[i];
     }
 
-  /* now find the appropriate major tics */
-  n_major = AXIS_MAX_TICS+1;
-  for (i = One; i <= Ten; i++)
-  {
-    /* major tic interval must be greater than, and evenly divisible
-     * by, minor tic interval */
-    if (m[i] > m_minor)
-      if ((n[i] < n_major) && (n[i] >= AXIS_MIN_TICS) &&
-          (ABS (fmod (m[i], m_minor)) <= DBL_EPSILON))
-      {
-        n_major = n[i];
-        m_major = m[i];
-      }
-  }
-
-  /* peculiar situations
-   */
-  /* no good minor tics --use major tics only */
-  if ((n_minor < AXIS_MIN_TICS) && (n_major <= AXIS_MAX_TICS))
-  {
-    n_minor = n_major;
-    m_minor = m_major;
-  }
-  /* no good major tics --use minor as major */
-  else if ((n_minor >= AXIS_MIN_TICS) && (n_major > AXIS_MAX_TICS))
-  {
-    n_major = n_minor;
-    m_major = m_minor;
-  }
-  /* weird situation */
-  else if ((n_minor < AXIS_MIN_TICS) && (n_major > AXIS_MAX_TICS))
-    XtAppErrorMsg
-      (XtWidgetToApplicationContext((Widget)cw),
-       "find_good_linear_tics", "badProgrammer", "Axis",
-       "Axis: an internal algorithmic deficiency has emerged from "
-       "its murky depths.",
-       (String *)0, (Cardinal *)0);
-
   /* results */
+  m_minor = ((m_major == m[Two])? m_major / 4 : m_major / 5);
   *tic_magnitude = q;
-  *num_minor = n_minor;
-  *num_major = n_major;
   *minor_divisor = m_minor;
   *major_divisor = m_major;
 }
@@ -1848,7 +2139,7 @@ find_good_log_tics      (AxisWidget     cw,
 {
   double        *m = TicDivisorValues;
   int           n[NumTicDivisors];              /* num tics for ith divisor */
-  double        m_minor = 0.0, m_major = 0.0;   /* best divisor */
+  double        m_minor = 0, m_major = 0;       /* best divisor */
   int           n_minor, n_major;               /* num tics for best div. */
   double        p, q;                           /* exponent, magnitude */
   double        a, b;
@@ -2339,7 +2630,7 @@ int     XjAxisGetMinorTicOffsets        (Widget w, int *offsets, int n)
   int           length = MAXPOS(cw) - MINPOS(cw) + 1;
 
   for (i = 0, n_tics = 0; (i < cw->axis.n_tics) && (i < n); i++)
-    if (cw->axis.tic_lengths[i] < AXIS_TIC_LENGTH)
+    if (cw->axis.tic_lengths[i] < AXIS_MAJOR_TIC_LENGTH)
     {
       *offsets++ = (int)(cw->axis.tic_offsets[i] * (length-1));
       n_tics++;
@@ -2358,7 +2649,7 @@ int     XjAxisGetMajorTicOffsets        (Widget w, int *offsets, int n)
   int           length = MAXPOS(cw) - MINPOS(cw) + 1;
 
   for (i = 0, n_tics = 0; (i < cw->axis.n_tics) && (i < n); i++)
-    if (cw->axis.tic_lengths[i] >= AXIS_TIC_LENGTH)
+    if (cw->axis.tic_lengths[i] >= AXIS_MAJOR_TIC_LENGTH)
     {
       *offsets++ = (int)(cw->axis.tic_offsets[i] * (length-1));
       n_tics++;
@@ -2689,14 +2980,5 @@ untransform_normalized_values (AxisTransform          transform,
     }
 }
 
-/* **************************** Emacs Editing Sequences ***************** */
-/* Local Variables: */
-/* tab-width: 6 */
-/* c-basic-offset: 2 */
-/* c-comment-only-line-offset: 0 */
-/* c-indent-comments-syntactically-p: t */
-/* c-label-minimum-indentation: 1 */
-/* c-file-offsets: ((substatement-open . 0) (label . 2) */
-/* (brace-entry-open . 0) (label .2) (arglist-intro . +) */
-/* (arglist-cont-nonempty . c-lineup-arglist) ) */
-/* End: */
+
+
