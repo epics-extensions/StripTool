@@ -71,8 +71,20 @@ Tue Oct 29, 2002 - StripTool-2-5-2-2 - evans
 	Entirely removed code to make names always be 40 chars for the legend.
 	Redid directions in StripVersion.h.
 
-Wed Oct 30, 2002 = StripTool-2-5-2-3 - evans
+Wed Oct 30, 2002 - StripTool-2-5-2-3 - evans
 	Fixed use of STRIPCURVE_COMMENT instead of STRIPCURVE_COMMMENT_SET in
 	StripCurve_setattr that was causing the wrong status bits to be set,
 	resulting in curves randomly not plotting even though they were
 	connected.
+
+Wed Nov 06, 2002 - StripTool-2-5-2-4 - evans
+	Modified toolbar buttons.  Added right click to zoom and pan to move a
+	lesser amount.  Changed some bitmaps and added pan.bm.  Changed some
+	widget names (as seen in Editres) for consistency.  Added reset button
+	that restores to Controls Dialog values.  Made Auto Scroll toggle
+	between Scrolling and Panning.  Zooming no longer sets the browse mode
+	to Panning.  Made a fix for roundoff error near zero in ZoomY.
+	Rearranged button order and fixed separators.  Fixed it to not ding
+	(without explanation) on startup by removing hard-coded, invalid
+	STRIP_CONFIGFILE_DIR default in Makefile.Host.  Fixed a memory leak in
+	StripDialog_addcurve.  Found others that need to be fixed.
