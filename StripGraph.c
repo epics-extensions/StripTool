@@ -1249,6 +1249,19 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
       if (sgi->lgitems[i] == cbs->item)
       {
         sgi->selected_curve = sgi->curves[i];
+        {
+          /* re-arrange the plot order */
+          int shift;
+          int j;
+
+          for (j = 0, shift = 0; j < STRIP_MAX_CURVES; j++)
+              if (sgi->config->Curves.plot_order[j] == i)
+                shift = 1;
+              else if (shift)
+                sgi->config->Curves.plot_order[j-1] =
+                  sgi->config->Curves.plot_order[j];
+              sgi->config->Curves.plot_order[STRIP_MAX_CURVES-1] = i;
+        }
         StripGraph_draw
           (sgi, SGCOMPMASK_YAXIS | SGCOMPMASK_GRID, (Region *)0);
         break;
