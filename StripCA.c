@@ -8,7 +8,6 @@
  *-----------------------------------------------------------------------------
  */
 
-
 #include "StripDAQ.h"
 
 #include <cadef.h>
@@ -35,7 +34,7 @@ static void     connect_callback        (struct connection_handler_args);
 static void     info_callback           (struct event_handler_args);
 static void     data_callback           (struct event_handler_args);
 static double   get_value               (void *);
-
+static void     getDescriptionRecord    (char *name,char *description);
 
 /*
  * StripDAQ_initialize
@@ -402,7 +401,7 @@ static double   get_value       (void *data)
 
   return cd->value;
 }
-getDescriptionRecord(char *name,char *description)
+static void getDescriptionRecord(char *name,char *description)
 {
   int status;
   chid id;
@@ -413,8 +412,10 @@ getDescriptionRecord(char *name,char *description)
 
   status = ca_search(desc_name, &id);
   if (status != ECA_NORMAL) {
-    SEVCHK(status,"     CAN'T search description field\n");
-    fprintf(stderr,"%s: CAN'T search description field\n",desc_name);
+#ifdef PRINT_DESC_ERRORS      
+    SEVCHK(status,"     Search for description field failed\n");
+    fprintf(stderr,"%s: Search for description field failed\n",desc_name);
+#endif    
     *description=0;
     return;      
   }
@@ -422,26 +423,32 @@ getDescriptionRecord(char *name,char *description)
   status = ca_pend_io(1.0);	
   if (status != ECA_NORMAL) 
     {
-      SEVCHK(status,"     CAN'T pend description field\n");
-      fprintf(stderr,"%s: CAN'T pend description field\n",desc_name);
+#ifdef PRINT_DESC_ERRORS      
+      SEVCHK(status,"     Search for description field timed out\n");
+      fprintf(stderr,"%s: Search for description field timed out\n",desc_name);
       *description=0;
+#endif    
       return;          
     }	
   
   status = ca_array_get (DBR_STRING,1,id,description);
   if (status != ECA_NORMAL) 
   {
-    SEVCHK(status,"     CAN'T get description field\n");
-    fprintf(stderr,"%s: CAN'T get description field\n",desc_name);
+#ifdef PRINT_DESC_ERRORS      
+    SEVCHK(status,"     Get description field failed\n");
+    fprintf(stderr,"%s: Get description field failed\n",desc_name);
     *description=0;
+#endif    
     return;           
   }
   
   status= ca_pend_io(1.0);
   if (status != ECA_NORMAL)  
     {
-      SEVCHK(status,"     CAN'T pend description field again \n");
-      fprintf(stderr,"%s: CAN'T pend description field again \n",name);
+#ifdef PRINT_DESC_ERRORS      
+      SEVCHK(status,"     Get for description field timed out\n");
+      fprintf(stderr,"%s: Get for description field timed out\n",name);
+#endif    
       *description=0;
       return;     
     }

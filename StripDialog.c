@@ -9,6 +9,7 @@
  */
 
 
+#include "Strip.h"
 #include "StripDialog.h"
 #include "ColorDialog.h"
 #include "Tabs.h"
@@ -2934,29 +2935,29 @@ static void     windowmenu_cb   (Widget w, XtPointer data, XtPointer BOGUS(1))
 
 
 static void helpmenu_cb (Widget w, XtPointer data, XtPointer BOGUS(1))
-{
-	StripDialogInfo       *sd;
-	
-	XtVaGetValues (w, XmNuserData, &sd, NULL);
-	MessageBox_popup (sd->shell, &sd->message_box, XmDIALOG_INFORMATION,
-		"About", "OK",
-		"%s\n"
-		"%s"
-		"%s\n"
-		"\nBuilt: %s %s\n"
-		"\nAuthors:\n"
-		"  Christopher Larrieu, JLAB\n"
-		"  Albert Kagarmanov DESY\n"
-		"  Janet Anderson, APS\n"
-		"  Kenneth Evans, Jr., APS\n",
-		STRIPTOOL_VERSION_STRING,
-		EPICS_VERSION_STRING,
+{		
+  StripDialogInfo       *sd;
+  
+  XtVaGetValues (w, XmNuserData, &sd, NULL);
+  MessageBox_popup (sd->shell, &sd->message_box, XmDIALOG_INFORMATION,
+    "About", "OK",
+    "%s\n"
+    "%s"
+    "%s\n"
+    "\nBuilt: %s %s\n"
+    "\nAuthors:\n"
+    "  Christopher Larrieu, TJNAF\n"
+    "  Albert Kagarmanov DESY\n"
+    "  Janet Anderson, APS\n"
+    "  Kenneth Evans, Jr., APS\n",
+    STRIPTOOL_VERSION_STRING,
+    EPICS_VERSION_STRING,
 #if defined (USE_CDEV)
-		"CDEV: "CDEV_VERSION_STRING"\n",
+    "CDEV: "CDEV_VERSION_STRING"\n",
 #else
-		"",
+    "",
 #endif
-		__DATE__,__TIME__);
+    __DATE__,__TIME__);
 }
 
 
@@ -3277,7 +3278,12 @@ return(sd->sdcurve_count);
 
 /* **************************** Emacs Editing Sequences ***************** */
 /* Local Variables: */
-/* tab-width: 2 */
+/* tab-width: 6 */
 /* c-basic-offset: 2 */
-/* c-file-offsets: ((substatement-open . 0) (label . 0)) */
+/* c-comment-only-line-offset: 0 */
+/* c-indent-comments-syntactically-p: t */
+/* c-label-minimum-indentation: 1 */
+/* c-file-offsets: ((substatement-open . 0) (label . 2) */
+/* (brace-entry-open . 0) (label .2) (arglist-intro . +) */
+/* (arglist-cont-nonempty . c-lineup-arglist) ) */
 /* End: */

@@ -83,14 +83,18 @@
 #endif
 
 /* the default configuration filename */
-#define STRIP_DEFAULT_FILENAME          "StripTool.config"
+#define STRIP_DEFAULT_FILENAME          "StripTool.stp"
 
 /* the search path for finding config files specified on command line */
+#ifdef USE_OLD_FILE_SEARCH
 #define STRIP_FILE_SEARCH_PATH_ENV      "EPICS_DISPLAY_PATH"
+#else
+#define STRIP_FILE_SEARCH_PATH_ENV      "STRIP_FILE_SEARCH_PATH"
+#endif
 
 /* the default wildcard for finding configuration files */
 #ifndef STRIP_CONFIGFILE_PATTERN
-#define STRIP_CONFIGFILE_PATTERN        "*"
+#define STRIP_CONFIGFILE_PATTERN        "*.stp"
 #endif
 
 #define STRIP_PRINTER_NAME_ENV                  "STRIP_PRINTER_NAME"
@@ -109,4 +113,24 @@
 
 #define STRIP_DUMP_TYPE_DEFAULT_ENV         "STRIP_DUMP_TYPE_DEFAULT"
 
-#endif
+/* WIN32 differences */
+#ifdef WIN32
+/* _MAX_PATH in stdlib.h for WIN32 */
+# define PATH_MAX _MAX_PATH
+/* Path delimiter is different */
+# define STRIP_PATH_DELIMITER ';'
+# define STRIP_DIR_DELIMITER_CHAR '\\'
+# define STRIP_DIR_DELIMITER_STRING "\\"
+#else /* #ifdef WIN32 */
+/* PATH_MAX may be in limits.h.  Kludge it if not */
+# ifndef PATH_MAX
+# define PATH_MAX 1024
+# endif
+/* Path delimiter is different */
+# define STRIP_PATH_DELIMITER ':'
+# define STRIP_DIR_DELIMITER_CHAR '/'
+# define STRIP_DIR_DELIMITER_STRING "/"
+#endif /* #ifdef WIN32 */
+
+#endif /* #ifndef _StripDefines */
+

@@ -19,6 +19,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* This is not an ANSI function and may not be included from stdlib.h.
+   Include it here explicitly */
+extern char *ecvt(double, int, int *, int *);
+
 #define MAX_PRE         32
 #define MAX_LEN         64
 #define EXP_DIGITS      3       /* digits in exp numerical portion */

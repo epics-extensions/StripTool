@@ -45,9 +45,11 @@
  *
  * ---FHDR--- */
 
+#include <malloc.h>
+#include <string.h>
 
+#include <X11/Intrinsic.h>
 
-#include <X11/Xlib.h>
 #ifdef _HPUX_SOURCE
 #  include <Xm/Xm.h>
 #endif 

@@ -93,4 +93,18 @@ void            XjLegendResize  (Widget w);
 void            XjLegendUpdate          (Widget w);
 
 
-#endif
+void
+
+/* Should put description here */
+XjLegendValueUpdateItem    (Widget         w,
+                         LegendItem     the_item,
+                         char           *nameStart,
+                         char           *units,
+                         char           *range,
+                         char           *comment,
+                         Pixel          color);
+
+/* Should put description here */
+void LegendRefresh(LegendWidget cw);
+
+#endif  /* #ifndef _jlLegend */

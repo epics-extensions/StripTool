@@ -47,6 +47,7 @@
 
 
 #include        <ctype.h>
+#include        <malloc.h>
 
 /*
  * We define a cursor for the list
@@ -75,14 +76,18 @@
 /*
  * Declaration of methods
  */
-static void Class_Initialize();
-static void Destroy();
-static void Initialize();
-static void InsertChild();
-static Boolean SetValues();
-static void Resize();
-static XtGeometryResult QueryGeometry();
-static XtGeometryResult GeometryManager();
+static void ClassInitialize(void);
+static void Initialize(Widget wrequest, Widget wnew,
+  ArgList args, Cardinal *num_args);
+static void Redisplay(Widget w, XEvent *event, Region region);
+static Boolean SetValues(Widget cur, Widget req,
+  Widget new, ArgList args, Cardinal *nargs);
+static void Destroy(Widget widget);
+static void Resize(Widget w);
+static XtGeometryResult QueryGeometry(Widget widget, XtWidgetGeometry *proposed,
+  XtWidgetGeometry *desired);
+static XtGeometryResult GeometryManager(Widget w, XtWidgetGeometry *request,
+  XtWidgetGeometry *reply);
 
 /*
  * Useful
@@ -93,20 +98,24 @@ static char *XgConvertXmStringToString (XmString xmstr);
 /*
  * Internal use functions and callbacks
  */
-static Widget createComboBoxList();
-static void verifyInputCB();
-static void comboArrowCB();
-static void ActivateCallback();
-static Boolean CheckFocus();
-static void FocusChangeHandler();
-static void FillCallbackStruct();
-static void hideList();
-static void updateListAndText();
-static void CopyBg();
-static void CopyFg();
-static void FocusChangeCB();
-static void visibleCB();
-static void comboListCB();
+static Widget createComboBoxList(XgComboBoxWidget comboBox);
+static void verifyInputCB(Widget widget, XtPointer client, XtPointer call);
+static void comboArrowCB(Widget arrow, XtPointer client, XtPointer call);
+static void ActivateCallback(Widget w, XtPointer client, XtPointer call);
+static Boolean CheckFocus(XgComboBoxWidget cb);
+static void FocusChangeHandler(Widget w, XtPointer not_used,
+  XFocusChangeEvent *event, Boolean *continue_dispatch);
+static void FillCallbackStruct(XgComboBoxWidget cbox, int reason, XEvent *event,
+  XgComboBoxCallbackStruct *cbs);
+static void hideList(XgComboBoxWidget w);
+static void updateListAndText(XgComboBoxWidget cbw, int index, XmString item,
+  Boolean notify);
+static void CopyBg(XgComboBoxWidget cbw, int offset, XrmValue *value);
+static void CopyFg(XgComboBoxWidget cbw, int offset, XrmValue *value);
+static void FocusChangeCB(Widget w, XtPointer client_data, XtPointer call_data);
+static void visibleCB(Widget parent, XtPointer client, XEvent *event,
+  Boolean *ctd);
+static void comboListCB(Widget list, XtPointer client, XtPointer call);
 
 #define AddFocusChangeHandler(w)        \
         XtAddEventHandler(w, FocusChangeMask, False, \
@@ -246,7 +255,7 @@ XgComboBoxClassRec XgcomboBoxClassRec = {
         /* superclass           */ (WidgetClass) &xmManagerClassRec,
         /* class_name           */ "XgComboBox",
         /* widget_size          */ sizeof(XgComboBoxRec),
-        /* class_initialize     */ Class_Initialize,
+        /* class_initialize     */ ClassInitialize,
         /* class_part_initialize*/ NULL,
         /* class_inited         */ False,
         /* initialize           */ Initialize,
@@ -406,21 +415,13 @@ static int              item_count = 0;
         return True;
 }
 
-static void 
-CopyBg(cbw, offset, value)
-XgComboBoxWidget cbw;
-int  offset;
-XrmValue * value;
+static void CopyBg(XgComboBoxWidget cbw, int offset, XrmValue *value)
 {
     value->addr = (XtPointer) &cbw->core.background_pixel;
 }
 
 
-static void 
-CopyFg(cbw, offset, value)
-XgComboBoxWidget cbw;
-int  offset;
-XrmValue * value;
+static void CopyFg(XgComboBoxWidget cbw, int offset, XrmValue *value)
 {
     value->addr = (XtPointer) &cbw->manager.foreground;
 }
@@ -428,7 +429,7 @@ XrmValue * value;
 
 
 static void
-Class_Initialize()
+ClassInitialize(void)
 {
         XtSetTypeConverter(XmRString, XmRXmStringTable, 
                 (XtTypeConverter)CvtStringToStringTable, NULL, 
@@ -471,16 +472,14 @@ Class_Initialize()
  *
  * ---PHDR--- */
 
-static void
-Initialize(request, new, args, num_args)
-XgComboBoxWidget        request, new;
-ArgList                 args;
-Cardinal                *num_args;
+static void Initialize(Widget wrequest, Widget wnew,
+  ArgList args, Cardinal *num_args)
 {
 Dimension       textWidth, textHeight, width, height;
 Position        arrowX, arrowY;
 Boolean         editable, cursorPositionVisible;
-
+XgComboBoxWidget        request=(XgComboBoxWidget)wrequest;
+XgComboBoxWidget        new=(XgComboBoxWidget)wnew;
 
         new->combobox.initializing = True;
 
@@ -603,7 +602,7 @@ Boolean         editable, cursorPositionVisible;
         if ( textHeight > new->core.height )
                 new->core.height = textHeight;
 
-        Resize(new);
+        Resize(wnew);
 
 
         createComboBoxList(new);
@@ -624,7 +623,7 @@ Boolean         editable, cursorPositionVisible;
          *  it's parent widget is unmapped
          */
         XtAddEventHandler((Widget)new->combobox.text, 
-                VisibilityChangeMask, False, visibleCB, new);
+                VisibilityChangeMask, False, visibleCB, (XtPointer)new);
 
 
         /*
@@ -648,12 +647,8 @@ Boolean         editable, cursorPositionVisible;
 }
 
 
-static void
-FillCallbackStruct(cbox, reason, event, cbs)
-XgComboBoxWidget        cbox;
-int                     reason;
-XEvent                  *event;
-XgComboBoxCallbackStruct        *cbs;
+static void FillCallbackStruct(XgComboBoxWidget cbox, int reason, XEvent *event,
+  XgComboBoxCallbackStruct *cbs)
 {
 int                             pos_count, *pos_list;
 XmString                        xstr;
@@ -686,9 +681,7 @@ XmString                        xstr;
 }
 
 
-static Boolean
-CheckFocus(cb)
-XgComboBoxWidget        cb;
+static Boolean CheckFocus(XgComboBoxWidget cb)
 {
 XgComboBoxCallbackStruct        cbs;
 
@@ -705,7 +698,9 @@ XgComboBoxCallbackStruct        cbs;
                         XmProcessTraversal(cb->combobox.text,
                                 XmTRAVERSE_CURRENT);
 
-                        return;
+		      /* KE: There was no return value here. Not sure
+                         if True is correct, though */
+                        return True;
                 }
 
                 cb->combobox.i_have_focus = False;
@@ -752,11 +747,7 @@ XgComboBoxCallbackStruct        cbs;
 }
 
 
-static void
-FocusChangeCB(w, client_data, call_data)
-Widget          w;
-XtPointer       client_data;
-XtPointer       call_data;
+static void FocusChangeCB(Widget w, XtPointer client_data, XtPointer call_data)
 {
 XgComboBoxWidget        cb = (XgComboBoxWidget)XtParent(w);
 
@@ -770,12 +761,8 @@ XgComboBoxWidget        cb = (XgComboBoxWidget)XtParent(w);
 }
 
 
-static void
-FocusChangeHandler(w, not_used, event, continue_dispatch)
-Widget                  w;
-XFocusChangeEvent       *event;
-XtPointer               not_used;
-Boolean                 *continue_dispatch;
+static void FocusChangeHandler(Widget w, XtPointer not_used,
+  XFocusChangeEvent *event, Boolean *continue_dispatch)
 {
 XgComboBoxWidget        cb;
 
@@ -796,12 +783,11 @@ XgComboBoxWidget        cb;
 }
 
 
-static XtGeometryResult
-QueryGeometry(w, proposed, desired)
-XgComboBoxWidget w;
-XtWidgetGeometry *proposed, *desired;
+static XtGeometryResult QueryGeometry(Widget widget, XtWidgetGeometry *proposed,
+  XtWidgetGeometry *desired)
 {
 #define Set(bit) (proposed->request_mode & bit)
+XgComboBoxWidget w = (XgComboBoxWidget)widget;
 
         desired->width = TextChild(w)->core.width + ArrowChild(w)->core.width;
         desired->height = TextChild(w)->core.height;
@@ -843,14 +829,13 @@ XgComboBoxWidget        cb = (XgComboBoxWidget)XtParent(w);
 }
 
 
-static void
-Destroy(w)
-XgComboBoxWidget        w;
+static void Destroy(Widget widget)
 {
+XgComboBoxWidget        w=(XgComboBoxWidget)widget;
         /*
          * Make sure this is a ComboBox widget
          */
-        if ( !XgIsComboBox((Widget)w) )
+        if ( !XgIsComboBox((Widget)widget) )
                 return;
 
         /*
@@ -937,11 +922,8 @@ Arg     xtarg;
 }
 
 
-static XtGeometryResult
-GeometryManager(w, request, reply)
-Widget          w;
-XtWidgetGeometry        *request;
-XtWidgetGeometry        *reply;
+static XtGeometryResult GeometryManager(Widget w, XtWidgetGeometry *request,
+  XtWidgetGeometry *reply)
 {
 XgComboBoxWidget        cb = (XgComboBoxWidget)XtParent(w);
 
@@ -966,12 +948,11 @@ XgComboBoxWidget        cb = (XgComboBoxWidget)XtParent(w);
 }
 
 
-static void
-Resize(w)
-XgComboBoxWidget w;
+static void Resize(Widget widget)
 {
 Dimension       newWidth, width, height, border;
 Position        y;
+XgComboBoxWidget w = (XgComboBoxWidget)widget;
 
         /*
          * What we need to do here is get the width of the arrow button
@@ -1011,9 +992,7 @@ Position        y;
  *
  * ---PHDR--- */
 
-static Widget
-createComboBoxList(comboBox)
-XgComboBoxWidget        comboBox;
+static Widget createComboBoxList(XgComboBoxWidget comboBox)
 {
 Widget          list_shell, shell;
 Dimension       width, height, hThickness, shadow;
@@ -1150,8 +1129,8 @@ Arg             al[24];
  *
  * ---PHDR--- */
 
-static Boolean SetValues(current, request, new)
-Widget  current, request, new;
+static Boolean SetValues(Widget current, Widget request,
+  Widget new, ArgList args, Cardinal *num_args)
 {
 XgComboBoxWidget        cur = (XgComboBoxWidget)current,
                         req = (XgComboBoxWidget)request,
@@ -1501,14 +1480,11 @@ Boolean                 redraw = False;
 }
 
 
-static void
-ActivateCallback(w, client_data, cb)
-Widget                  w;
-XtPointer               client_data;
-XmAnyCallbackStruct     *cb;
+static void ActivateCallback(Widget w, XtPointer client, XtPointer call)
 {
 XgComboBoxWidget                cbox = (XgComboBoxWidget)XtParent(w);
 XgComboBoxCallbackStruct        cbs;
+XmAnyCallbackStruct             *cb = (XmAnyCallbackStruct *)call;
 
 
         if ( cbox->combobox.activate == NULL )
@@ -1541,18 +1517,15 @@ XgComboBoxCallbackStruct        cbs;
  *
  * ---PHDR--- */
 
-static void
-verifyInputCB(widget, client, cb)
-Widget                  widget;
-caddr_t                 client;
-XmAnyCallbackStruct     *cb;
+static void verifyInputCB(Widget widget, XtPointer client, XtPointer call)
 {
 char                    *text, *list_string;
 int                     i, s, found, len, listCount;
 XmStringTable           items;
-XgComboBoxWidget       comboBox = (XgComboBoxWidget)XtParent(widget);
+XgComboBoxWidget        comboBox = (XgComboBoxWidget)XtParent(widget);
 Boolean                 bellOn;
 XgComboBoxCallbackStruct        cbs;
+XmAnyCallbackStruct     *cb = (XmAnyCallbackStruct *)call;
 
 
         /*
@@ -1754,18 +1727,15 @@ XgComboBoxCallbackStruct        cbs;
  *
  * ---PHDR--- */
 
-static void
-comboArrowCB(arrow, client, cbd)
-Widget                  arrow;
-XtPointer               client;
-XmAnyCallbackStruct     *cbd;
+static void comboArrowCB(Widget arrow, XtPointer client, XtPointer call)
 {
 int                     ac, visible, itemCount;
 Position                x, y, px, py;
 Dimension               height, width, hThickness;
 Arg                     al[8];
 static Cursor           cursor;
-XgComboBoxWidget       w = (XgComboBoxWidget)XtParent(arrow);
+XgComboBoxWidget        w = (XgComboBoxWidget)XtParent(arrow);
+XmAnyCallbackStruct     *cbd = (XmAnyCallbackStruct *)call;
 
 
         /*
@@ -1887,16 +1857,14 @@ XgComboBoxWidget       w = (XgComboBoxWidget)XtParent(arrow);
  *
  * ---PHDR--- */
 
-static void
-comboListCB(list, w, cbd)
-Widget                  list;
-XgComboBoxWidget        w;
-XmListCallbackStruct    *cbd;
+static void comboListCB(Widget list, XtPointer client, XtPointer call)
 {
 char                            *string = NULL, *old_string = NULL;
 XgComboBoxCallbackStruct        cbs;
 XgComboBoxWidget                comboBox;
 int                             dont_reenter;
+XgComboBoxWidget                w = (XgComboBoxWidget)client;
+XmListCallbackStruct            *cbd = (XmListCallbackStruct *)call;
 
         comboBox = (XgComboBoxWidget)XtParent(XtParent(XtParent(list)));
         dont_reenter = comboBox->combobox.dont_reenter;
@@ -1951,12 +1919,8 @@ int                             dont_reenter;
 
 
 
-static void
-updateListAndText(cbw, index, item, notify)
-XgComboBoxWidget cbw;
-int index;
-XmString item;
-Boolean notify;
+static void updateListAndText(XgComboBoxWidget cbw, int index, XmString item,
+  Boolean notify)
 {
 char *string;
 
@@ -2004,14 +1968,11 @@ char *string;
  *
  * ---PHDR--- */
 
-static void
-visibleCB(parent, w, event)
-Widget                  parent;
-XgComboBoxWidget        w;
-XEvent                  *event;
+static void visibleCB(Widget parent, XtPointer client, XEvent *event,
+  Boolean *ctd)
 {
 XVisibilityEvent        *vevent = (XVisibilityEvent *) event;
-
+XgComboBoxWidget w = (XgComboBoxWidget)client;
 
         if ( w->combobox.popup == NULL )
                 return;
@@ -2036,9 +1997,7 @@ XVisibilityEvent        *vevent = (XVisibilityEvent *) event;
 
 
 
-static void
-hideList(w)
-XgComboBoxWidget w;
+static void hideList(XgComboBoxWidget w)
 {
         if ( w->combobox.popup == NULL )
                 return;

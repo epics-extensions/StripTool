@@ -658,8 +658,8 @@ Strip   Strip_init      (int    *argc,
        0);
     /* pan up button  Albert*/
     pixmap = XCreatePixmapFromBitmapData
-      (si->display, RootWindow (si->display, xvi.screen), pan_up_bits,
-       pan_up_width, pan_up_height, fg, bg,
+      (si->display, RootWindow (si->display, xvi.screen),
+       (char *)pan_up_bits, pan_up_width, pan_up_height, fg, bg,
        xvi.depth);
     si->btn[STRIPBTN_UP] = XtVaCreateManagedWidget
       ("panUpButton",
@@ -670,8 +670,8 @@ Strip   Strip_init      (int    *argc,
 
     /* pan down button */
     pixmap = XCreatePixmapFromBitmapData
-      (si->display, RootWindow (si->display, xvi.screen), pan_down_bits,
-       pan_down_width, pan_down_height, fg, bg,
+      (si->display, RootWindow (si->display, xvi.screen),
+			 (char *)pan_down_bits, pan_down_width, pan_down_height, fg, bg,
        xvi.depth);
     si->btn[STRIPBTN_DOWN] = XtVaCreateManagedWidget
       ("panDownButton",
@@ -688,8 +688,8 @@ Strip   Strip_init      (int    *argc,
 
     /* zoom inY button  Albert*/
     pixmap = XCreatePixmapFromBitmapData
-      (si->display, RootWindow (si->display, xvi.screen), zoom_inY_bits,
-       zoom_inY_width, zoom_inY_height, fg, bg,
+      (si->display, RootWindow (si->display, xvi.screen),
+			 (char *)zoom_inY_bits, zoom_inY_width, zoom_inY_height, fg, bg,
        xvi.depth);
     si->btn[STRIPBTN_ZOOMINY] = XtVaCreateManagedWidget
       ("zoomInYButton",
@@ -700,8 +700,8 @@ Strip   Strip_init      (int    *argc,
 
     /* zoomY out button Albert*/
     pixmap = XCreatePixmapFromBitmapData
-      (si->display, RootWindow (si->display, xvi.screen), zoom_outY_bits,
-       zoom_outY_width, zoom_outY_height, fg, bg,
+      (si->display, RootWindow (si->display, xvi.screen),
+			 (char *)zoom_outY_bits, zoom_outY_width, zoom_outY_height, fg, bg,
        xvi.depth);
     si->btn[STRIPBTN_ZOOMOUTY] = XtVaCreateManagedWidget
       ("zoomOutYButton",
@@ -759,14 +759,14 @@ Strip   Strip_init      (int    *argc,
   
 #endif /* STRIP_HISTORY */ 
     pixmap = XCreatePixmapFromBitmapData
-      (si->display, RootWindow (si->display, xvi.screen), auto_scaleR_bits,
-       auto_scaleR_width,auto_scaleR_height, fg, bg,
+      (si->display, RootWindow (si->display, xvi.screen),
+       (char *)auto_scaleR_bits, auto_scaleR_width,auto_scaleR_height, fg, bg,
        xvi.depth);
     auto_scalePixmap[1] = pixmap ;
 
     pixmap = XCreatePixmapFromBitmapData
-      (si->display, RootWindow (si->display, xvi.screen), auto_scale_bits,
-       auto_scale_width,auto_scale_height, fg, bg,
+      (si->display, RootWindow (si->display, xvi.screen),
+       (char *)auto_scale_bits, auto_scale_width,auto_scale_height, fg, bg,
        xvi.depth);
     auto_scalePixmap[0] = pixmap ;
 
@@ -2830,8 +2830,8 @@ char    *PopupMenuItemStr[POPUPMENU_ITEMCOUNT] =
   "Controls Dialog...",
   "Toggle buttons",
   "Printer Setup...",
-  "Print...",
-  "Snapshot...",
+  "Print",
+  "Snapshot",
   "Dump Data...",
   "Dismiss",
   "Quit"
@@ -3729,3 +3729,10 @@ static void historyPoints(widget, textField , call_data)
   Strip_refresh((Strip) si);
 }
 #endif /* STRIP_HISTORY */
+
+/* **************************** Emacs Editing Sequences ***************** */
+/* Local Variables: */
+/* tab-width: 2 */
+/* c-basic-offset: 2 */
+/* c-file-offsets: ((substatement-open . 0) (label . 0)) */
+/* End: */

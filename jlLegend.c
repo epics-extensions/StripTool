@@ -2,6 +2,7 @@
 #include "jlLegendP.h"
 
 #include <stdio.h>
+#include <malloc.h>
 
 #define DEFAULT_WIDTH           75
 #define DEFAULT_HEIGHT          100
@@ -937,16 +938,25 @@ XjLegendUpdateItem      (Widget         w,
   LegendItemInfo        *item = (LegendItemInfo *)the_item;
   char                  *p, *s;
 
+#if 0
+/* KE: Don't understand this.  It makes the legend wider than
+   necessary in some cases.  Why use 128.  Using 40 limits the name to
+   40 instead of LEGEND_MAX_STRLEN. (PV name length is unlimited in
+   EPICS 3.14.)  */
   static char nameL[128]; /* Albert */
   char * name= nameStart;
   memset(nameL,0,128);
   memset(nameL,' ',40);
   if(strlen(nameStart)<40) {
-  strncpy(nameL,nameStart,strlen(nameStart));
-  name = (char *) nameL;
+      strncpy(nameL,nameStart,strlen(nameStart));
+      name = (char *) nameL;
   }
-
-  /* copy args */
+#else
+/* KE: Could just make the argument be name instead of nameStart. */
+  char * name= nameStart;
+#endif  
+  
+/* copy args */
   p = s = item->info[LGITEM_NAME];
   if (name) while (*name && ((p-s) < LEGEND_MAX_STRLEN-1)) *p++ = *name++;
   *p = 0;

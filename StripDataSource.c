@@ -101,66 +101,7 @@ static Cursor cursor = 0;
 #define DUMP_SDDS_CONTENTS           "StripTool data"
 #define DUMP_SDDS_DESCRIPTION        ""
 
-typedef short   StatusType;
-
-typedef struct          _DataPoint
-{
-  struct timeval        t;
-  double                v;
-  StatusType            s;
-} DataPoint;
-
-
-typedef struct          _CurveData
-{
-  StripCurveInfo        *curve;
-
-  /* === ring buffers === */
-  size_t                first;  /* index of first live data point */
-  double                *val;
-  StatusType            *stat;
-
-  /* === rendered data info === */
-  Boolean               connectable;    /* can new data be connected to old? */
-  DataPoint             endpoints[2];   /* from most recent render */
-  struct timeval        extents[2];     /* extent of *visible* rendered data */
-
-  /* === history buffer === */
-  StripHistoryResult    history;
-  size_t                hidx_t0, hidx_t1;
-} CurveData;
-
-
-typedef struct          _StripDataSourceInfo
-{
-  StripHistory          history;
-  CurveData             buffers[STRIP_MAX_CURVES];
-
-  /* ring buffer of sample times */
-  size_t                buf_size;
-  size_t                cur_idx;
-  size_t                count;
-  struct timeval        *times;
-
-  /* info for currently initialized time range */
-  size_t                idx_t0, idx_t1;
-  struct timeval        req_t0, req_t1;
-  double                bin_size;
-  int                   n_bins;
-}
-StripDataSourceInfo;
-
-
-typedef struct          _RenderBuffer
-{
-  XSegment              *segs;
-  int                   max_segs;
-  int                   n_segs;
-} RenderBuffer;
-
-
 static RenderBuffer     render_buffer = {0, 0, 0};
-
 
 /* These are used as parameter types for segmentify() */
 typedef struct          _TimeBuffer

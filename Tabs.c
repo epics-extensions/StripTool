@@ -43,6 +43,7 @@
  *
  * ---FHDR--- */
 
+#include <ctype.h>
 
 /*
  * These includes are needed to describe the widget

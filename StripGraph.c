@@ -563,15 +563,15 @@ void StripGraph_draw    (StripGraph     the_graph,
   AxisTransform         transform;
   int                   tic_offsets[2*(AXIS_MAX_TICS+1)];
   char                  buf[256];
-
+  
   /* draw components specified as well as those which need to be drawn */
   sgi->draw_mask |= components;
-
+  
   /* only draw if the window is viewable */
   if (!window_isviewable (sgi->display, sgi->window) ||
-      !window_ismapped (sgi->display, sgi->window))
+    !window_ismapped (sgi->display, sgi->window))
     return;
-
+  
   /* if either pixmap is bad, write a message to the window
    * and return */
   if (!sgi->pixmap || !sgi->plotpix)
@@ -579,17 +579,17 @@ void StripGraph_draw    (StripGraph     the_graph,
     /* it'd be nice to give some error indication here */
     return;
   }
-
+  
   if (sgi->draw_mask & SGCOMPMASK_TITLE)
   {
     XtVaSetValues
       (sgi->title_lbl,
-       XmNforeground,   sgi->config->Color.foreground.xcolor.pixel,
-       XmNbackground,   sgi->config->Color.background.xcolor.pixel,
-       0);
+	  XmNforeground,   sgi->config->Color.foreground.xcolor.pixel,
+	  XmNbackground,   sgi->config->Color.background.xcolor.pixel,
+	  0);
     sgi->draw_mask &= ~SGCOMPMASK_TITLE;
   }
-
+  
   /* ====== x axis ====== */
   if (sgi->draw_mask & SGCOMPMASK_XAXIS)
   {
@@ -597,16 +597,16 @@ void StripGraph_draw    (StripGraph     the_graph,
     dbl_max = time2dbl (&sgi->t1);
     XtVaSetValues
       (sgi->x_axis,
-       XjNminVal,       &dbl_min,
-       XjNmaxVal,       &dbl_max,
-       XmNforeground,   sgi->config->Color.foreground.xcolor.pixel,
-       XjNtextColor,    sgi->config->Color.foreground.xcolor.pixel,
-       XmNbackground,   sgi->config->Color.background.xcolor.pixel,
-       0);
+	  XjNminVal,       &dbl_min,
+	  XjNmaxVal,       &dbl_max,
+	  XmNforeground,   sgi->config->Color.foreground.xcolor.pixel,
+	  XjNtextColor,    sgi->config->Color.foreground.xcolor.pixel,
+	  XmNbackground,   sgi->config->Color.background.xcolor.pixel,
+	  0);
     sgi->draw_mask &= ~SGCOMPMASK_XAXIS;
     update_loc_lbl = 1;
   }
-      
+  
   /* ====== y axis ====== */
   if (sgi->draw_mask & SGCOMPMASK_YAXIS)
   {
@@ -687,28 +687,28 @@ void StripGraph_draw    (StripGraph     the_graph,
     /* make sure the legend info is up to date */
     for (i = 0; i < STRIP_MAX_CURVES; i++)
       if (sgi->curves[i])
-      {
+	{
         XtVaSetValues
           (sgi->legend,
-           XmNforeground,       sgi->config->Color.foreground.xcolor.pixel,
-           XmNbackground,       sgi->config->Color.background.xcolor.pixel,
-           0);
+		XmNforeground,       sgi->config->Color.foreground.xcolor.pixel,
+		XmNbackground,       sgi->config->Color.background.xcolor.pixel,
+		0);
         sprintf
           (buf,
-           sgi->curves[i]->details->scale == STRIPSCALE_LOG_10?
-           "log10 (%g, %g)  VAL=%g" : "(%g, %g)  VAL=%g",
-           sgi->curves[i]->details->min, sgi->curves[i]->details->max,
-sgi->curves[i]->get_value(sgi->curves[i]->func_data));
-
+		sgi->curves[i]->details->scale == STRIPSCALE_LOG_10?
+		"log10 (%g, %g)  VAL=%g" : "(%g, %g)  VAL=%g",
+		sgi->curves[i]->details->min, sgi->curves[i]->details->max,
+		sgi->curves[i]->get_value(sgi->curves[i]->func_data));
+	  
         XjLegendUpdateItem
           (sgi->legend,
-           sgi->lgitems[i],
-           sgi->curves[i]->details->name,
-           buf,
-           strcmp (sgi->curves[i]->details->egu, STRIPDEF_CURVE_EGU)?
-           sgi->curves[i]->details->egu : 0,
-           sgi->curves[i]->details->comment,
-           sgi->curves[i]->details->color->xcolor.pixel);
+		sgi->lgitems[i],
+		sgi->curves[i]->details->name,
+		buf,
+		strcmp (sgi->curves[i]->details->egu, STRIPDEF_CURVE_EGU)?
+		sgi->curves[i]->details->egu : 0,
+		sgi->curves[i]->details->comment,
+		sgi->curves[i]->details->color->xcolor.pixel);
       }
     XjLegendResize (sgi->legend);
     sgi->draw_mask &= ~SGCOMPMASK_LEGEND;
@@ -721,14 +721,14 @@ sgi->curves[i]->get_value(sgi->curves[i]->func_data));
     StripGraph_plotdata (sgi);
     sgi->draw_mask &= ~SGCOMPMASK_DATA;
   }
-
+  
   /* make copy of plot on which we can overlay the grid */
   XCopyArea
     (sgi->display, sgi->plotpix, sgi->pixmap, sgi->gc,
-     0, 0,
-     sgi->window_rect.width, sgi->window_rect.height,
-     sgi->window_rect.x, sgi->window_rect.y);
-
+	0, 0,
+	sgi->window_rect.width, sgi->window_rect.height,
+	sgi->window_rect.x, sgi->window_rect.y);
+  
   /* draw the grid lines, updating if necessary */
   if (sgi->config->Option.grid_xon || sgi->config->Option.grid_yon)
   {
@@ -736,10 +736,10 @@ sgi->curves[i]->get_value(sgi->curves[i]->func_data));
       (sgi->display, sgi->gc, 1, LineOnOffDash, CapButt, JoinMiter);
     XSetForeground
       (sgi->display, sgi->gc, sgi->config->Color.grid.xcolor.pixel);
-
+    
     /* x */
     if (sgi->config->Option.grid_xon == STRIPGRID_SOME ||
-        sgi->config->Option.grid_xon == STRIPGRID_ALL)
+	sgi->config->Option.grid_xon == STRIPGRID_ALL)
       n = XjAxisGetMajorTicOffsets (sgi->x_axis, tic_offsets, AXIS_MAX_TICS+1);
     if (sgi->config->Option.grid_xon == STRIPGRID_ALL)
       n += XjAxisGetMinorTicOffsets
@@ -759,7 +759,7 @@ sgi->curves[i]->get_value(sgi->curves[i]->func_data));
     
     /* y */
     if (sgi->config->Option.grid_yon == STRIPGRID_SOME ||
-        sgi->config->Option.grid_yon == STRIPGRID_ALL)
+	sgi->config->Option.grid_yon == STRIPGRID_ALL)
       n = XjAxisGetMajorTicOffsets (sgi->y_axis, tic_offsets, AXIS_MAX_TICS+1);
     if (sgi->config->Option.grid_yon == STRIPGRID_ALL)
       n += XjAxisGetMinorTicOffsets
@@ -778,14 +778,14 @@ sgi->curves[i]->get_value(sgi->curves[i]->func_data));
       XDrawSegments (sgi->display, sgi->pixmap, sgi->gc, sgi->grid.h_seg, n);
     }
   }
-
+  
   /* copy pixmap to window */
   if (area) XSetRegion (sgi->display, sgi->gc, *area);
   XCopyArea
     (sgi->display, sgi->pixmap, sgi->window, sgi->gc,
-     0, 0,
-     sgi->window_rect.width, sgi->window_rect.height,
-     sgi->window_rect.x, sgi->window_rect.y);
+	0, 0,
+	sgi->window_rect.width, sgi->window_rect.height,
+	sgi->window_rect.x, sgi->window_rect.y);
   if (area) XSetClipMask (sgi->display, sgi->gc, None);
   XFlush(sgi->display);
 }
@@ -1040,35 +1040,35 @@ int     StripGraph_addcurve     (StripGraph the_sgi, StripCurve curve)
     /* build transform for this curve */
     ok = jlaBuildTransform
       (&sgi->transforms[i],
-       c->details->scale == STRIPSCALE_LOG_10? XjAXIS_LOG10 : XjAXIS_LINEAR,
-       XjAXIS_REAL,
-       (AxisEndpointPosition)0,
-       (AxisEndpointPosition)(sgi->window_rect.height - 1),
-       c->details->min,
-       c->details->max,
-       -c->details->precision);
-
+	  c->details->scale == STRIPSCALE_LOG_10? XjAXIS_LOG10 : XjAXIS_LINEAR,
+	  XjAXIS_REAL,
+	  (AxisEndpointPosition)0,
+	  (AxisEndpointPosition)(sgi->window_rect.height - 1),
+	  c->details->min,
+	  c->details->max,
+	  -c->details->precision);
+    
     if (!ok) {
       fprintf (stderr, "unable to build transform for curve\n");
       sgi->curves[i] = 0;
       return 0;
     }
-       
+    
     sprintf
       (buf, "(%g, %g) VAL=%g",
-       sgi->curves[i]->details->min, sgi->curves[i]->details->max,
-sgi->curves[i]->get_value(sgi->curves[i]->func_data) );
+	  sgi->curves[i]->details->min, sgi->curves[i]->details->max,
+	  sgi->curves[i]->get_value(sgi->curves[i]->func_data) );
     sgi->lgitems[i] = XjLegendNewItem
       (sgi->legend,
-       sgi->curves[i]->details->name,
-       buf,
-       sgi->curves[i]->details->egu,
-       sgi->curves[i]->details->comment,
-       sgi->curves[i]->details->color->xcolor.pixel);
-       
+	  sgi->curves[i]->details->name,
+	  buf,
+	  sgi->curves[i]->details->egu,
+	  sgi->curves[i]->details->comment,
+	  sgi->curves[i]->details->color->xcolor.pixel);
+    
     StripGraph_setstat (sgi, SGSTAT_GRAPH_REFRESH | SGSTAT_LEGEND_REFRESH);
   }
-
+  
   return ok;
 }
 
@@ -1264,7 +1264,7 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
         }
         StripGraph_draw
           (sgi, SGCOMPMASK_YAXIS | SGCOMPMASK_GRID, (Region *)0);
-		StripGraph_setstat (sgi, SGSTAT_GRAPH_REFRESH);
+	  StripGraph_setstat (sgi, SGSTAT_GRAPH_REFRESH);
         break;
       }
   }
@@ -1394,3 +1394,16 @@ void CurveLegendRefresh(StripCurveInfo *c, StripGraph sg, double a)
     
     LegendRefresh(cw);
 }
+
+
+/* **************************** Emacs Editing Sequences ***************** */
+/* Local Variables: */
+/* tab-width: 6 */
+/* c-basic-offset: 2 */
+/* c-comment-only-line-offset: 0 */
+/* c-indent-comments-syntactically-p: t */
+/* c-label-minimum-indentation: 1 */
+/* c-file-offsets: ((substatement-open . 0) (label . 2) */
+/* (brace-entry-open . 0) (label .2) (arglist-intro . +) */
+/* (arglist-cont-nonempty . c-lineup-arglist) ) */
+/* End: */

@@ -45,13 +45,9 @@
 #define _X_ROTATE_H_
 
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif /* __cplusplus */
-
-
-
 
 #ifndef XgALIGN_RIGHT
 #  define XgALIGN_RIGHT         1

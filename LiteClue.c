@@ -78,6 +78,10 @@ $log
 
 #include <stdio.h>
 
+/* This is not an ANSI function and may not be included from signal.h.
+   Include it here explicitly */
+extern int kill(pid_t, int);
+
 #if defined(__cplusplus) || defined(C_plusplus)
 #  define BOGUS(x)
 #else
@@ -88,7 +92,6 @@ $log
         if (XtClass(w) != xcgLiteClueWidgetClass) \
                 wrong_widget(routine)
 
-/* extern _XmSelectColorDefault();      /* cgi */
 static Boolean setValues( Widget _current, Widget _request, Widget _new, ArgList args, Cardinal * num_args);
 static void Initialize(Widget treq, Widget tnew, ArgList args, Cardinal *num_args);
 struct liteClue_context_str * alloc_liteClue_context(void);
@@ -145,14 +148,14 @@ LiteClueClassRec xcgLiteClueClassRec =
         (WidgetClass)&overrideShellClassRec,    /* superclass */
         "XcgLiteClue",                          /* class_name */
         (Cardinal)sizeof(LiteClueRec),          /* widget size */
-        NULL,   /* classInit,                   /* class_init */
-        (XtWidgetClassProc)NULL,        /* classPartInit,       /* class_part_init */
+        NULL,                                   /* class_init */
+        (XtWidgetClassProc)NULL,                /* class_part_init */
         (XtEnum)FALSE,                          /* class_inited */
         (XtInitProc)Initialize,                 /* initialize */
         (XtArgsProc)NULL,                       /* init_hook */
         XtInheritRealize,                       /* realize */
         (XtActionList)0,                        /* actions */
-        (Cardinal)0,                    /* num_actions */
+        (Cardinal)0,                            /* num_actions */
         (XtResourceList)resources,              /* resources */
         (Cardinal)XtNumber(resources),          /* num_resources */
         NULLQUARK,                              /* xrm_class */
@@ -160,9 +163,9 @@ LiteClueClassRec xcgLiteClueClassRec =
         (XtEnum)FALSE,                          /* compress_exposur */
         TRUE,                                   /* compress enterleave */
         FALSE,                                  /* visibility_interest */
-        (XtWidgetProc)NULL,     /* destroy,                     /* destroy */
+        (XtWidgetProc)NULL,                     /* destroy */
         XtInheritResize,
-        XtInheritExpose,        /* expose, */
+        XtInheritExpose,                        /* expose, */
         (XtSetValuesFunc)setValues,             /* set_values */
         (XtArgsFunc)NULL,                       /* set_values_hook */
         XtInheritSetValuesAlmost,               /* set_values_almost */

@@ -16,6 +16,10 @@
 #include <X11/Xlib.h>
 #include <X11/Intrinsic.h>
 
+/* This is not an ANSI function and may not be included from string.h.
+   Include it here explicitly */
+extern char *strdup(const char *);
+
 /* ====== Configuration File Stuff ====== */
 #define STRIPCONFIG_MAJOR_VERSION       1
 #define STRIPCONFIG_MINOR_VERSION       2

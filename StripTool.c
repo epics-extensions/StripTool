@@ -7,6 +7,9 @@
  *
  *-----------------------------------------------------------------------------
  */
+
+#define DEBUG_OPEN 1
+
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -24,7 +27,17 @@
 Strip   strip;
 StripDAQ        strip_daq;              /* the Strip data source */
 
+#ifdef USE_OLD_FILE_SEARCH
 static FILE     *StripTool_open_file    (char *, char *, int, char *, char *);
+#else
+static FILE     *StripTool_open_file (char *file_name, char *path_used,
+                  int size_path_used);
+static          Boolean extractStringBetweenColons(char *input, char *output,
+                  int  startPos, int  *endPos);
+static int      isPath(const char *fileString);
+static int      convertNameToFullPath(const char *name, char *pathName,
+                  int nChars);
+#endif
 
 static int      request_connect         (StripCurve, void *);
 static int      request_disconnect      (StripCurve, void *);
@@ -35,24 +48,23 @@ int StripTool_main (int argc, char *argv[])
 {
   int           status;
   FILE          *f;
-  char          path_used[1024];
 
     /* create and initialize the Strip structure */
   if (!(strip = Strip_init (&argc, argv, tmpfile())))
-    {
-      fprintf (stderr, "%s: unable to initialize Strip\n", argv[0]);
-      exit (1);
-    }
-
+  {
+    fprintf (stderr, "%s: Unable to initialize Strip\n", argv[0]);
+    exit (1);
+  }
+  
   /* fire up the data source  */
   if (!(strip_daq = StripDAQ_initialize (strip)))
-    {
-      fprintf
-        (stderr, "%s: unable to initialize Strip data source\n", argv[0]);
-      status = 1;
-      goto done;
-    }
-
+  {
+    fprintf
+	(stderr, "%s: Unable to initialize Strip data source\n", argv[0]);
+    status = 1;
+    goto done;
+  }
+  
   /* set the strip callback functions */
   Strip_setattr
     (strip,
@@ -62,33 +74,53 @@ int StripTool_main (int argc, char *argv[])
 
   /* look for and load defaults file */
   if ((f = fopen (STRIP_DEFAULT_FILENAME, "r")) != NULL)
-    {
-      fprintf
-        (stdout, "StripTool: using default file, %s.\n",
-         STRIP_DEFAULT_FILENAME);
-      Strip_readconfig (strip, f, SCFGMASK_ALL, STRIP_DEFAULT_FILENAME);
-      fclose (f);
-    }
-
+  {
+    fprintf
+	(stdout, "StripTool: Using default file %s.\n",
+	  STRIP_DEFAULT_FILENAME);
+    Strip_readconfig (strip, f, SCFGMASK_ALL, STRIP_DEFAULT_FILENAME);
+    fclose (f);
+  }
+  
   /* now load a config file if requested */
   if (argc >= 2)
   {
+#ifdef USE_OLD_FILE_SEARCH
     f = StripTool_open_file
       (getenv(STRIP_FILE_SEARCH_PATH_ENV), path_used, sizeof(path_used),
        argv[1], "r");
-       
+
     if (f)
-      {
-        fprintf
-          (stdout, "StripTool: using config file, %s.\n", argv[1]);
-        Strip_readconfig (strip, f, SCFGMASK_ALL, argv[1]);
-        fclose (f);
-      }
+    {
+	fprintf
+	  (stdout, "StripTool: Using config file, %s.\n", argv[1]);
+	Strip_readconfig (strip, f, SCFGMASK_ALL, argv[1]);
+	fclose (f);
+    }
     else fprintf
            (stdout,
-            "StripTool: can't open %s; using default config.\n",
-            argv[1]);
+		 "StripTool: Can't open %s; using default config.\n",
+		 argv[1]);
+#else
+    char path_used[PATH_MAX];
+    f = StripTool_open_file (argv[1], path_used, sizeof(path_used));
+    
+    if (f)
+    {
+	fprintf
+	  (stdout, "StripTool: Using config file %s.\n", path_used);
+	Strip_readconfig (strip, f, SCFGMASK_ALL, path_used);
+	fclose (f);
+    }
+    else
+    {
+	fprintf
+	  (stdout,
+	    "StripTool: Can't open %s; using default config.\n",
+	    argv[1]);
+    }
   }
+#endif
   
   status = 0;
   Strip_go (strip);
@@ -122,6 +154,7 @@ int StripTool_main (int argc, char *argv[])
 extern errno;
 #endif
 
+#ifdef USE_OLD_FILE_SEARCH
 static FILE * StripTool_open_file    ( char * pld_display_path,
                                        char * ppath_used,
                                        int    length_path_used,
@@ -235,7 +268,174 @@ static FILE * StripTool_open_file    ( char * pld_display_path,
     }
   }
 }
+#else /* #ifdef USE_OLD_FILE_SEARCH	*/
+/* Function to open a file.  If unsuccessful, try to attach path of
+ * each directory in STRIP_FILE_SEARCH_PATH.  If successful, the full
+ * path name used is returned in path_used, limited by the given
+ * size_path_used. */
+static FILE *StripTool_open_file (char *file_name, char *path_used,
+  int size_path_used)
+{
+  FILE *filePtr;
+  int startPos;
+  char fullPathName[PATH_MAX], dirName[PATH_MAX];
+  char *dir, *ptr;
+  
+#ifdef WIN32
+  convertDirDelimiterToWIN32(file_name);
+#endif
+  
+#if DEBUG_OPEN
+  print("\nStripTool_open_file\n"
+    "  file_name=%s\n",
+    file_name?file_name:"NULL");
+#endif	
+  
+  /* Try to open with the given name first
+   *   (Will be in cwd if not an absolute pathname) */
+  if(path_used && size_path_used) *path_used='\0';
+  filePtr = fopen(file_name,"r");
+  if(filePtr) {
+    if(path_used && size_path_used) {
+	convertNameToFullPath(file_name, path_used, size_path_used);
+    }
+#if DEBUG_OPEN
+    print("  [Direct] %s\n",file_name?file_name:"NULL");	
+#endif	
+    return(filePtr);
+  }
+  
+  /* If the name is a path, then we can do no more */
+  if(isPath(file_name)) {
+#if DEBUG_OPEN
+    print("  [Fail:IsPath] %s\n",file_name?file_name:"NULL");
+#endif	
+    return(NULL);
+  }
+  
+  /* Look in STRIP_FILE_SEARCH_PATH directories */
+  dir = getenv(STRIP_FILE_SEARCH_PATH_ENV);
+  if(dir != NULL) {
+    startPos = 0;
+    while(filePtr == NULL &&
+	extractStringBetweenColons(dir,dirName,startPos,&startPos)) {
+	strncpy(fullPathName, dirName, PATH_MAX);
+	fullPathName[PATH_MAX-1] = '\0';
+#ifdef WIN32
+	convertDirDelimiterToWIN32(fullPathName);
+#endif
+	strcat(fullPathName, STRIP_DIR_DELIMITER_STRING);
+	strcat(fullPathName, file_name);
+#if DEBUG_OPEN
+	print("  [SFSP:Try] %s\n",fullPathName);
+#endif	
+	filePtr = fopen(fullPathName, "r");
+	if(filePtr) {
+	  if(path_used && size_path_used) {
+	    strncpy(path_used, fullPathName, size_path_used);
+	    path_used[size_path_used-1]='\0';
+	  }
+#if DEBUG_OPEN
+	  print("  [STSP:Found] %s\n",fullPathName);
+#endif	
+	  return (filePtr);
+	}
+    }
+  }
+  
+  /* Not found */
+#if DEBUG_OPEN
+  print("  [Fail:NotFound] %s",file_name?file_name:"NULL");
+#endif	
+  return (NULL);
+}
 
+
+/*
+ *  extract strings between colons from input to output
+ *    this function works as an iterator...
+ */
+static Boolean extractStringBetweenColons(char *input, char *output,
+  int  startPos, int  *endPos)
+{
+  int i, j;
+  
+  i = startPos; j = 0;
+  while(input[i] != '\0') {
+    if(input[i] != STRIP_PATH_DELIMITER) {
+	output[j++] = input[i];
+    } else break;
+    i++;
+  }
+  output[j] = '\0';
+  if(input[i] != '\0') {
+    i++;
+  }
+  *endPos = i;
+  if(j == 0)
+    return(False);
+  else
+    return(True);
+}
+
+/* Check if the name is a pathname */
+static int isPath(const char *fileString)
+{
+  int pathTest;
+  
+  /* Look for the appropriate leading character */
+#if defined(VMS)
+  pathTest = (strchr(fileString, '[') != NULL);
+#elif defined(WIN32)
+  /* A drive specification will also indicate a full path name */
+  pathTest = (fileString[0] == STRIP_DIR_DELIMITER_CHAR ||
+    fileString[1] == ':');
+#else
+  pathTest = (fileString[0] == STRIP_DIR_DELIMITER_CHAR);
+#endif
+  
+  /* Note: Do not assume names starting with . or .. are full path
+     names.  Paths can be prepended to these as for the related
+     display, so we don't want to eliminate them. */
+  
+  return(pathTest);
+}  
+
+/* Convert name to a full path name.  Returns 1 if converted, 0 if
+   failed. */
+static int convertNameToFullPath(const char *name, char *pathName, int nChars)
+{
+  int retVal = 1;
+  
+  if(isPath(name)) {
+    /* Is a full path name */
+    strncpy(pathName, name, nChars);
+    pathName[nChars-1] = '\0';
+  } else {
+    char currentDirectoryName[PATH_MAX];
+    
+    /* Insert the path before the file name */
+    currentDirectoryName[0] = '\0';
+    getcwd(currentDirectoryName, PATH_MAX);
+    
+    if(strlen(currentDirectoryName) + strlen(name) <
+	(size_t)(nChars - 1)) {
+	strcpy(pathName, currentDirectoryName);
+#ifndef VMS
+	strcat(pathName, STRIP_DIR_DELIMITER_STRING);
+#endif
+	strcat(pathName, name);
+    } else {
+	/* Hopefully won't get here */
+	strncpy(pathName, name, nChars);
+	pathName[nChars-1] = '\0';
+	retVal = 0;
+    }
+  }
+  
+  return retVal;
+}
+#endif /* #ifdef USE_OLD_FILE_SEARCH */
 
 static int      request_connect         (StripCurve curve, void *BOGUS(1))
 {
@@ -304,10 +504,44 @@ static double   get_cpu_usage           (void *BOGUS(1))
     cpu_usage /= subtract_times (&t, &time_a, &time_b);
     cpu_usage *= 100;
   }
-
+  
   clock_a = clock_b;
   time_a = time_b;
   
   return cpu_usage;
 }
 
+/* General purpose output routine
+ * Works with both UNIX and WIN32
+ * Uses sprintf to avoid problem with lprintf not handling %f, etc.
+ *   (Exceed 5 only)
+ * Use for debugging */
+void print(const char *fmt, ...)
+{
+  va_list vargs;
+  static char lstring[1024];  /* DANGER: Fixed buffer size */
+  
+  va_start(vargs,fmt);
+  vsprintf(lstring,fmt,vargs);
+  va_end(vargs);
+  
+  if(lstring[0] != '\0') {
+#ifdef WIN32
+    lprintf("%s",lstring);
+#else
+    printf("%s",lstring);
+#endif
+  }
+}
+
+/* **************************** Emacs Editing Sequences ***************** */
+/* Local Variables: */
+/* tab-width: 6 */
+/* c-basic-offset: 2 */
+/* c-comment-only-line-offset: 0 */
+/* c-indent-comments-syntactically-p: t */
+/* c-label-minimum-indentation: 1 */
+/* c-file-offsets: ((substatement-open . 0) (label . 2) */
+/* (brace-entry-open . 0) (label .2) (arglist-intro . +) */
+/* (arglist-cont-nonempty . c-lineup-arglist) ) */
+/* End: */

@@ -33,16 +33,10 @@ STRIP_HISTORY      = StripHistoryAR+ArR.c
 ARCHIVER_CALL      = NONE
 USE_ARCHIVE_RECORD = NO
 
-# Makefile.Host
-#TOP = ../../..
-#include $(TOP)/config/CONFIG_APP
-#EPICS 	= ../../../..
-#TOP 	= $(EPICS)/base
-#include $(TOP)/config/CONFIG_BASE
-
 HAVE_XPM	= YES
 HAVE_XMU	= YES
 
+PURIFY_FLAGS = -first-only -chain-length=26
 
 X11_INC	:= $(X11_INC)
 MOTIF_INC := $(MOTIF_INC)
@@ -55,7 +49,19 @@ XMU_LIB	:= $(X11_LIB)
 # Options
 # ==========================================================================
 CMPLR 		= STRICT
-HOST_OPT	= YES
+ifdef WIN32
+ #HOST_OPT = NO
+else
+ HOST_OPT = NO
+endif
+ifeq ($(HOST_OPT),NO)
+  ifeq ($(ANSI),ACC)
+    ifeq ($(OS_CLASS),solaris)
+      USR_CFLAGS += -xsb
+    endif
+  endif
+endif
+#PURIFY = YES
 STRIP_DAQ	= StripCA.c
 #STRIP_HISTORY	= StripHistoryNULL.c
 USE_CLUES	= YES
@@ -64,7 +70,6 @@ USE_SDDS	= YES
 ifeq ($(STRIP_DAQ),StripCDEV.cc)
   USE_CDEV	= YES
 endif
-
 
 # ==========================================================================
 # Sources

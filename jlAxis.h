@@ -270,4 +270,9 @@ void    jlaUntransformNormalizedValues  (jlaTransformInfo *,
                                          double *,      /* result buffer */
                                          int);          /* buffer count */
 
-#endif
+void    XjAxisUntransformRasterizedValues   (Widget           w,
+                                     register double  *x_in,
+                                     register double  *x_out,
+                                     register int     n);
+
+#endif  /* #ifndef _jlAxis */
