@@ -42,7 +42,24 @@ Tue Oct 22 10:49:02 CDT 2002 - StripTool-2-5-1-1 - jba
 	This fixes problem that StripTool will be quirky with R3.13 on any network
 	that does not have very many IOCs. 
 
-Mon Oct 28 16:23:21 CST 2002 - StripTool-2-5-1-1
+Mon Oct 28, 2002 - StripTool-2-5-2-0 - evans
+	Removed "..." on Print and Snapshot menu items as they operate without
+	additional user input.  Fixed it to build without errors and warnings
+	with CMPLR=STRICT on Solaris.  (Required a lot of work to ComboBox.c.)
+	Fixed the algorithm for reading a file on the command line to first
+	try to open the file as specified, then to try to attach paths in
+	STRIP_FILE_SEARCH_PATH.  Changed STRIP_FILE_SEARCH_PATH_ENV to be
+	"STRIP_FILE_SEARCH_PATH" instead of "EPICS_DISPLAY_PATH".  Changed
+	STRIP_CONFIGFILE_PATTERN to "*.stp" and STRIP_DEFAULT_FILENAME to
+	"StripTool.stp" to implement tech-talk consenus that .stp was the best
+	suffix.  Put error printout when DESC field is not found inside #ifdef
+	PRINT_DESC_ERRORS, as these repeating errors are annoying for PVs that
+	don't have DESC fields.  Now fails silently, and the DESC doesn't
+	appear in the legend.  Fixed XjLegendUpdateItem to not have a minimum
+	name length of 40 chars, as it makes the legend unnecessarily wide.
+	(This may have to be revisited.)
+
+Mon Oct 28 16:23:21 CST 2002 - StripTool-2-5-2-1
 	Reset curve order when new file loaded.
 	Fix for curve order plot data update.
 	Added pan mode indicator to history data.
