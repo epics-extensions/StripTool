@@ -2,7 +2,7 @@
 #include "jlLegendP.h"
 
 #include <stdio.h>
-#include <malloc.h>
+#include <stdlib.h>
 
 #define DEFAULT_WIDTH           75
 #define DEFAULT_HEIGHT          100

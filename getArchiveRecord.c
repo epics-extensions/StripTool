@@ -41,7 +41,7 @@
 #include <tsDefs.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include <memory.h>
 #define TS_EPOCH_SEC_PAST_1970   7305*86400
 /*#define TS_EPOCH_SEC_PAST_1970 6940*86400  * new Epics realese do not support it */

@@ -45,7 +45,7 @@
  *
  * ---FHDR--- */
 
-#include <malloc.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include <X11/Intrinsic.h>

@@ -45,7 +45,7 @@
  * ---FHDR--- */
 
 #include        <ctype.h>
-#include        <malloc.h>
+#include        <stdlib.h>
 
 /*
  * We define a cursor for the list
