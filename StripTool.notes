@@ -118,3 +118,22 @@ Tue Nov 19, 2002 - StripTool-2-5-2-7 - evans
 	specified on the command line and read successfully.  It was merging
 	the two.  Made changes to Makefile.Host to clean up the build and make
 	it easier to override defaults in StripDefines.h.
+
+Fri Nov 22, 2002 - StripTool-2-5-2-8 - evans
+	Made Refresh button call Strip_refresh, which refreshes everything,
+	instead of just refreshing data.  Fixed the problem of the y scale not
+	changing during zoom if the selected curve wasn't being plotted.
+	Added a resource to make the toggle buttons larger (so you can see
+	when they aren't set and see the checkmark).  Fixed it to popup the
+	graph on connection but not on reconnection.  Should solve the
+	popping-up-unwanted problem in other CDE workspaces but still be the
+	same as before otherwise.  Fixed the DESC logic to use callbacks
+	instead of ca_pend_io.  This makes it faster when there is no DESC
+	field (as for Gateway PVs.) and eliminates some legend-drawing
+	problems.  Fixed it so the legend doesn't flash.  Changed
+	ca_pend_io(STRIP_CA_PEND_TIMEOUT) to ca_poll().  Fixed slightly to
+	significantly rotated and skewed y-axis labels owing to roundoff.
+	Required changing the algorithms in rotated.c.  Fixed it so it doesn't
+	get X errors on File_Close and doesn't crash after entering a pv
+	afterwards.  Required removing the call to
+	StripDataSource_removecurveall, which doesn't seem to be necessary.

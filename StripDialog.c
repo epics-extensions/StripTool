@@ -3179,14 +3179,14 @@ static void     fsdlg_cb        (Widget w, XtPointer data, XtPointer call)
         for (i = 0; i < FSDLG_TGL_COUNT; i++)
           if (XmToggleButtonGetState (sd->fs.tgl[i]))
             StripConfigMask_or (&sd->fs.mask, FsDlgTglVal[i]);
-
+	  
         /* do save or load */
         if (sd->fs.state == FSDLG_LOAD)
 	  {
-			sd->callback[SDCALLBACK_CLEAR].func(sd->callback[SDCALLBACK_CLEAR].data,NULL);
-			load_config (sd, fname, sd->fs.mask);
-			Strip_refresh(sd->callback[SDCALLBACK_CLEAR].data); /* perror Albert */
-			/*GraphLoadRefresh(sd->callback[SDCALLBACK_CLEAR].data);*/
+	    sd->callback[SDCALLBACK_CLEAR].func(sd->callback[SDCALLBACK_CLEAR].data,NULL);
+	    load_config (sd, fname, sd->fs.mask);
+	    Strip_refresh(sd->callback[SDCALLBACK_CLEAR].data); /* perror Albert */
+	    /*GraphLoadRefresh(sd->callback[SDCALLBACK_CLEAR].data);*/
 	  }
         else
 	  {
@@ -3420,8 +3420,8 @@ static void     load_config     (StripDialogInfo        *sd,
 
 int countCurve(void *the_dialog)  /* Albert */
 {
-StripDialogInfo *sd = (StripDialogInfo *)the_dialog;
-return(sd->sdcurve_count);
+  StripDialogInfo *sd = (StripDialogInfo *)the_dialog;
+  return(sd->sdcurve_count);
 }
 
 /* **************************** Emacs Editing Sequences ***************** */
