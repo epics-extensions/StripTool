@@ -24,6 +24,8 @@
 #include "auto_scroll.bm"
 #include "refresh.bm"
 
+#include <errno.h>
+
 #ifdef USE_XPM
 #  include <X11/xpm.h>          
 #  include "StripGraphIcon.xpm"         
@@ -60,6 +62,7 @@
 #include <Xm/DragDrop.h>
 #include <Xm/Protocols.h>
 #include <X11/Xlib.h>
+#include <Xm/ToggleB.h>
 
 #if defined(HP_UX) || defined(SOLARIS) || defined(linux)
 #  include <unistd.h>
@@ -142,7 +145,26 @@ typedef struct _stripFdInfo
   int                   fd;
 }
 stripFdInfo;
-  
+
+
+typedef enum
+{
+  DFSDLG_TGL_ASCII = 0,
+#ifdef USE_SDDS
+  DFSDLG_TGL_SDDS,
+#endif
+  DFSDLG_TGL_COUNT
+}
+DmpFsDlgTglFileTypes;
+
+char    *DfsDlgTglStr[DFSDLG_TGL_COUNT] =
+{
+  "ASCII",
+#ifdef USE_SDDS
+  "SDDS binary"
+#endif
+};
+
 typedef struct _StripInfo
 {
   /* == X Stuff == */
@@ -153,6 +175,7 @@ typedef struct _StripInfo
   Widget                btn[STRIPBTN_COUNT];
   Widget                popup_menu, message_box;
   Widget                fs_dlg;
+  Widget                fs_tgl[DFSDLG_TGL_COUNT];
   char                  app_name[128];
 
   /* == file descriptor management ==  */
@@ -1150,9 +1173,40 @@ int     Strip_dumpdata  (Strip the_strip, char *fname)
   StripInfo             *si = (StripInfo *)the_strip;
   FILE                  *f;
   int                   ret_val = 0;
+  int                   i = 0;
 
   if (ret_val = ((f = fopen (fname, "w")) != NULL))
-    ret_val = StripGraph_dumpdata (si->graph, f);
+  {
+    if (DFSDLG_TGL_COUNT > 1)
+    {
+      for (i = 0; i < DFSDLG_TGL_COUNT; i++)
+        if (XmToggleButtonGetState(si->fs_tgl[i])) break;
+        switch (i)
+        {
+            case DFSDLG_TGL_ASCII:
+              ret_val = StripGraph_dumpdata (si->graph, f);
+              break;
+#ifdef USE_SDDS
+            case DFSDLG_TGL_SDDS:
+              fclose (f);
+              ret_val = StripGraph_dumpdata_sdds (si->graph, fname);
+              break;
+#endif
+        }
+    }
+    else
+      ret_val = StripGraph_dumpdata (si->graph, f);
+    if (!ret_val)
+      MessageBox_popup
+        (si->shell, &si->message_box, XmDIALOG_ERROR, "File I/O", "Ok",
+         "Unable to dump data");
+    fclose (f);
+  }
+  else
+    MessageBox_popup
+      (si->shell, &si->message_box, XmDIALOG_ERROR, "File I/O", "Ok",
+       "Unable to open file for writing.\nname: %s\nerror: %s",
+       fname, strerror (errno));
   return ret_val;
 }
 
@@ -2484,6 +2538,11 @@ static void     PrinterDialog_cb        (Widget         w,
 
 static void     fsdlg_popup     (StripInfo *si, fsdlg_functype func)
 {
+  Widget        w,frame;
+  int           i;
+  XmString         xstr;
+  char          *ftype;
+
   if (!si->fs_dlg)
   {
     si->fs_dlg = XmCreateFileSelectionDialog
@@ -2491,6 +2550,42 @@ static void     fsdlg_popup     (StripInfo *si, fsdlg_functype func)
     XtVaSetValues (si->fs_dlg, XmNfileTypeMask, XmFILE_REGULAR, NULL);
     XtAddCallback (si->fs_dlg, XmNokCallback, fsdlg_cb, si);
     XtAddCallback (si->fs_dlg, XmNcancelCallback, fsdlg_cb, NULL);
+
+    if (DFSDLG_TGL_COUNT > 1)
+    {
+      frame = XtVaCreateManagedWidget
+        ("frame",
+         xmFrameWidgetClass,              si->fs_dlg,
+         NULL);
+      XtVaCreateManagedWidget
+        ("File Type",
+         xmLabelWidgetClass,              frame,
+         XmNchildType,                    XmFRAME_TITLE_CHILD,
+         NULL);
+      w = XtVaCreateManagedWidget
+        ("rowcol",
+         xmRowColumnWidgetClass,  frame,
+         XmNchildType,                    XmFRAME_WORKAREA_CHILD,
+         XmNradioBehavior,                True,
+         NULL);
+      for (i = 0; i < DFSDLG_TGL_COUNT; i++)
+      {
+        xstr = XmStringCreateLocalized (DfsDlgTglStr[i]);
+        si->fs_tgl[i] = XtVaCreateManagedWidget
+          ("togglebutton",
+           xmToggleButtonWidgetClass,     w,
+           XmNlabelString,                xstr,
+           NULL);
+        XmStringFree (xstr);
+      }
+     XmToggleButtonSetState(si->fs_tgl[0],True,True);
+
+     /* set default dump file type */
+     if (ftype = getenv (STRIP_DUMP_TYPE_DEFAULT_ENV))
+       for (i = 0; i < DFSDLG_TGL_COUNT; i++)
+         if (strcmp(DfsDlgTglStr[i],ftype) == 0)
+           XmToggleButtonSetState(si->fs_tgl[i],True,True);
+    }
   }
   XtVaSetValues (si->fs_dlg, XmNuserData, func, NULL);
   XtManageChild (si->fs_dlg);

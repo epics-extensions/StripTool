@@ -170,4 +170,15 @@ size_t  StripDataSource_render  (StripDataSource,
  */
 int     StripDataSource_dump            (StripDataSource, FILE *);
 
+
+#ifdef USE_SDDS
+/*
+ * StripDataSource_dump_sdds
+ *
+ *      Causes all ring buffer data for the current range to be output in SDDS 
+ *      format to the specified filename.
+ */
+int     StripDataSource_dump_sdds            (StripDataSource, char *);
+#endif /* SDDS */
+
 #endif

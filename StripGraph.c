@@ -1046,6 +1046,19 @@ int     StripGraph_removecurve  (StripGraph the_sgi, StripCurve curve)
 }
 
 
+#ifdef USE_SDDS
+/*
+ * StripGraph_dumpdata_sdds
+ */
+int     StripGraph_dumpdata_sdds     (StripGraph the_sgi, char *fname)
+{
+  StripGraphInfo        *sgi = (StripGraphInfo *)the_sgi;
+  
+  return StripDataSource_dump_sdds (sgi->data, fname);
+}
+#endif
+
+
 /*
  * StripGraph_dumpdata
  */

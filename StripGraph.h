@@ -141,6 +141,17 @@ void    StripGraph_draw         (StripGraph,
 int     StripGraph_dumpdata     (StripGraph, FILE *);
 
 
+#ifdef USE_SDDS
+/*
+ * StripGraph_dumpdata_sdds
+ *
+ *      Causes all data for the curves on the current time range, to be
+ *      dumped out ind SDDS format to the specified filename.
+ */
+int     StripGraph_dumpdata_sdds     (StripGraph, char *);
+#endif
+
+
 /*
  * StripGraph_set/get/clearstat
  *
