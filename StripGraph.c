@@ -1260,10 +1260,10 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
               else if (shift)
                 sgi->config->Curves.plot_order[j-1] =
                   sgi->config->Curves.plot_order[j];
-              sgi->config->Curves.plot_order[STRIP_MAX_CURVES-1] = i;
+          sgi->config->Curves.plot_order[STRIP_MAX_CURVES-1] = i;
         }
         StripGraph_draw
-          (sgi, SGCOMPMASK_YAXIS | SGCOMPMASK_GRID, (Region *)0);
+          (sgi, SGCOMPMASK_YAXIS | SGCOMPMASK_DATA, (Region *)0);
 	  StripGraph_setstat (sgi, SGSTAT_GRAPH_REFRESH);
         break;
       }
