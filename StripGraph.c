@@ -49,6 +49,8 @@ extern int auto_scaleTriger; /* Albert */
 #ifdef STRIP_HISTORY
 extern int arch_flag ;       /* Albert */
 #endif
+#if 0
+/* KE: unused */
 static char     *SGComponentStr[SGCOMP_COUNT] =
 {
   "X-Axis",
@@ -58,7 +60,7 @@ static char     *SGComponentStr[SGCOMP_COUNT] =
   "Title",
   "Grid"
 };
-
+#endif
 
 /* StripGraphInfo
  *
@@ -1028,7 +1030,7 @@ int     StripGraph_addcurve     (StripGraph the_sgi, StripCurve curve)
   for (i = 0; i < STRIP_MAX_CURVES; i++)
     if (!sgi->curves[i]) break;
 
-  if (ok = (i < STRIP_MAX_CURVES))
+  if ((ok = (i < STRIP_MAX_CURVES)))
   {
     sgi->curves[i] = c;
 
@@ -1081,7 +1083,7 @@ int     StripGraph_removecurve  (StripGraph the_sgi, StripCurve curve)
     if (sgi->curves[i] == (StripCurveInfo *)curve)
       break;
 
-  if (ret_val = (i < STRIP_MAX_CURVES))
+  if ((ret_val = (i < STRIP_MAX_CURVES)))
   {
     XjLegendDeleteItem (sgi->legend, sgi->lgitems[i]);
     if (sgi->selected_curve == (StripCurveInfo *)curve)
@@ -1125,8 +1127,6 @@ int     StripGraph_dumpdata     (StripGraph the_sgi, FILE *f)
  */
 void StripGraph_print (StripGraph the_sgi)
 {
-  StripGraphInfo        *sgi = (StripGraphInfo *)the_sgi;
-
   fprintf (stdout, "StripGraph_print() is under construction :)\n");
 }
 
@@ -1318,7 +1318,6 @@ static void     y_transform     (void                   *arg,
 {
   sgTransformYData      *data = (sgTransformYData *)arg;
   StripGraphInfo        *sgi = data->sgi;
-  StripCurveInfo        *cv = data->curve;
   register double       height = sgi->window_rect.height;
 
   /* transform the points, then translate to graph coordinates */

@@ -178,7 +178,7 @@ StripDataSource_init    (StripHistory history)
   StripDataSourceInfo   *sds;
 
   /* allocate and zero the DataSource structure */
-  if (sds = (StripDataSourceInfo *)malloc (sizeof(StripDataSourceInfo)))
+  if ((sds = (StripDataSourceInfo *)malloc (sizeof(StripDataSourceInfo))))
   {
     sds->history        = history;
     sds->buf_size       = 0;
@@ -1018,7 +1018,8 @@ StripDataSource_render  (StripDataSource        the_sds,
 
     /* verify that the endpoints are within the current range.
      * If not, choose the closest history or buffer point. */
-    if (compare_times (&cd->endpoints[0].t, &sds->req_t0) < 0)
+    if ((compare_times (&cd->endpoints[0].t, &sds->req_t0) < 0))
+    {
       if (data_state == SDS_BUFFERED_DATA)
         cd->endpoints[0] = ring_first;
       else if (data_state == SDS_HISTORY_DATA)
@@ -1026,8 +1027,10 @@ StripDataSource_render  (StripDataSource        the_sds,
       else if (compare_times (&ring_first.t, &hist_first.t) <= 0)
         cd->endpoints[0] = ring_first;
       else cd->endpoints[0] = hist_first;
+    }
     
-    if (compare_times (&cd->endpoints[1].t, &sds->req_t1) > 0)
+    if ((compare_times (&cd->endpoints[1].t, &sds->req_t1) > 0))
+    {
       if (data_state == SDS_BUFFERED_DATA)
         cd->endpoints[1] = ring_last;
       else if (data_state == SDS_HISTORY_DATA)
@@ -1035,6 +1038,7 @@ StripDataSource_render  (StripDataSource        the_sds,
       else if (compare_times (&ring_last.t, &hist_last.t) >= 0)
         cd->endpoints[1] = ring_last;
       else cd->endpoints[1] = hist_last;
+    }
 
     /* Finally, set the rendered data extents.  We are guaranteed that
      * the extents have already been initialized because they are set
@@ -1603,7 +1607,7 @@ StripDataSource_dump    (StripDataSource        the_sds,
       memset(buf,0,SDS_DUMP_FIELDWIDTH+1);
       strftime(buf, SDS_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
 	       localtime (&(timeP->tv_sec)));
-      fprintf (outfile, "%s.%d\t",buf,timeP->tv_usec);
+      fprintf (outfile, "%s.%d\t",buf,(int)timeP->tv_usec);
       
       /* (b-2) */
       for (j = 0; j < STRIP_MAX_CURVES; j++)
@@ -1639,7 +1643,7 @@ StripDataSource_dump    (StripDataSource        the_sds,
 	 memset(buf,0,SDS_DUMP_FIELDWIDTH+1);
 	 strftime(buf, SDS_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
 		  localtime (&(sds->times[i].tv_sec)));
-	 fprintf (outfile, "%s.%d\t",buf,sds->times[i].tv_usec); 
+	 fprintf (outfile, "%s.%d\t",buf,(int)sds->times[i].tv_usec); 
 	 /* (b-2) */
 	 for (j = 0; j < STRIP_MAX_CURVES; j++)
 	   if (sds->buffers[j].curve)
@@ -1756,7 +1760,6 @@ static int
 resize  (StripDataSourceInfo *sds, size_t buf_size)
 {
   int                   i;
-  int                   new_cur_idx = sds->cur_idx;
   int                   new_count = sds->count;
   int                   ret_val = 0;
   
@@ -1820,7 +1823,7 @@ pack_array      (void   **p,    /* address of pointer */
   {
     if (n1 > n0)        /* new size is greater than old */
     {
-      if (q = (char *)realloc (q, n1*nbytes))
+      if ((q = (char *)realloc (q, n1*nbytes)))
       {
         /* how many to push to the end? */
         x = s0-i0-1;

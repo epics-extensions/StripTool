@@ -37,9 +37,11 @@
 
 #include <errno.h>
 
+#ifdef STRIP_HISTORY   
 #include "from_to.bm"      /* Albert */
 #include "alg.bm"          /* Albert */
 #include "replot.bm"       /* Albert */
+#endif
 #include "auto_scaleR.bm"  /* Albert */
 #include "auto_scale.bm"   /* Albert */
 #include "zoom_inY.bm"     /* Albert */
@@ -130,12 +132,15 @@ typedef enum
   STRIPEVENTMASK_CHECK_CONNECT  = (1 << STRIPEVENT_CHECK_CONNECT)
 } StripEventMask;
 
+#if 0
+/* KE: unused */
 static char     *StripEventTypeStr[LAST_STRIPEVENT] =
 {
   "Sample",
   "Refresh",
   "Check Connect"
 };
+#endif
 
 /* ====== PrintInfo stuff ====== */
 typedef struct _PrintInfo
@@ -278,9 +283,11 @@ static void     Strip_watchevent        (StripInfo *, unsigned);
 static void     Strip_ignoreevent       (StripInfo *, unsigned);
 
 static void     Strip_dispatch          (StripInfo *);
-static void     Strip_eventmgr          (XtPointer, XtIntervalId *);
 
+#if 0
+/* KE: unused */
 static void     Strip_child_msg         (void *);
+#endif
 static void     Strip_config_callback   (StripConfigMask, void *);
 
 static void     Strip_forgetcurve       (StripInfo *, StripCurve);
@@ -308,7 +315,10 @@ static void     dlgrequest_window_popup (void *, void *);
 static Widget   PopupMenu_build         (Widget);
 static void     PopupMenu_position      (Widget, XButtonPressedEvent *);
 static void     PopupMenu_popup         (Widget);
+#if 0
+/* KE: unused */
 static void     PopupMenu_popdown       (Widget);
+#endif
 static void     PopupMenu_cb            (Widget, XtPointer, XtPointer);
 
 static PrinterDialog    *PrinterDialog_build    (Widget);
@@ -417,7 +427,6 @@ Strip   Strip_init      (int    *argc,
   int                   i, n;
   Arg                   args[10];
   Atom                  import_list[10];
-  int                   stat = 1;
   StripConfigMask       scfg_mask;
   Atom                  WM_DELETE_WINDOW;
   XrmDatabase           db, db_fall, db_site, db_user;
@@ -1142,7 +1151,6 @@ Strip   Strip_init      (int    *argc,
 void    Strip_delete    (Strip the_strip)
 {
   StripInfo     *si = (StripInfo *)the_strip;
-  Display       *disp = si->display;
 
   StripGraph_delete             (si->graph);
   StripDataSource_delete        (si->data);
@@ -1451,7 +1459,7 @@ int     Strip_connectcurve      (Strip the_strip, StripCurve the_curve)
 #endif
     get_current_time (&sci->connect_request);
       
-    if (ret_val = si->connect_func (the_curve, si->connect_data))
+    if ((ret_val = si->connect_func (the_curve, si->connect_data)))
       if (!StripCurve_getstat (the_curve,  STRIPCURVE_CONNECTED))
         Strip_setwaiting (the_strip, the_curve);
     StripDialog_addcurve (si->dialog, the_curve);
@@ -1474,7 +1482,6 @@ int     Strip_connectcurve      (Strip the_strip, StripCurve the_curve)
 void    Strip_setconnected      (Strip the_strip, StripCurve the_curve)
 {
   StripInfo             *si = (StripInfo *)the_strip;
-  StripCurveInfo        *sci = (StripCurveInfo *)the_curve;
 
 #if DEBUG_CONNECTING
   print("%s Strip_setconnected\"  %s\n",
@@ -1521,7 +1528,6 @@ void    Strip_setconnected      (Strip the_strip, StripCurve the_curve)
 void    Strip_setdescconnected      (Strip the_strip, StripCurve the_curve)
 {
   StripInfo             *si = (StripInfo *)the_strip;
-  StripCurveInfo        *sci = (StripCurveInfo *)the_curve;
 
 #if DEBUG_CONNECTING
   print("%s Strip_setdescconnected\"  %s\n",
@@ -1545,7 +1551,6 @@ void    Strip_setdescconnected      (Strip the_strip, StripCurve the_curve)
 void    Strip_setwaiting        (Strip the_strip, StripCurve the_curve)
 {
   StripInfo             *si = (StripInfo *)the_strip;
-  StripCurveInfo        *sci = (StripCurveInfo *)the_curve;
 
 #if DEBUG_CONNECTING
   print("%s Strip_setwaiting\"  %s\n",
@@ -1691,7 +1696,7 @@ int     Strip_dumpdata  (Strip the_strip, char *fname)
   int                   ret_val = 0;
   int                   i = 0;
 
-  if (ret_val = ((f = fopen (fname, "w")) != NULL))
+  if ((ret_val = ((f = fopen (fname, "w")) != NULL)))
   {
     if (DFSDLG_TGL_COUNT > 1)
     {
@@ -1738,7 +1743,7 @@ int     Strip_writeconfig       (Strip                  the_strip,
   StripInfo     *si = (StripInfo *)the_strip;
   int           ret_val;
 
-  if (ret_val = StripConfig_write (si->config, f, m))
+  if ((ret_val = StripConfig_write (si->config, f, m)))
   {
     StripConfig_setattr (si->config, STRIPCONFIG_FILENAME, fname, 0);
     StripConfig_setattr (si->config, STRIPCONFIG_TITLE, basename (fname), 0);
@@ -1760,7 +1765,7 @@ int     Strip_readconfig        (Strip                  the_strip,
   StripInfo     *si = (StripInfo *)the_strip;
   int           ret_val;
   
-  if (ret_val = StripConfig_load (si->config, f, m))
+  if ((ret_val = StripConfig_load (si->config, f, m)))
   {
     StripConfig_setattr (si->config, STRIPCONFIG_FILENAME, fname, 0);
     StripConfig_setattr (si->config, STRIPCONFIG_TITLE, basename (fname), 0);
@@ -1832,7 +1837,7 @@ static void     Strip_graphdrop_handle  (Widget         w,
   XtGetValues (dc, args, n);
 
   for (i = 0, ok = False; (i < n_export_targets) && !ok; i++)
-    if (ok = (export_targets[i] == COMPOUND_TEXT))
+    if ((ok = (export_targets[i] == COMPOUND_TEXT)))
       break;
 
   n = 0;
@@ -1882,7 +1887,7 @@ static void     Strip_graphdrop_xfer    (Widget         BOGUS(w),
     xstr = XmCvtCTToXmString ((char *)value);
     XmStringGetLtoR (xstr, XmFONTLIST_DEFAULT_TAG, &name);
 
-    if (curve = Strip_getcurve ((Strip)si))
+    if ((curve = Strip_getcurve ((Strip)si)))
     {
       StripCurve_setattr (curve, STRIPCURVE_NAME, name, 0);
       Strip_connectcurve ((Strip)si, curve);
@@ -1970,14 +1975,15 @@ static void     Strip_config_callback   (StripConfigMask mask, void *data)
      *          to redraw by setting the component mask.
      */
     if (StripConfigMask_stat (&mask, SCFGMASK_TIME_TIMESPAN))
+    {
       if (si->status & STRIPSTAT_BROWSE_MODE)
       {
         struct timeval  t0, t1;
-          
+	  
         StripGraph_getattr (si->graph, STRIPGRAPH_END_TIME, &t1, 0);
         dbl2time (&tv, si->config->Time.timespan);
         subtract_times (&t0, &tv, &t1);
-          
+	  
         StripGraph_setattr
           (si->graph,
 		STRIPGRAPH_BEGIN_TIME,       &t0,
@@ -1985,8 +1991,11 @@ static void     Strip_config_callback   (StripConfigMask mask, void *data)
 		0);
         comp_mask |=  SGCOMPMASK_DATA | SGCOMPMASK_XAXIS;
       }
-      else si->last_event[STRIPEVENT_REFRESH].tv_sec = 0;
-
+      else
+	{
+	  si->last_event[STRIPEVENT_REFRESH].tv_sec = 0;
+	}
+    }
     if (StripConfigMask_stat (&mask, SCFGMASK_TIME_NUM_SAMPLES))
     {
       StripDataSource_setattr
@@ -2421,14 +2430,14 @@ static void     Strip_printer_init      (StripInfo *si)
   char  *s;
   
   /* printer name */
-  if (printer = getenv (STRIP_PRINTER_NAME_ENV))
+  if ((printer = getenv (STRIP_PRINTER_NAME_ENV)))
   {
     device = getenv (STRIP_PRINTER_DEVICE_ENV);
     if (!device) device = STRIP_PRINTER_DEVICE_FALLBACK;
   }
 
   /* fallback printer info */
-  else if (printer = getenv (STRIP_PRINTER_NAME_FALLBACK_ENV))
+  else if ((printer = getenv (STRIP_PRINTER_NAME_FALLBACK_ENV)))
     device = STRIP_PRINTER_DEVICE_FALLBACK;
 
   else
@@ -2501,7 +2510,7 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
 #else
     /* Make it dismiss, not quit the application, the same as for the
        Controls dialog */
-    if (StripDialog_ismapped (si->dialog))
+    if (StripDialog_ismapped (si->dialog) || StripDialog_isiconic (si->dialog))
     {
 	window_unmap (si->display, XtWindow (si->shell));
     }
@@ -2987,17 +2996,17 @@ static int      X_error_handler         (Display *display, XErrorEvent *error)
 	"==== StripTool X Error Handler ====\n"
 	"error:         %s\n"
 	"major opcode:  %d\n"
-	"serial:        %d\n",
-	msg, error->request_code, error->serial);
+	"serial:        %lu\n",
+	msg, (int)error->request_code, error->serial);
 #else
   fprintf
     (stderr,
 	"==== StripTool X Error Handler ====\n"
 	"error:         %s\n"
 	"major opcode:  %d\n"
-	"serial:        %d\n"
+	"serial:        %lu\n"
 	"process ID:    %d\n",
-	msg, error->request_code, error->serial, getpid());
+	msg, (int)error->request_code, error->serial, (int)getpid());
 #endif
   
   /* remember error */
@@ -3065,7 +3074,8 @@ static void     dlgrequest_dismiss      (void *client, void *BOGUS(1))
   StripInfo     *si = (StripInfo *)client;
   Widget        tmp_w;
   
-  if (window_ismapped (si->display, XtWindow (si->shell)))
+  if (window_ismapped (si->display, XtWindow (si->shell)) ||
+    window_isiconic (si->display, XtWindow (si->shell)))
   {
     StripDialog_popdown (si->dialog);
   }  
@@ -3116,6 +3126,8 @@ static void     dlgrequest_window_popup (void *client, void *call)
   {
   case STRIPWINDOW_GRAPH:
     window_map (si->display, XtWindow (si->shell));
+    break;
+  case STRIPWINDOW_COUNT:
     break;
   }
 }
@@ -3259,6 +3271,8 @@ static void     PopupMenu_popup (Widget menu)
 }
 
 
+#if 0
+/* KE: Not used */
 /*
  * PopupMenu_popdown
  */
@@ -3266,7 +3280,7 @@ static void     PopupMenu_popdown (Widget menu)
 {
   XtUnmanageChild (menu);
 }
-
+#endif
 
 /*
  * PopupMenu_cb
@@ -3346,18 +3360,18 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
     if (strcmp (si->print_info.device, "ps") == 0)
 	sprintf
 	  (cmd_buf,
-	    "xwd -id %d | xwdtopnm | pnmtops | lp -d%s -onb",
-	    XtWindow (si->graph_form),
+	    "xwd -id %u | xwdtopnm | pnmtops | lp -d%s -onb",
+	    (unsigned)XtWindow (si->graph_form),
 	    si->print_info.printer);
     else
 # endif
 	sprintf
 	  (cmd_buf,
 	    "xwd -id %d | xpr -device %s | lp -d%s -onb",
-	    XtWindow (si->graph_form),
+	    (int)XtWindow (si->graph_form),
 	    si->print_info.device,
 	    si->print_info.printer);
-    if (pid = fork ())
+    if ((pid = fork ()))
     {
 	execl ("/bin/sh", "sh", "-c", cmd_buf, 0);
 	exit (0);
@@ -3379,8 +3393,8 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
     sprintf
 	(cmd_buf,
 	  "xwd -id %d | xwud -raw",
-	  XtWindow (si->graph_form));
-    if (pid = fork ())
+	  (int)XtWindow (si->graph_form));
+    if ((pid = fork ()))
     {
 	execl ("/bin/sh", "sh", "-c", cmd_buf, 0);
 	exit (0);
@@ -3393,7 +3407,7 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
     break;
         
   case POPUPMENU_DISMISS:
-    if (StripDialog_ismapped (si->dialog))
+    if (StripDialog_ismapped (si->dialog) || StripDialog_isiconic (si->dialog))
     {
 	window_unmap (si->display, XtWindow (si->shell));
     }
@@ -3572,7 +3586,7 @@ static void     fsdlg_popup     (StripInfo *si, fsdlg_functype func)
 	XmToggleButtonSetState(si->fs_tgl[0],True,True);
 
 	/* set default dump file type */
-	if (ftype = getenv (STRIP_DUMP_TYPE_DEFAULT_ENV))
+	if ((ftype = getenv (STRIP_DUMP_TYPE_DEFAULT_ENV)))
 	  for (i = 0; i < DFSDLG_TGL_COUNT; i++)
 	    if (strcmp(DfsDlgTglStr[i],ftype) == 0)
 		XmToggleButtonSetState(si->fs_tgl[i],True,True);

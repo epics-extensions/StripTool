@@ -2979,25 +2979,25 @@ String in, test;
     /*
      * Strip leading whitespace off the in string.
      */
-    while ( isspace(*in) )
+    while ( isspace((int)*in) )
         in++;
 
-    for ( ; *test != '\0' && !isspace(*in); test++, in++ )
+    for ( ; *test != '\0' && !isspace((int)*in); test++, in++ )
     {
     char        c = *in;
     char        t = *test;
 
-        if ( isupper(c) )
-            c = tolower(c);
+        if ( isupper((int)c) )
+            c = tolower((int)c);
 
-        if ( isupper(t) )
+        if ( isupper((int)t) )
             t = tolower(t);
 
         if ( c != t )
             return False;
     }
 
-    if ( *test == '\0' && (*in == '\0' || isspace(*in)) )
+    if ( *test == '\0' && (*in == '\0' || isspace((int)*in)) )
         return True;
     else
         return False;

@@ -34,7 +34,6 @@ u_long getHistory(StripHistory     the_shi,
   struct timeval *returnedTimeAAPI=NULL;
   short *returnedStatusAAPI=NULL;
   long returnedCountAAPI=0;
-  short needMoreData=1;
 
   *count=0;
   right_endpoint.tv_sec = end->tv_sec;

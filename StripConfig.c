@@ -367,7 +367,7 @@ StripConfig     *StripConfig_clone      (StripConfig *original)
 {
   StripConfig   *clone;
 
-  if (clone = (StripConfig *)malloc (sizeof(StripConfig)))
+  if ((clone = (StripConfig *)malloc (sizeof(StripConfig))))
   {
     /* almost everything can be byte copied */
     memcpy (clone, original, sizeof (StripConfig));
@@ -774,16 +774,16 @@ int     StripConfig_write       (StripConfig            *scfg,
         switch (elem)
         {
             case SCFGMASK_TIME_TIMESPAN:
-              fprintf (f, "%s%lu\n", fbuf, scfg->Time.timespan);
+              fprintf (f, "%s%u\n", fbuf, scfg->Time.timespan);
               break;
             case SCFGMASK_TIME_NUM_SAMPLES:
-              fprintf (f, "%s%ld\n", fbuf, scfg->Time.num_samples);
+              fprintf (f, "%s%d\n", fbuf, scfg->Time.num_samples);
               break;
             case SCFGMASK_TIME_SAMPLE_INTERVAL:
-              fprintf (f, "%s%lf\n", fbuf, scfg->Time.sample_interval);
+              fprintf (f, "%s%f\n", fbuf, scfg->Time.sample_interval);
               break;
             case SCFGMASK_TIME_REFRESH_INTERVAL:
-              fprintf (f, "%s%lf\n", fbuf, scfg->Time.refresh_interval);
+              fprintf (f, "%s%f\n", fbuf, scfg->Time.refresh_interval);
               break;
         }
       }
@@ -995,22 +995,22 @@ int     StripConfig_load        (StripConfig            *scfg,
      * attribute value */
       
     p = ptok = fbuf;
-    while (!isspace (*p)) p++;
+    while (!isspace ((int)*p)) p++;
     *p = 0;
 
     p++;
-    while (isspace (*p)) p++;
+    while (isspace ((int)*p)) p++;
     pval = p;
 
     /* now parse the token string to get a token value */
-    if (ret = ((p = strtok (ptok, SCFTokenStr[SEPARATOR])) != NULL))
+    if ((ret = ((p = strtok (ptok, SCFTokenStr[SEPARATOR])) != NULL)))
       ret = (strcmp (p, SCFTokenStr[STRIP]) == 0);
     if (!ret) continue;         /* ignore unknown token */
 
-    if (ret = ((p = strtok (NULL, SCFTokenStr[SEPARATOR])) != NULL))
+    if ((ret = ((p = strtok (NULL, SCFTokenStr[SEPARATOR])) != NULL)))
     {
       for (token = TIME; token <= CURVE; token++)
-        if (ret = (strcmp (p, SCFTokenStr[token]) == 0))
+        if ((ret = (strcmp (p, SCFTokenStr[token]) == 0)))
           break;
     }
     if (!ret) continue;         /* ignore unknown token */
@@ -1033,8 +1033,8 @@ int     StripConfig_load        (StripConfig            *scfg,
           token_min = NAME;
           token_max = PLOTSTAT;
           /* must read the curve index */
-          if (ret = ((p = strtok (NULL, SCFTokenStr[SEPARATOR])) != NULL))
-            if (ret = sscanf (p, "%d", &curve_idx) == 1)
+          if ((ret = ((p = strtok (NULL, SCFTokenStr[SEPARATOR])) != NULL)))
+            if ((ret = sscanf (p, "%d", &curve_idx) == 1))
               ret = (curve_idx >= 0) && (curve_idx <= STRIP_MAX_CURVES);
           if (!ret) {
             fprintf (stderr, "StripConfig_load: bad curve index, \"%s\"\n", p);
@@ -1047,10 +1047,10 @@ int     StripConfig_load        (StripConfig            *scfg,
 
     /* the next token should be the the last in the attribute so the
      * separator will be whitespace */
-    if (ret = ((p = strtok (NULL, " \t")) != NULL))
+    if ((ret = ((p = strtok (NULL, " \t")) != NULL)))
     {
       for (token = token_min; token <= token_max; token++)
-        if (ret = (strcmp (p, SCFTokenStr[token]) == 0))
+        if ((ret = (strcmp (p, SCFTokenStr[token]) == 0)))
           break;
     }
 
@@ -1070,24 +1070,24 @@ int     StripConfig_load        (StripConfig            *scfg,
     switch (token)
     {
         case TIMESPAN:
-          if (ret = (sscanf (pval, "%ud", &tmp.u) == 1))
+	    if ((ret = (sscanf (pval, "%ud", &tmp.u) == 1)))
             StripConfig_setattr (clone, STRIPCONFIG_TIME_TIMESPAN, tmp.u, 0);
           break;
           
         case NUM_SAMPLES:
-          if (ret = (sscanf (pval, "%d", &tmp.i) == 1))
+	    if ((ret = (sscanf (pval, "%d", &tmp.i) == 1)))
             StripConfig_setattr
               (clone, STRIPCONFIG_TIME_NUM_SAMPLES, tmp.i, 0);
           break;
           
         case SAMPLE_INTERVAL:
-          if (ret = (sscanf (pval, "%lf", &tmp.d) == 1))
+	    if ((ret = (sscanf (pval, "%lf", &tmp.d) == 1)))
             StripConfig_setattr
               (clone, STRIPCONFIG_TIME_SAMPLE_INTERVAL, tmp.d, 0);
           break;
           
         case REFRESH_INTERVAL:
-          if (ret = (sscanf (pval, "%lf", &tmp.d) == 1))
+	    if ((ret = (sscanf (pval, "%lf", &tmp.d) == 1)))
             StripConfig_setattr
               (clone, STRIPCONFIG_TIME_REFRESH_INTERVAL, tmp.d, 0);
           break;
@@ -1157,7 +1157,7 @@ int     StripConfig_load        (StripConfig            *scfg,
           while (ptmp > clone->Curves.Detail[curve_idx].comment)
           {
             ptmp--;
-            if (isspace (*ptmp)) *ptmp = 0;
+            if (isspace ((int)*ptmp)) *ptmp = 0;
             else break;
           }
           ret = (ptmp > clone->Curves.Detail[curve_idx].comment);
@@ -1316,7 +1316,7 @@ int     StripConfig_addcallback (StripConfig            *scfg,
   int   i;
   int   ret;
 
-  if (ret = (scfg->UpdateInfo.callback_count < STRIPCONFIG_MAX_CALLBACKS))
+  if ((ret = (scfg->UpdateInfo.callback_count < STRIPCONFIG_MAX_CALLBACKS)))
   {
     i = scfg->UpdateInfo.callback_count;
       

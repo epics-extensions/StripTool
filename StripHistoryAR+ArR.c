@@ -27,7 +27,7 @@ StripHistory    StripHistory_init       (Strip strip)
 {
   StripHistoryInfo      *shi = 0;
 
-  if (shi = (StripHistoryInfo *)malloc (sizeof(StripHistoryInfo)))
+  if ((shi = (StripHistoryInfo *)malloc (sizeof(StripHistoryInfo))))
   {
     shi->strip = strip;
   } 
@@ -92,8 +92,6 @@ FetchStatus     StripHistory_fetch      (StripHistory           the_shi,
   short  *status=NULL;
   double *data=NULL;
   u_long count=0;
-  time_t a=begin->tv_sec;
-  time_t b=  end->tv_sec;
   
   result->t0 = *begin;
   result->t1 = *end;
@@ -107,7 +105,7 @@ FetchStatus     StripHistory_fetch      (StripHistory           the_shi,
     }
   if(count < 1)
     {
-      if(DEBUG) fprintf(stderr,"getHistory; no goodData \n",count);
+      if(DEBUG) fprintf(stderr,"getHistory; no goodData count=%lu\n",count);
       return (FETCH_NODATA);
     }
   

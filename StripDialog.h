@@ -132,6 +132,11 @@ int     StripDialog_isviewable  (StripDialog);
  */
 int     StripDialog_ismapped    (StripDialog);
 
+/*
+ * StripDialog_isiconic
+ */
+int     StripDialog_isiconic    (StripDialog);
+
 char     *getwidgetval_min       (char  *, int, double *); /* Albert */
 char     *getwidgetval_max       (char  *, int, double *);
 

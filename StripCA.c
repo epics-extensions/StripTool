@@ -108,7 +108,7 @@ int     StripDAQ_request_connect        (StripCurve curve, void *the_sca)
     if (sca->chan_data[i].chan_id == NULL)
       break;
   
-  if (ret_val = (i < STRIP_MAX_CURVES))
+  if ((ret_val = (i < STRIP_MAX_CURVES)))
   {
     StripCurve_setattr (curve, STRIPCURVE_FUNCDATA, &sca->chan_data[i], 0);
 #ifndef PEND_DESCRIPTION

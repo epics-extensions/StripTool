@@ -409,7 +409,7 @@ cColorManager	cColorManager_init	(Display	*dpy,
          "using visual %d\n"
          "depth ...... %u\n"
          "class ...... %s\n",
-         xvi.visualid, xvi.depth,
+         (int)xvi.visualid, xvi.depth,
          ccmVisualGetClassName (ccmVisualGetClass (&xvi)));
     }
   }
@@ -803,7 +803,7 @@ int	cColorManager_build_palette	(cColorManager the_scm,
         }
 
       if (!stat && (k == scmi->n_keep))
-        if (stat = XwAllocColor (scmi->display, scmi->cmap, &xcolor))
+        if ((stat = XwAllocColor (scmi->display, scmi->cmap, &xcolor)))
           if (!(stat = (xcolor.pixel == xcolors[i].pixel)))
             /* we allocated a color defined by the RGB values in
              * the current color cell, but got a different color cell!
@@ -1173,7 +1173,7 @@ void	cColorManager_keep_color	(cColorManager 	the_scm,
   found = 0;
   for (i = 0; i < scmi->n_keep; i++)
   {
-    if (found = (scmi->keep[i].pixel == sc->xcolor.pixel))
+      if ((found = (scmi->keep[i].pixel == sc->xcolor.pixel)))
       break;
     else if (scmi->keep[i].pixel > sc->xcolor.pixel)
       break;
@@ -1232,14 +1232,14 @@ void	cColorManager_free_color	(cColorManager 	the_scm,
   /* first look in the palette */
   found_in_palette = 0;
   for (i = 0; i < scmi->palette_size; i++)
-    if (found_in_palette = (sc->xcolor.pixel == scmi->palette[i].pixel))
+    if ((found_in_palette = (sc->xcolor.pixel == scmi->palette[i].pixel)))
       break;
 
   /* now, look for the color cell in the (ordered) keep list */
   found_in_keep = 0;
   for (i = 0; i < scmi->n_keep; i++)
   {
-    if (found_in_keep = (sc->xcolor.pixel == scmi->keep[i].pixel))
+      if ((found_in_keep = (sc->xcolor.pixel == scmi->keep[i].pixel)))
       break;
     else if (scmi->keep[i].pixel > sc->xcolor.pixel)
       break;
@@ -1294,8 +1294,8 @@ int	cColorManager_change_color	(cColorManager 	the_scm,
   CCMinfo	*scmi = (CCMinfo *)the_scm;
   int		ret;
 
-  if (ret = ccmVisualIsWritable (ccmVisualGetClass (&scmi->xvi)))
-    if (ret = sc->writable)
+  if ((ret = ccmVisualIsWritable (ccmVisualGetClass (&scmi->xvi))))
+    if ((ret = sc->writable))
     {
       sc->xcolor.flags = DoRed | DoGreen | DoBlue;
       ret = XStoreColor (scmi->display, scmi->cmap, &sc->xcolor);

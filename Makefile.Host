@@ -296,6 +296,10 @@ xxxx:
 	@echo STRIP_CONFIGFILE_DIR: $(STRIP_CONFIGFILE_DIR)
 	@echo EPICS_EXTENSIONS_LIB: $(EPICS_EXTENSIONS_LIB)
 	@echo EPICS_EXTENSIONS_INCLUDE: $(EPICS_EXTENSIONS_INCLUDE)
+	@echo XPM_LIB: $(XPM_LIB)
+	@echo HAVE_XPM: $(HAVE_XPM)
+	@echo z_DIR: $(z_DIR)
+	@echo ZLIB_FOUND: $(ZLIB_FOUND)
 
 # **************************** Emacs Editing Sequences *****************
 # Local Variables:

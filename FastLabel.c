@@ -460,7 +460,6 @@ static Boolean SetValues(Widget wcur, Widget wreq,
   Widget wnew, ArgList args, Cardinal *nargs)
 {
   XgFastLabelWidget cur = (XgFastLabelWidget)wcur;
-  XgFastLabelWidget req = (XgFastLabelWidget)wreq;
   XgFastLabelWidget new = (XgFastLabelWidget)wnew;
   Boolean redraw = False, do_resize = False;
 
@@ -613,11 +612,9 @@ static void Destroy(Widget widget)
 static void Redisplay(Widget widget, XEvent *xevent, Region region)
 {
   XgFastLabelWidget w = (XgFastLabelWidget)widget;
-  XExposeEvent *event = ( XExposeEvent *)xevent;
   int		x, y;
   Display		*display = XtDisplay((Widget)w);
   Window		win = XtWindow((Widget)w);
-  XFontStruct	*font = w->fastlabel.font;
 
   /*
    * No widget window then get outa here

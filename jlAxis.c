@@ -554,7 +554,6 @@ Initialize      (Widget         treq,
              Cardinal   *num_args)
 {
   AxisWidget nw = (AxisWidget) tnew;
-  AxisWidget req = (AxisWidget) treq;
 
   /* verify that min_val is less than max_val */
   ValidateValues (nw);
@@ -1366,7 +1365,12 @@ ComputeTimeTics         (AxisWidget cw)
       {
         /* convert units into seconds */
         tt = (time_t)(r*q*m[best]);
+#if 0
         strftime (buf, BUF_SIZE, "%H:%M:%S\n%b %d, %y", localtime (&tt));
+#else	    
+	  /*KE:  gcc complains about using %y and %Y looks better anyway */
+        strftime (buf, BUF_SIZE, "%H:%M:%S\n%b %d, %Y", localtime (&tt));
+#endif
         strncpy (cw->axis.tic_labels[i], buf, AXIS_MAX_LABEL);
         cw->axis.tic_labels[i][AXIS_MAX_LABEL] = 0;
       }
@@ -1411,7 +1415,12 @@ ComputeTimeTics         (AxisWidget cw)
         {
           /* convert units into seconds */
           tt = (time_t)(r*m[best]);
-          strftime (buf, BUF_SIZE, "%H:%M:%S\n%b %d, %y", localtime (&tt));
+#if 0
+	    strftime (buf, BUF_SIZE, "%H:%M:%S\n%b %d, %y", localtime (&tt));
+#else	    
+	    /*KE:  gcc complains about using %y and %Y looks better anyway */
+	    strftime (buf, BUF_SIZE, "%H:%M:%S\n%b %d, %Y", localtime (&tt));
+#endif
         }
         else sprintf (buf, "%d", (int)(r-b));
         

@@ -204,6 +204,7 @@ char            *time2str       (struct timeval *);
 
 int     window_isviewable       (Display *, Window);
 int     window_ismapped         (Display *, Window);
+int     window_isiconic         (Display *, Window);
 void    window_map              (Display *, Window);
 void    window_unmap            (Display *, Window);
 

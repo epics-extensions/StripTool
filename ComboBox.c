@@ -79,7 +79,10 @@
 static void ClassInitialize(void);
 static void Initialize(Widget wrequest, Widget wnew,
   ArgList args, Cardinal *num_args);
+#if 0
+/* KE: unused */
 static void Redisplay(Widget w, XEvent *event, Region region);
+#endif
 static Boolean SetValues(Widget cur, Widget req,
   Widget new, ArgList args, Cardinal *nargs);
 static void Destroy(Widget widget);
@@ -125,29 +128,29 @@ static void comboListCB(Widget list, XtPointer client, XtPointer call);
 
 
 static char textTranslations[] =
-    "Alt<Key>osfDown:       ComboBox-Manager(show-hide-list)    \n\
-     Meta<Key>osfDown:      ComboBox-Manager(show-hide-list)    \n\
-     Alt<Key>osfUp:         ComboBox-Manager(hide-list)         \n\
-     Meta<Key>osfUp:        ComboBox-Manager(hide-list)         \n\
-     <Key>osfUp:            ComboBox-Manager(up)                \n\
-     <Key>osfDown:          ComboBox-Manager(down)              \n\
-     <Key>osfPageUp:        ComboBox-Manager(page-up)           \n\
-     <Key>osfPageDown:      ComboBox-Manager(page-down)         \n\
-     <Key>osfCancel:        ComboBox-Manager(cancel)            \n\
-     <Key>Return:           ComboBox-Manager(activate) activate()";
+"Alt<Key>osfDown:  ComboBox-Manager(show-hide-list)\n\
+ Meta<Key>osfDown: ComboBox-Manager(show-hide-list)\n\
+ Alt<Key>osfUp:    ComboBox-Manager(hide-list)\n\
+ Meta<Key>osfUp:   ComboBox-Manager(hide-list)\n\
+ <Key>osfUp:       ComboBox-Manager(up)\n\
+ <Key>osfDown:     ComboBox-Manager(down)\n\
+ <Key>osfPageUp:   ComboBox-Manager(page-up)\n\
+ <Key>osfPageDown: ComboBox-Manager(page-down)\n\
+ <Key>osfCancel:   ComboBox-Manager(cancel)\n\
+ <Key>Return:      ComboBox-Manager(activate) activate()";
 
 static char noEditTextTranslations[] = 
-    "<Key>osfBeginLine:     ComboBox-Manager(top)  \n\
-     <Key>osfEndLine:       ComboBox-Manager(bottom)";
+"<Key>osfBeginLine: ComboBox-Manager(top)\n\
+ <Key>osfEndLine:   ComboBox-Manager(bottom)";
 
 
 #ifdef NODRAGNDROP
 static char noDDListTranslations[] =
-    "<Btn2Down>:            ComboBox-Manager(no-operation)";
+"<Btn2Down>:            ComboBox-Manager(no-operation)";
 #endif
 static char listTranslations[] =
-    "<Key>osfPageUp:        ComboBox-Manager(page-up)           \n\
-     <Key>osfPageDown:      ComboBox-Manager(page-down)         ";
+"<Key>osfPageUp:   ComboBox-Manager(page-up)\n\
+ <Key>osfPageDown: ComboBox-Manager(page-down)";
 
 
 static void CBoxManager(Widget w, XEvent *event, String *params,
@@ -159,7 +162,7 @@ static XtActionsRec actions[] = {
 };
 
 static XtTranslations newTextTranslations, newNoEditTextTranslations, 
-                      newListTranslations, newNoDDListTranslations;
+                      newListTranslations;
 
 
 #define TextChild(w)    ((CompositeWidget)(w->combobox.text))
@@ -479,7 +482,6 @@ static void Initialize(Widget wrequest, Widget wnew,
 Dimension       textWidth, textHeight;
 Position        arrowX, arrowY;
 Boolean         editable, cursorPositionVisible;
-XgComboBoxWidget        request=(XgComboBoxWidget)wrequest;
 XgComboBoxWidget        new=(XgComboBoxWidget)wnew;
 
         new->combobox.initializing = True;
@@ -809,6 +811,8 @@ XgComboBoxWidget w = (XgComboBoxWidget)widget;
 
 
 
+#if 0
+/* KE: unused */
 static void
 InsertChild(w)
 Widget w;
@@ -828,6 +832,7 @@ XgComboBoxWidget        cb = (XgComboBoxWidget)XtParent(w);
            (xgComboBoxWidgetClass->core_class.superclass))->composite_class.
             insert_child) (w);
 }
+#endif
 
 
 static void Destroy(Widget widget)
@@ -870,6 +875,8 @@ XgComboBoxWidget        w=(XgComboBoxWidget)widget;
 }
 
 
+#if 0
+/* KE: unused */
 static void
 GetValuesHook(w, args, num_args)
 XgComboBoxWidget        w;
@@ -921,7 +928,7 @@ Arg     xtarg;
                     }
                 }
 }
-
+#endif
 
 static XtGeometryResult GeometryManager(Widget w, XtWidgetGeometry *request,
   XtWidgetGeometry *reply)
@@ -1734,7 +1741,6 @@ Position                x, y, px, py;
 Dimension               height, width, hThickness;
 static Cursor           cursor;
 XgComboBoxWidget        w = (XgComboBoxWidget)XtParent(arrow);
-XmAnyCallbackStruct     *cbd = (XmAnyCallbackStruct *)call;
 
 
         /*
@@ -1862,7 +1868,6 @@ char                            *string = NULL, *old_string = NULL;
 XgComboBoxCallbackStruct        cbs;
 XgComboBoxWidget                comboBox;
 int                             dont_reenter;
-XgComboBoxWidget                w = (XgComboBoxWidget)client;
 XmListCallbackStruct            *cbd = (XmListCallbackStruct *)call;
 
         comboBox = (XgComboBoxWidget)XtParent(XtParent(XtParent(list)));

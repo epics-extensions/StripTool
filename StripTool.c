@@ -175,7 +175,7 @@ int StripTool_main (int argc, char *argv[])
 
 #ifdef UNIX
 #define errnoSet(E) (errno = (E))
-extern errno;
+extern int errno;
 #endif
 
 #ifdef USE_OLD_FILE_SEARCH

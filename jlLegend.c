@@ -107,7 +107,10 @@ static void     Arm             (Widget,
  */
 static void     GetPixmap               (LegendWidget);
 static void     FreePixmap              (LegendWidget);
+#if 0
+/* KE: unused */
 static void     Update                  (LegendWidget);
+#endif
 static void     Draw                    (LegendWidget, Drawable);
 static void     CalculateDims           (LegendWidget);
 static void     GetDimsForMask          (LegendWidget, int, XPoint *);
@@ -227,7 +230,6 @@ Initialize      (Widget         treq,
                  Cardinal       *num_args)
 {
   LegendWidget new = (LegendWidget) tnew;
-  LegendWidget req = (LegendWidget) treq;
 
   new->legend.items = 0;
   new->legend.pixmap = 0;
@@ -900,7 +902,7 @@ XjLegendNewItem         (Widget w,
   LegendWidget          cw = (LegendWidget)w;
   LegendItemInfo        *item, *p;
 
-  if (item = (LegendItemInfo *)malloc (sizeof (LegendItemInfo)))
+  if ((item = (LegendItemInfo *)malloc (sizeof (LegendItemInfo))))
   {
     /* append to list */
     if (cw->legend.items)
@@ -990,7 +992,6 @@ XjLegendValueUpdateItem    (Widget         w,
                          char           *comment,
                          Pixel          color)
 {
-  LegendWidget          cw = (LegendWidget)w;
   LegendItemInfo        *item = (LegendItemInfo *)the_item;
   char                  *p, *s;
 

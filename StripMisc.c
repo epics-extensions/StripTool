@@ -121,6 +121,8 @@ int     window_isviewable       (Display *d, Window w)
 {
   XWindowAttributes     xwa;
 
+  if (!w) return 0;
+
   XGetWindowAttributes (d, w, &xwa);
   return (xwa.map_state == IsViewable);
 }
@@ -133,8 +135,46 @@ int     window_ismapped         (Display *d, Window w)
 {
   XWindowAttributes     xwa;
 
+  if (!w) return 0;
+
   XGetWindowAttributes (d, w, &xwa);
   return (xwa.map_state != IsUnmapped);
+}
+
+
+/*
+ * window_isiconic
+ */
+int     window_isiconic         (Display *d, Window w)
+{
+  unsigned long *state = NULL;
+  unsigned long nitems;
+  unsigned long bytesAfter;
+  Atom wmStateAtom, actualTypeAtom;
+  int actualFormat;
+  int status;
+  int iconic = 0;
+
+  /* KE: this method violates the ICCCM guidelines, but checking
+     XmNiconic or XmNiconWindow doesn't work */
+
+  /* intern the WM_STATE atom, create it if it doesn't exist */
+  wmStateAtom = XInternAtom (d, "WM_STATE", False);
+
+  /* get the window state */
+  status = XGetWindowProperty (d, w, wmStateAtom, 0l, 1, False, wmStateAtom,
+    &actualTypeAtom, &actualFormat, &nitems, &bytesAfter,
+    (unsigned char **)&state);
+  if (state) {
+    if (status == Success && actualTypeAtom == wmStateAtom && nitems == 1)
+    {
+	/* possibile states are IconicState, NormalState, WithdrawnState */
+	if(*state == IconicState) iconic = 1;
+    }
+    XFree((void *)state);
+  }
+  
+  return iconic;
 }
 
 
@@ -214,7 +254,7 @@ char    *dbl2str        (double d, int p, char buf[], int n)
       if (decpt+p > n-2)        /* need scientific notation */
       {
         int2str (decpt-1, &e_str[2], 2);
-        for (e_cnt = 0; e_str[e_cnt]; e_cnt++);
+        for (e_cnt = 0; e_str[(int)e_cnt]; e_cnt++);
         if (e_cnt+2 > n) goto no_room;
         buf[i++] = tmp[j++];
         if (i < n-e_cnt-1)
@@ -251,7 +291,7 @@ char    *dbl2str        (double d, int p, char buf[], int n)
         if (p-decpt > n-3)      /* need scientific notation */
         {
           int2str (-(decpt-1), &e_str[2], 2);
-          for (e_cnt = 0; e_str[e_cnt]; e_cnt++);
+          for (e_cnt = 0; e_str[(int)e_cnt]; e_cnt++);
           if (e_cnt+2 > n) goto no_room;
           buf[i++] = tmp[j++];
           if (i < n-e_cnt-1)

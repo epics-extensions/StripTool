@@ -291,16 +291,19 @@ static void     setwidgetval_max        (StripDialogInfo *, int, double);
 static void     setwidgetval_scale      (StripDialogInfo *, int, int);
 static void     setwidgetval_modify     (StripDialogInfo *, int, int);
 
+#if 0
+/* KE: unused */
 static char     *getwidgetval_name      (StripDialogInfo *, int);
 static char     *getwidgetval_status    (StripDialogInfo *, int);
 static Pixel    getwidgetval_color      (StripDialogInfo *, int);
 static int      getwidgetval_plotstat   (StripDialogInfo *, int);
+static int      getwidgetval_scale      (StripDialogInfo *, int);
+#endif
 static char     *getwidgetval_precision (StripDialogInfo *, int, int *);
 /*
 static char     *getwidgetval_min       (StripDialogInfo *, int, double *);
 static char     *getwidgetval_max       (StripDialogInfo *, int, double *);
 */
-static int      getwidgetval_scale      (StripDialogInfo *, int);
 
 /*
  * these functions operate on StripConfig attribute control widgets
@@ -330,6 +333,8 @@ static void     setwidgetval_gr_gridx           (StripDialogInfo *, int);
 static void     setwidgetval_gr_gridy           (StripDialogInfo *, int);
 static void     setwidgetval_gr_yaxisclr        (StripDialogInfo *, int);
 
+#if 0
+/* KE: unused */
 static Pixel    getwidgetval_gr_fg              (StripDialogInfo *);
 static Pixel    getwidgetval_gr_bg              (StripDialogInfo *);
 static Pixel    getwidgetval_gr_gridclr         (StripDialogInfo *);
@@ -337,7 +342,7 @@ static int      getwidgetval_gr_linewidth       (StripDialogInfo *);
 static int      getwidgetval_gr_gridx           (StripDialogInfo *);
 static int      getwidgetval_gr_gridy           (StripDialogInfo *);
 static int      getwidgetval_gr_yaxisclr        (StripDialogInfo *);
-
+#endif
 
 /* ====== static callback function prototypes ====== */
 static void     connect_btn_cb  (Widget, XtPointer, XtPointer);
@@ -1905,6 +1910,16 @@ int     StripDialog_ismapped    (StripDialog the_sd)
 }
 
 /*
+ * StripDialog_isiconic
+ */
+int     StripDialog_isiconic    (StripDialog the_sd)
+{
+  StripDialogInfo       *sd = (StripDialogInfo *)the_sd;
+
+  return (window_isiconic (sd->display, XtWindow (sd->shell)));
+}
+
+/*
  * StripDialog_reset
  */
 void            StripDialog_reset(StripDialog the_sd)
@@ -2223,6 +2238,8 @@ static void     setwidgetval_modify     (StripDialogInfo        *sd,
 }
 
 
+#if 0
+/* KE: unused */
 /*
  * getwidgetval_name
  */
@@ -2274,7 +2291,7 @@ static int      getwidgetval_scale      (StripDialogInfo *sd, int which)
   return XmToggleButtonGetState
     (sd->curve_info[which].widgets[SDCURVE_SCALE]);
 }
-
+#endif
 
 /*
  * getwidgetval_precision
@@ -2565,6 +2582,8 @@ static void     setwidgetval_gr_yaxisclr        (StripDialogInfo        *sd,
 }
 
 
+#if 0
+/* KE: unused */
 static Pixel    getwidgetval_gr_fg              (StripDialogInfo *BOGUS(1))
 {
   return (Pixel)0;
@@ -2605,7 +2624,7 @@ static int      getwidgetval_gr_yaxisclr        (StripDialogInfo *BOGUS(1))
 {
   return (int)0;
 }
-
+#endif
 
 
 /* ====== Static Callback Function Definitions ====== */
@@ -3149,6 +3168,8 @@ static void     tabs_cb (Widget w, XtPointer data, XtPointer call)
 }
 
 
+#if 0
+/* KE: unused */
 static void     dismiss_btn_cb  (Widget         BOGUS(1),
                                  XtPointer      data,
                                  XtPointer      BOGUS(2))
@@ -3157,6 +3178,7 @@ static void     dismiss_btn_cb  (Widget         BOGUS(1),
 
   StripDialog_popdown (sd);
 }
+#endif
 
 static void     fsdlg_cb        (Widget w, XtPointer data, XtPointer call)
 {
@@ -3361,7 +3383,7 @@ static void     save_config     (StripDialogInfo        *sd,
 {
   FILE  *f;
 
-  if (f = fopen (fname, "w"))
+  if ((f = fopen (fname, "w")))
   {
     if (StripConfig_write (sd->config, f, mask))
     {
@@ -3393,7 +3415,7 @@ static void     load_config     (StripDialogInfo        *sd,
 {
   FILE  *f;
 
-  if (f = fopen (fname, "r"))
+  if ((f = fopen (fname, "r")))
   {
     if (StripConfig_load (sd->config, f, mask))
     {
