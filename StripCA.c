@@ -29,6 +29,7 @@ typedef struct _StripDAQInfo
 
 /* ====== Prototypes ====== */
 static void     addfd_callback          (void *, int, int);
+static void     timeout_callback        (XtPointer, XtIntervalId *);
 static void     work_callback           (XtPointer, int *, XtInputId *);
 static void     connect_callback        (struct connection_handler_args);
 static void     info_callback           (struct event_handler_args);
@@ -56,11 +57,14 @@ StripDAQ                StripDAQ_initialize     (Strip strip)
       free (sca);
       sca = NULL;
     }
-    else for (i = 0; i < STRIP_MAX_CURVES; i++)
-    {
+    else {
+      Strip_addtimeout (strip, 0.1, timeout_callback, strip);
       ca_add_fd_registration (addfd_callback, sca);
-      sca->chan_data[i].this    = sca;
-      sca->chan_data[i].chan_id         = NULL;
+      for (i = 0; i < STRIP_MAX_CURVES; i++)
+      {
+        sca->chan_data[i].this    = sca;
+        sca->chan_data[i].chan_id         = NULL;
+      }
     }
   }
 
@@ -136,7 +140,6 @@ int     StripDAQ_request_disconnect     (StripCurve     curve,
                                          void           *the_sca)
 {
   struct _ChannelData   *cd;
-  int                   i;
   int                   ret_val;
 
   cd = (struct _ChannelData *) StripCurve_getattr_val
@@ -211,6 +214,15 @@ static void     work_callback           (XtPointer      BOGUS(1),
   ca_pend_event (STRIP_CA_PEND_TIMEOUT);
 }
 
+/*
+ * timeout_callback
+ */
+static void     timeout_callback        (XtPointer ptr, XtIntervalId *pId)
+{
+  Strip strip = (Strip) ptr;
+  ca_pend_event (STRIP_CA_PEND_TIMEOUT);
+  Strip_addtimeout ( strip, 0.1, timeout_callback, strip );
+}
 
 /*
  * connect_callback

@@ -37,3 +37,8 @@ Mon Oct 21 CDT 2002 - StripTool-2-5-1-0 - jba
 	Added pan mode indicator.
 	Portability change - converted gcvt to sprintf.
 
+Tue Oct 22 10:49:02 CDT 2002 - StripTool-2-5-1-1 - jba
+	Change from Jeff Hill to make StripTool poll ca_pend_event() periodically.
+	This fixes problem that StripTool will be quirky with R3.13 on any network
+	that does not have very many IOCs. 
+
