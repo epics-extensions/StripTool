@@ -38,6 +38,19 @@
 #  define STRIP_SITE_DEFAULTS_FILE      "/cs/op/lib/stripTool/.StripToolrc"
 #endif
 
+/* Strip Tool help uses Netscape to display help.  Define a default
+ * URL for Strip Tool help here.  This value will be overwritten if
+ * STRIP_HELP_PATH is defined in the environment..
+ * */
+#ifndef STRIP_HELP_PATH
+# if 1
+#  define STRIP_HELP_PATH \
+"http://www.aps.anl.gov/epics/extensions/StripTool/index.php"
+# else
+#  define STRIP_HELP_PATH \
+"http://www.jlab.org/~larrieu/work/StripTool/info.html"
+# endif
+#endif
 
 /* maximum number of bytes to use for caching sampled data */
 #define STRIP_MAX_CACHE_BYTES           (8L*1024L*1024L)        /* 8 megs */
@@ -93,7 +106,7 @@
 #  define STRIP_CONFIGFILE_DIR          "."
 #endif
 
-/* the default wildcard for teh file selection dialog */
+/* the default wildcard for the file selection dialog */
 #ifndef STRIP_CONFIGFILE_PATTERN
 #define STRIP_CONFIGFILE_PATTERN        "*.stp"
 #endif
@@ -104,34 +117,16 @@
 
 #define STRIP_PRINTER_DEVICE_FALLBACK           "ps"
 
-/* hard-coded printer info --fallback fallback */
+/* hard-coded printer info --fallback fallback 
+* KE: Define these in Makefile.Host if you want site-specific values */
 #ifndef STRIP_PRINTER_DEVICE
-#define STRIP_PRINTER_DEVICE            "pjetxl"
+#define STRIP_PRINTER_DEVICE            "ps"
 #endif
 #ifndef STRIP_PRINTER_NAME
-#define STRIP_PRINTER_NAME              "mcc104c"
+#define STRIP_PRINTER_NAME              "lp"
 #endif
 
 #define STRIP_DUMP_TYPE_DEFAULT_ENV         "STRIP_DUMP_TYPE_DEFAULT"
-
-/* WIN32 differences */
-#ifdef WIN32
-/* _MAX_PATH in stdlib.h for WIN32 */
-# define PATH_MAX _MAX_PATH
-/* Path delimiter is different */
-# define STRIP_PATH_DELIMITER ';'
-# define STRIP_DIR_DELIMITER_CHAR '\\'
-# define STRIP_DIR_DELIMITER_STRING "\\"
-#else /* #ifdef WIN32 */
-/* PATH_MAX may be in limits.h.  Kludge it if not */
-# ifndef PATH_MAX
-# define PATH_MAX 1024
-# endif
-/* Path delimiter is different */
-# define STRIP_PATH_DELIMITER ':'
-# define STRIP_DIR_DELIMITER_CHAR '/'
-# define STRIP_DIR_DELIMITER_STRING "/"
-#endif /* #ifdef WIN32 */
 
 #endif /* #ifndef _StripDefines */
 

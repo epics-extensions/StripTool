@@ -101,10 +101,6 @@
 #  include <vfork.h>
 #endif
 
-#ifndef MAX_PATH
-#  define MAX_PATH      1024
-#endif
-
 #include <math.h>
 #include <string.h>
 
@@ -426,12 +422,13 @@ Strip   Strip_init      (int    *argc,
   Atom                  WM_DELETE_WINDOW;
   XrmDatabase           db, db_fall, db_site, db_user;
   char                  *env;
-  char                  path[MAX_PATH];
+  char                  path[PATH_MAX];
   char                  **pstr;
 #ifndef WIN32
   struct passwd         user;
   char                  *a, *b;
 #endif
+  char *envHelpPath = NULL;
 #ifdef USE_RIGHT_CLICK_ON_BUTTONS
   String                rightBtnTranslations =
     "~Ctrl<Btn3Down>: Arm() \n\
@@ -568,6 +565,20 @@ Strip   Strip_init      (int    *argc,
     si->config->user = user;
 #endif    
     
+    /* construct help url */
+    env = getenv (STRIP_SITE_DEFAULTS_FILE_ENV);
+    if (!env) env = STRIP_SITE_DEFAULTS_FILE;
+    db_site = XrmGetFileDatabase (env);
+
+      /* Help URL */
+    envHelpPath = getenv("STRIP_HELP_PATH");
+    if(envHelpPath != NULL) {
+	strncpy(stripHelpPath, envHelpPath, PATH_MAX);
+    } else {
+	strncpy(stripHelpPath, STRIP_HELP_PATH, PATH_MAX);
+    }
+    stripHelpPath[PATH_MAX-1] = '\0';
+
 #ifdef USE_RIGHT_CLICK_ON_BUTTONS
     /* parse the translation table */
     parsedRightBtnTranslations =
@@ -3088,7 +3099,7 @@ PopupMenuItem;
 char    *PopupMenuItemStr[POPUPMENU_ITEMCOUNT] =
 {
   "Controls Dialog...",
-  "Toggle buttons",
+  "Toggle Buttons",
   "Printer Setup...",
   "Print",
   "Snapshot",
@@ -3430,7 +3441,7 @@ static void     PrinterDialog_popup     (PrinterDialog *pd, StripInfo *si)
     (XtDisplay (pd->msgbox), DefaultRootWindow (XtDisplay (pd->msgbox)),
 	&root, &child, &root_x, &root_y, &win_x, &win_y, &mask);
 
-  /* place dialog box so it surrounds the pointer horizontally */
+  /* place dialog box so it centers the window on the screen */
   XtVaGetValues (pd->msgbox, XmNwidth, &width, XmNheight, &height, 0);
 
   win_x = root_x - (width / 2);         if (win_x < 0) win_x = 0;
@@ -3479,7 +3490,7 @@ static void     fsdlg_popup     (StripInfo *si, fsdlg_functype func)
 {
   Widget        w,frame;
   int           i;
-  XmString         xstr;
+  XmString      xstr;
   char          *ftype;
 
   if (!si->fs_dlg)

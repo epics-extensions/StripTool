@@ -52,6 +52,7 @@ int StripTool_main (int argc, char *argv[])
 {
   int           status;
   FILE          *f;
+  int           configFileRead = 0;
 
 #if 0
   /* KE: Debugging */
@@ -92,16 +93,6 @@ int StripTool_main (int argc, char *argv[])
      STRIP_DISCONNECT_FUNC,     request_disconnect,
      0);
 
-  /* look for and load defaults file */
-  if ((f = fopen (STRIP_DEFAULT_FILENAME, "r")) != NULL)
-  {
-    fprintf
-	(stdout, "StripTool: Using default file %s.\n",
-	  STRIP_DEFAULT_FILENAME);
-    Strip_readconfig (strip, f, SCFGMASK_ALL, STRIP_DEFAULT_FILENAME);
-    fclose (f);
-  }
-  
   /* now load a config file if requested */
   if (argc >= 2)
   {
@@ -115,6 +106,7 @@ int StripTool_main (int argc, char *argv[])
 	fprintf
 	  (stdout, "StripTool: Using config file, %s.\n", argv[1]);
 	Strip_readconfig (strip, f, SCFGMASK_ALL, argv[1]);
+	configFileRead = 1;
 	fclose (f);
     }
     else fprintf
@@ -130,6 +122,7 @@ int StripTool_main (int argc, char *argv[])
 	fprintf
 	  (stdout, "StripTool: Using config file %s.\n", path_used);
 	Strip_readconfig (strip, f, SCFGMASK_ALL, path_used);
+	configFileRead = 1;
 	fclose (f);
     }
     else
@@ -141,6 +134,17 @@ int StripTool_main (int argc, char *argv[])
     }
   }
 #endif
+  
+  /* look for and load defaults file if none sucessfully loaded yet */
+  if (!configFileRead && (f = fopen (STRIP_DEFAULT_FILENAME, "r")) != NULL)
+  {
+    fprintf
+	(stdout, "StripTool: Using default file %s.\n",
+	  STRIP_DEFAULT_FILENAME);
+    Strip_readconfig (strip, f, SCFGMASK_ALL, STRIP_DEFAULT_FILENAME);
+    configFileRead = 1;
+    fclose (f);
+  }
   
   status = 0;
   Strip_go (strip);

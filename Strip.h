@@ -229,6 +229,13 @@ int     Strip_readconfig        (Strip, FILE *, StripConfigMask, char *);
 
 /* Should put descriptions here as for others */
 void    Strip_refresh     (Strip the_strip);
-int    Strip_auto_scale     (Strip the_strip);
+int     Strip_auto_scale     (Strip the_strip);
+
+/*
+ * callBrowser
+ *
+ *      Calls the default browser with the given url and bookmark
+ */
+int callBrowser(Display *dpy, char *url, char *bookmark);
 
 #endif  /* #ifndef _Strip */

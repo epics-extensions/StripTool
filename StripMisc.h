@@ -25,14 +25,29 @@
 #include <float.h>
 #endif  /* Albert */
 
+/* WIN32 differences */
 #ifdef WIN32
 /* Hummingbird extra functions including lprintf */
 # include <X11/XlibXtra.h>
 /* In MSVC timeval is in winsock.h, winsock2.h, ws2spi.h, nowhere else */
 # include <X11/Xwinsock.h>
-#else
+/* _MAX_PATH in stdlib.h for WIN32 */
+# define PATH_MAX _MAX_PATH
+/* Path delimiter is different */
+# define STRIP_PATH_DELIMITER ';'
+# define STRIP_DIR_DELIMITER_CHAR '\\'
+# define STRIP_DIR_DELIMITER_STRING "\\"
+#else /* #ifdef WIN32 */
 # include <sys/time.h>
-#endif
+/* PATH_MAX may be in limits.h.  Kludge it if not */
+# ifndef PATH_MAX
+# define PATH_MAX 1024
+# endif
+/* Path delimiter is different */
+# define STRIP_PATH_DELIMITER ':'
+# define STRIP_DIR_DELIMITER_CHAR '/'
+# define STRIP_DIR_DELIMITER_STRING "/"
+#endif /* #ifdef WIN32 */
 
 /*
  * this is some serious brain-damage
@@ -71,6 +86,7 @@
 /* ====== Various useful constants initialized by StripMisc_init() ====== */
 extern float            vertical_pixels_per_mm;
 extern float            horizontal_pixels_per_mm;
+extern char             stripHelpPath[PATH_MAX];
 
 /* Strip_x_error_code
  *

@@ -50,9 +50,9 @@ CMPLR 		= STRICT
 
 # When committed, HOST_OPT should be undefined.  Use for debugging.
 ifdef WIN32
- HOST_OPT = NO
+# HOST_OPT = NO
 else
- HOST_OPT = NO
+# HOST_OPT = NO
 endif
 ifeq ($(HOST_OPT),NO)
   ifeq ($(ANSI),ACC)
@@ -89,6 +89,13 @@ USR_LIBS_WIN32 += $(EXCEED_XLIBS)
 USR_CFLAGS_WIN32 += $(EXCEED_CFLAGS)
 
 # ==========================================================================
+# Site-specific defines
+# ==========================================================================
+#USR_CPPFLAGS += -DSTRIP_PRINTER_NAME=\"mcc104c\"
+#USR_CPPFLAGS += -DSTRIP_PRINTER_DEVICE=\"pjetx\"
+#USR_CPPFLAGS += -DSTRIP_SITE_DEFAULTS_FILE=\"/cs/op/lib/stripTool/.StripToolrc\"
+
+# ==========================================================================
 # Sources
 # ==========================================================================
 SRCS		+= $(STRIP_HISTORY)
@@ -110,6 +117,7 @@ SRCS		+= FastLabel.c
 SRCS		+= Tabs.c
 SRCS		+= x_rotate.c
 SRCS		+= rotated.c
+SRCS		+= browserHelp.c
 
 ifeq ($(USE_CLUES), YES)
   SRCS		+= LiteClue.c
@@ -148,6 +156,8 @@ ifeq ($(STRIP_HISTORY), StripHistoryAR+ArR.c)
   endif		
 endif
 
+USR_INCLUDES = -I$(MOTIF_INC) -I$(X11_INC)
+
 # ==========================================================================
 # Preprocessor Flags
 # ==========================================================================
@@ -156,8 +166,6 @@ ifneq ($(STRIP_CONFIGFILE_DIR),)
 endif
 
 USR_CPPFLAGS 	+= -DUSE_MOTIF
-USR_CPPFLAGS	+= -I$(MOTIF_INC)
-USR_CPPFLAGS	+= -I$(X11_INC)
 #USR_CPPFLAGS	+= -DDESY_PRINT # use xwpick instead of xwd 
 
 ifeq ($(USE_CLUES), YES)
@@ -165,19 +173,19 @@ ifeq ($(USE_CLUES), YES)
 endif
 
 ifeq ($(HAVE_XPM), YES)
-  USR_CPPFLAGS	+= -DUSE_XPM -I$(XPM_INC)
+  USR_CPPFLAGS	+= -DUSE_XPM
 endif
 
 ifeq ($(HAVE_XMU), YES)
-  USR_CPPFLAGS	+= -DUSE_XMU -I$(XMU_INC)
+  USR_CPPFLAGS	+= -DUSE_XMU
 endif
 
 ifeq ($(HISTORY_API), CAR)
-#  USR_CPPFLAGS		+= -I$(CAR_DIR)/include
-USR_CPPFLAGS		+= -I$(EPICS)/extensions/include 
-  USR_CPPFLAGS		+= -I$(EPICS)/base/src/ca/
+#  USR_INCLUDES		+= -I$(CAR_DIR)/include
+USR_INCLUDES		+= -I$(EPICS)/extensions/include 
+USR_INCLUDES		+= -I$(EPICS)/base/src/ca/
   ifeq ($(CCC), aCC)
-    USR_CXXFLAGS	+= -I$(CAR_DIR)/include/hp
+    USR_INCLUDES	+= -I$(CAR_DIR)/include/hp
   endif
 endif
 
@@ -190,7 +198,7 @@ ifeq ($(THREADED), YES)
 endif
 
 ifeq ($(USE_CDEV), YES)
-  USR_CPPFLAGS		+= -I$(CDEV_INC)
+  USR_INCLUDES		+= -I$(CDEV_INC)
   USR_CPPFLAGS		+= -DUSE_CDEV
 endif
 
@@ -277,6 +285,8 @@ StripTool.res:../StripTool.ico
 # ==========================================================================
 xxxx:
 	@echo STRIP_CONFIGFILE_DIR: $(STRIP_CONFIGFILE_DIR)
+	@echo EPICS_EXTENSIONS_LIB: $(EPICS_EXTENSIONS_LIB)
+	@echo EPICS_EXTENSIONS_INCLUDE: $(EPICS_EXTENSIONS_INCLUDE)
 
 # **************************** Emacs Editing Sequences *****************
 # Local Variables:

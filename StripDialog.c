@@ -115,6 +115,8 @@ typedef int     SDGraphMask;
 
 typedef enum
 {
+  HELP_WEBHELP,
+  HELP_HELPHELP,
   HELP_ABOUT
 } HelpItems;
 
@@ -614,6 +616,26 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
       (menu,
        XmNmenuHelpWidget,               tmp,
        NULL);
+
+    /* web help */
+    tmp = XtVaCreateManagedWidget
+      ("webHelpPushB",
+       xmPushButtonGadgetClass,         w,
+       XmNuserData,                     sd,
+       0);
+    XtAddCallback
+      (tmp, XmNactivateCallback, helpmenu_cb, (XtPointer)HELP_WEBHELP);
+    
+    /* help on help */
+    tmp = XtVaCreateManagedWidget
+      ("helpOnHelpPushB",
+       xmPushButtonGadgetClass,         w,
+       XmNuserData,                     sd,
+       0);
+    XtAddCallback
+      (tmp, XmNactivateCallback, helpmenu_cb, (XtPointer)HELP_HELPHELP);
+    
+    /* about */
     tmp = XtVaCreateManagedWidget
       ("aboutPushB",
        xmPushButtonGadgetClass,         w,
@@ -640,13 +662,17 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
        XmNbottomAttachment,             XmATTACH_NONE,
        0);
     
-    XtVaCreateManagedWidget ("connectLabel", xmLabelWidgetClass, rowcol, 0);
-    sd->connect_txt = XtVaCreateManagedWidget
-      ("connectText", xmTextWidgetClass, rowcol, 0);
+    XtVaCreateManagedWidget("connectLabel",
+	xmLabelWidgetClass,               rowcol,
+	0);
+    sd->connect_txt = XtVaCreateManagedWidget ("connectText",
+	xmTextWidgetClass,                rowcol,
+	0);
     XtAddCallback (sd->connect_txt, XmNactivateCallback, connect_btn_cb, sd);
     XtAddCallback (sd->connect_txt, XmNfocusCallback, text_focus_cb, 0);
-    btn = XtVaCreateManagedWidget
-      ("connectButton", xmPushButtonWidgetClass, rowcol, 0);
+    btn = XtVaCreateManagedWidget  ("connectButton",
+	xmPushButtonWidgetClass,          rowcol,
+	0);
     XtAddCallback (btn, XmNactivateCallback, connect_btn_cb, sd);
 
     /* make some nice tabs */
@@ -1495,6 +1521,7 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
 
     XtRealizeWidget (sd->shell);
     XtMapWidget (sd->current_page = sd->pages[SDPAGE_CURVES]);
+    XmProcessTraversal (sd->connect_txt, XmTRAVERSE_CURRENT);    
     XUnmapWindow (sd->display, XtWindow (sd->shell));
 
     for (i = 0; i < STRIP_MAX_CURVES; i++)
@@ -3021,27 +3048,64 @@ static void     windowmenu_cb   (Widget w, XtPointer data, XtPointer BOGUS(1))
 static void helpmenu_cb (Widget w, XtPointer data, XtPointer BOGUS(1))
 {		
   StripDialogInfo       *sd;
-  
+  int                   i = (int)data;
+
   XtVaGetValues (w, XmNuserData, &sd, NULL);
-  MessageBox_popup (sd->shell, &sd->message_box, XmDIALOG_INFORMATION,
-    "About", "OK",
-    "%s\n"
-    "%s"
-    "%s\n"
-    "\nBuilt: %s %s\n"
-    "\nAuthors:\n"
-    "  Christopher Larrieu, TJNAF\n"
-    "  Albert Kagarmanov, DESY\n"
-    "  Janet Anderson, APS\n"
-    "  Kenneth Evans, Jr., APS\n",
-    STRIPTOOL_VERSION_STRING,
-    EPICS_VERSION_STRING,
+  switch(i)
+  {
+  case HELP_WEBHELP:
+    callBrowser(sd->display, stripHelpPath, "");
+    break;
+
+  case HELP_HELPHELP:
+    XtVaGetValues (w, XmNuserData, &sd, NULL);
+    MessageBox_popup (sd->shell, &sd->message_box, XmDIALOG_INFORMATION,
+	"Help on Help", "OK",
+#ifdef WIN32
+	"     Web Help is implemented using your default browser\n"
+	"or whatever program is in the environmental variable\n"
+	"NETSCAPEPATH.\n"
+	"     The URL is:\n"
+	"%s\n"
+	"     You can specify the URL in STRIP_HELP_PATH before\n"
+	"starting Strip Tool.",
+#else	  
+	"     Web Help is implemented using Netscape or whatever\n"
+	"program is in the environmental variable NETSCAPEPATH.\n"
+	"     The URL is:\n"
+	"%s\n"
+	"     You can specify the URL in STRIP_HELP_PATH before\n"
+	"starting Strip Tool.\n"
+	"     If Netscape is running when MEDM first calls it,\n"
+	"then the response should be fairly quick.  Otherwise,\n"
+	"it may take a while.",
+#endif	  
+	stripHelpPath);
+    break;
+
+  case HELP_ABOUT:
+    XtVaGetValues (w, XmNuserData, &sd, NULL);
+    MessageBox_popup (sd->shell, &sd->message_box, XmDIALOG_INFORMATION,
+	"About", "OK",
+	"%s\n"
+	"%s"
+	"%s\n"
+	"\nBuilt: %s %s\n"
+	"\nAuthors:\n"
+	"  Christopher Larrieu, TJNAF\n"
+	"  Albert Kagarmanov, DESY\n"
+	"  Janet Anderson, APS\n"
+	"  Kenneth Evans, Jr., APS\n",
+	STRIPTOOL_VERSION_STRING,
+	EPICS_VERSION_STRING,
 #if defined (USE_CDEV)
-    "CDEV: "CDEV_VERSION_STRING"\n",
+	"CDEV: "CDEV_VERSION_STRING"\n",
 #else
-    "",
+	"",
 #endif
-    __DATE__,__TIME__);
+	__DATE__,__TIME__);
+    break;
+  }
 }
 
 

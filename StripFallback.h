@@ -173,6 +173,10 @@ String  fallback_resources[] =
   SA "*StripDialog*appMenubar*filePulldown*exitPushB.mnemonic: x",
   SA "*StripDialog*appMenubar*windowPulldown*window1PushB.labelString: Graph",
   SA "*StripDialog*appMenubar*windowPulldown*window1PushB.mnemonic: G",
+  SA "*StripDialog*appMenubar*helpPulldown*webHelpPushB.labelString: Web Help...",
+  SA "*StripDialog*appMenubar*helpPulldown*webHelpPushB.mnemonic: W",
+  SA "*StripDialog*appMenubar*helpPulldown*helpOnHelpPushB.labelString: Help on Help...",
+  SA "*StripDialog*appMenubar*helpPulldown*helpOnHelpPushB.mnemonic: H",
   SA "*StripDialog*appMenubar*helpPulldown*aboutPushB.labelString: About...",
   SA "*StripDialog*appMenubar*helpPulldown*aboutPushB.mnemonic: A",
  
