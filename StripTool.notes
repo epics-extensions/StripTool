@@ -225,3 +225,5 @@ display the actual buffer size used.  Previously if the buffer size
 was reduced, it displayed the smaller value even though the buffer
 size is never reduced.
 
+Mon Jan 31, 2005 - StripTool-2-5-9-0 - evans
+Fixed bug in writing tv_usec part of the time in StripDataSource_dump.
