@@ -2947,7 +2947,7 @@ static void helpmenu_cb (Widget w, XtPointer data, XtPointer BOGUS(1))
     "\nBuilt: %s %s\n"
     "\nAuthors:\n"
     "  Christopher Larrieu, TJNAF\n"
-    "  Albert Kagarmanov DESY\n"
+    "  Albert Kagarmanov, DESY\n"
     "  Janet Anderson, APS\n"
     "  Kenneth Evans, Jr., APS\n",
     STRIPTOOL_VERSION_STRING,

@@ -813,33 +813,35 @@ Strip   Strip_init      (int    *argc,
 
 #ifdef USE_CLUES
     XcgLiteClueAddWidget
-      (hintshell, si->btn[STRIPBTN_LEFT], "Pan left", 0, 0);
+      (hintshell, si->btn[STRIPBTN_LEFT], "Pan Left", 0, 0);
     XcgLiteClueAddWidget
-      (hintshell, si->btn[STRIPBTN_RIGHT], "Pan right", 0, 0);
+      (hintshell, si->btn[STRIPBTN_RIGHT], "Pan Right", 0, 0);
     XcgLiteClueAddWidget
-      (hintshell, si->btn[STRIPBTN_ZOOMIN], "Zoom in", 0, 0);
+      (hintshell, si->btn[STRIPBTN_ZOOMIN], "Zoom In", 0, 0);
     XcgLiteClueAddWidget
-      (hintshell, si->btn[STRIPBTN_ZOOMOUT], "Zoom out", 0, 0);
+      (hintshell, si->btn[STRIPBTN_ZOOMOUT], "Zoom Out", 0, 0);
     XcgLiteClueAddWidget
-      (hintshell, si->btn[STRIPBTN_UP], "Pan up", 0, 0);          /*Albert */ 
+      (hintshell, si->btn[STRIPBTN_UP], "Pan Up", 0, 0);          /*Albert */ 
     XcgLiteClueAddWidget
-      (hintshell, si->btn[STRIPBTN_DOWN], "Pan down", 0, 0);      /*Albert */
+      (hintshell, si->btn[STRIPBTN_DOWN], "Pan Down", 0, 0);      /*Albert */
 
 
     XcgLiteClueAddWidget
-      (hintshell, si->btn[STRIPBTN_ZOOMINY], "Zoom in Y", 0, 0);   /*Albert */
+      (hintshell, si->btn[STRIPBTN_ZOOMINY], "Zoom In Y", 0, 0);   /*Albert */
     XcgLiteClueAddWidget
-      (hintshell, si->btn[STRIPBTN_ZOOMOUTY], "Zoom out Y", 0, 0); /*Albert */
+      (hintshell, si->btn[STRIPBTN_ZOOMOUTY], "Zoom Out Y", 0, 0); /*Albert */
+    XcgLiteClueAddWidget
+      (hintshell, si->btn[STRIPBTN_AUTO_SCALE], "Auto Scale", 0, 0); /*Albert */
 #ifdef STRIP_HISTORY   
     XcgLiteClueAddWidget 
-      (hintshell, si->btn[STRIPBTN_FROM_TO], "from-to interval", 0, 0);/*Albert */
+      (hintshell, si->btn[STRIPBTN_FROM_TO], "From-To Interval", 0, 0);/*Albert */
     XcgLiteClueAddWidget
-      (hintshell, si->btn[STRIPBTN_ALG], "History algorithm", 0, 0);
+      (hintshell, si->btn[STRIPBTN_ALG], "History Algorithm", 0, 0);
     XcgLiteClueAddWidget
-      (hintshell, si->btn[STRIPBTN_REPLOT], "Real replot", 0, 0);
+      (hintshell, si->btn[STRIPBTN_REPLOT], "Real Replot", 0, 0);
 #endif /*STRIP_HISTORY   */
     XcgLiteClueAddWidget
-      (hintshell, si->btn[STRIPBTN_AUTOSCROLL], "Auto scroll", 0, 0);
+      (hintshell, si->btn[STRIPBTN_AUTOSCROLL], "Auto Scroll", 0, 0);
     XcgLiteClueAddWidget
       (hintshell, si->btn[STRIPBTN_REFRESH], "Refresh", 0, 0);
 #endif
@@ -852,7 +854,7 @@ Strip   Strip_init      (int    *argc,
        0);
 
     xstr_panning=XmStringCreateLocalized ("PANNING");
-    xstr_notpanning=XmStringCreateLocalized ("");
+    xstr_notpanning=XmStringCreateLocalized ("SCROLLING");
     XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_notpanning, 0);
 
     /* the graph base widget */
