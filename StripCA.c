@@ -468,8 +468,13 @@ static void getDescriptionRecord(char *name, char *description)
   int status;
   chid id;
   static char desc_name[64];
+  char *ptr;
+  
+  /* construct the name */
   memset(desc_name,0,64);
   strcpy(desc_name,name);
+  ptr=strchr(desc_name,'.');
+  if(ptr) *ptr='\0';
   strcat(desc_name,".DESC");
 
   /* Check validity and initialize to blank */
@@ -540,10 +545,13 @@ static void requestDescRecord(StripCurve curve)
   char *name = (char *)StripCurve_getattr_val (curve, STRIPCURVE_NAME);
   struct _ChannelData *cd = (struct _ChannelData *)StripCurve_getattr_val
     (curve, STRIPCURVE_FUNCDATA);
+  char *ptr;
 
   /* construct the name */
   memset(desc_name,0,64);
   strcpy(desc_name,name);
+  ptr=strchr(desc_name,'.');
+  if(ptr) *ptr='\0';
   strcat(desc_name,".DESC");
 
   /* search */

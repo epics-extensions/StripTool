@@ -399,54 +399,75 @@ void  StripDataSource_refresh (StripDataSource        the_sds)
  * StripDataSource_min_max
  */
 int
-StripDataSource_min_max (StripDataSourceInfo *sds,struct timeval h0, struct timeval h_end)
+StripDataSource_min_max (StripDataSourceInfo *sds, struct timeval h0,
+  struct timeval h_end)
 {
   StripCurveInfo                *c;
   int                           m,i;
   int                           some_data;
   int need_refresh=0;
   CurveData *cd;
-
+  
   double min=0.0;
   double max=0.0;
-
+  
   int first,last;
-
+  
   double width;
   double alpha;
-
+  
   int local_precision;
-
+  
   for (m = 0; m < STRIP_MAX_CURVES; m++)
   {
     if ((c = sds->buffers[m].curve) != NULL)
     {
       cd = &sds->buffers[m];
       some_data = 0;
-
+	
       first=find_date_idx
 	  (&h0, sds->times, sds->count, sds->buf_size, sds->cur_idx, SDS_GTE);
       last=find_date_idx
 	  (&h_end, sds->times, sds->count, sds->buf_size, sds->cur_idx, SDS_LTE);
-
+	
       if ((first > -1) && (last > -1) )
 	{
 	  some_data=1;
 	  min=cd->val[first]; 
 	  max=cd->val[first];
-	  if (first<=last)
-	    for(i=first;i<= last; i++) 
+	  if (first <= last)
+	  {
+	    for(i=first; i <= last; i++) 
 	    {
-		if(cd->val[i]<min) min=cd->val[i]; 
-		if(cd->val[i]>max) max=cd->val[i]; 
+		if(cd->val[i] < min) min=cd->val[i]; 
+		if(cd->val[i] > max) max=cd->val[i]; 
 	    }
+	  }
 	  else
-	    for(i=first;i<= last; i--) /* perror Albert problem */
+	  {
+#if 0
+	    /* perror Albert problem */
+	    for(i=first; i <= last; i--)
 	    {
 		printf("\n\n!!!!%f;\n",cd->val[i]); 
 		if(cd->val[i]<min) min=cd->val[i]; 
 		if(cd->val[i]>max) max=cd->val[i]; 
 	    }
+#else
+	    /* First part is first to end */
+	    for(i=first; i < sds->buf_size; i++)
+	    {
+		if(cd->val[i] < min) min=cd->val[i]; 
+		if(cd->val[i] > max) max=cd->val[i]; 
+	    }
+	    /* Second part is 0 to last */
+	    for(i=0; i <= last; i++)
+	    {
+		if(cd->val[i] < min) min=cd->val[i]; 
+		if(cd->val[i] > max) max=cd->val[i]; 
+	    }
+#endif	  
+	  }
 	}
 #ifdef STRIP_HISTORY
 	if(!cursor) cursor = XCreateFontCursor(XtDisplay(history_topShell),XC_watch);
@@ -488,7 +509,7 @@ StripDataSource_min_max (StripDataSourceInfo *sds,struct timeval h0, struct time
 
 #endif /* STRIP_HISTORY */
 
-      if ((min <  max) && (some_data) )
+      if ((min < max) && (some_data) )
 	{
 	  if((c->details->min != min)||(c->details->max != max)) 
 	  {
@@ -498,8 +519,7 @@ StripDataSource_min_max (StripDataSourceInfo *sds,struct timeval h0, struct time
 	    c->details->min= min - (double) (width/100.0);
 	  }
 	}
-
-      else if ((min == max)&& (some_data) )
+      else if ((min == max) && (some_data) )
 	{
 	  if( !((c->details->min < min)&& (c->details->max > min)) && 
 	    (c->details->max - c->details->min > 0 ) )
@@ -513,7 +533,11 @@ StripDataSource_min_max (StripDataSourceInfo *sds,struct timeval h0, struct time
 	    c->details->max = min + width*(1-alpha);
 	  }
 	}
-      else { printf ("min>max:%g>%g or isData=%d\n",min,max,some_data); continue;}
+      else
+	{
+	  printf ("min>max:%g>%g or isData=%d\n",min,max,some_data);
+	  continue;
+	}
 
 	/****Reasonable shift of lim i.e. min=0.123098712345 -> min=0.123 *******/
 	local_precision=c->details->precision;

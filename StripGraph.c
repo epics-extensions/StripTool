@@ -801,7 +801,7 @@ static void StripGraph_plotdata (StripGraphInfo *sgi)
   XSegment              *segs;
   struct timeval        dt_new, dt_cur; /* interval width (time) */
   double                dl_new, dl_cur; /* interval width (real) */
-  double                db = 0.0;             /* bin width (real) */
+  double                db = 0.0;       /* bin width (real) */
   double                dl;             /* interval width (real) */
   double                l_min, l_max;   /* min, max (real) */
   int                   b_min, b_max;   /* min, max (quantized) */
@@ -987,25 +987,25 @@ static void StripGraph_plotdata (StripGraphInfo *sgi)
 	  arcPtr = arcArr;
 	  arcArr = (XArc *) calloc(numPoints, sizeof(XArc));
 	  if (arcArr)
+	  {
+	    arcPtr = arcArr;
+	    for (i = 0; i < numPoints; i++) 
 	    {
-	      arcPtr = arcArr;
-	      for (i = 0; i < numPoints; i++) 
-		{
-		  arcPtr->x = segs[i].x1 -r;
-		  arcPtr->y = segs[i].y1-r;
-		  arcPtr->width = arcArr[count].height = s;
-		  arcPtr->angle1 = 0;
-		  arcPtr->angle2 = 23040;
-		  arcPtr++;
-		  count++;
-		}
-
-	      XDrawArcs(sgi->display,sgi->plotpix,sgi->gc,arcArr,count);
-	      free((char *)arcArr);
+		arcPtr->x = segs[i].x1 -r;
+		arcPtr->y = segs[i].y1-r;
+		arcPtr->width = arcArr[count].height = s;
+		arcPtr->angle1 = 0;
+		arcPtr->angle2 = 23040;
+		arcPtr++;
+		count++;
 	    }
+	    
+	    XDrawArcs(sgi->display,sgi->plotpix,sgi->gc,arcArr,count);
+	    free((char *)arcArr);
+	  }
 	}
 #endif /* STRIP_HISTORY */
-        StripGraph_clearstat (sgi, SGSTAT_GRAPH_REFRESH);
+	StripGraph_clearstat (sgi, SGSTAT_GRAPH_REFRESH);
       }
     }
 #ifdef QUANTIFY_PRECISE
@@ -1341,15 +1341,15 @@ static void     x_transform     (void                   *arg,
 
   while (--n >= 0) *out++ = (*in++ - t0) / db;
 }
-int 
-StripAuto_min_max (StripDataSource sds, char *sgiP)
+
+int StripAuto_min_max (StripDataSource sds, char *sgiP)
 {
   struct timeval h0,h_end;
   StripGraphInfo *sgi = (StripGraphInfo *)sgiP; 
-
+  
   h0=sgi->t0;
   h_end=sgi->t1;
-return ( StripDataSource_min_max (sds,h0,h_end) );
+  return ( StripDataSource_min_max (sds,h0,h_end) );
 }
 
 

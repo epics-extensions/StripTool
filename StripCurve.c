@@ -55,103 +55,103 @@ int             StripCurve_setattr      (StripCurve the_sc, ...)
        attrib = va_arg (ap, StripCurveAttribute))
   {
     if ((ret_val = ((attrib > 0) &&
-                    (attrib < STRIPCURVE_LAST_ATTRIBUTE))))
+	(attrib < STRIPCURVE_LAST_ATTRIBUTE))))
     {
 #if DEBUG_CONNECTING
 	print("*** StripCurve_setattr: attrib=%d\n", attrib);
 #endif	
       switch (attrib)
       {
-          case STRIPCURVE_NAME:
-            strcpy (sc->details->name, va_arg (ap, char *));
-            StripConfigMask_set
-              (&sc->details->update_mask, SCFGMASK_CURVE_NAME);
-            StripConfigMask_set
-              (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_NAME);
-            break;
-            
-          case STRIPCURVE_EGU:
-            strcpy (sc->details->egu, va_arg (ap, char *));
-            StripConfigMask_set
-              (&sc->details->update_mask, SCFGMASK_CURVE_EGU);
-            StripConfigMask_set
-              (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_EGU);
-            StripCurve_setstat(sc, STRIPCURVE_EGU_SET);
-            break;
-            
-          case STRIPCURVE_COMMENT:
-            strcpy (sc->details->comment, va_arg (ap, char *));
-            StripConfigMask_set
-              (&sc->details->update_mask, SCFGMASK_CURVE_COMMENT);
-            StripConfigMask_set
-              (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_COMMENT);
-            StripCurve_setstat (sc, STRIPCURVE_COMMENT_SET);
-            break;
-            
-          case STRIPCURVE_PRECISION:
-            sc->details->precision = va_arg (ap, int);
-            sc->details->precision =
-              max ( sc->details->precision, STRIPMIN_CURVE_PRECISION);
-            sc->details->precision =
-              min ( sc->details->precision, STRIPMAX_CURVE_PRECISION);
-            StripConfigMask_set
-              (&sc->details->update_mask, SCFGMASK_CURVE_PRECISION);
-            StripConfigMask_set
-              (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_PRECISION);
-            StripCurve_setstat (sc, STRIPCURVE_PRECISION_SET);
-            break;
-            
-          case STRIPCURVE_MIN:
-            sc->details->min = va_arg (ap, double);
-            StripConfigMask_set
-              (&sc->details->update_mask, SCFGMASK_CURVE_MIN);
-            StripConfigMask_set
-              (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_MIN);
-            StripCurve_setstat (sc, STRIPCURVE_MIN_SET);
-            break;
-            
-          case STRIPCURVE_MAX:
-            sc->details->max = va_arg (ap, double);
-            StripConfigMask_set
-              (&sc->details->update_mask, SCFGMASK_CURVE_MAX);
-            StripConfigMask_set
-              (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_MAX);
-            StripCurve_setstat (sc, STRIPCURVE_MAX_SET);
-            break;
-            
-          case STRIPCURVE_SCALE:
-            sc->details->scale = va_arg (ap, int);
-            StripConfigMask_set
-              (&sc->details->update_mask, SCFGMASK_CURVE_SCALE);
-            StripConfigMask_set
-              (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_SCALE);
-            break;
-            
-          case STRIPCURVE_PLOTSTAT:
-            sc->details->plotstat = va_arg (ap, int);
-            StripConfigMask_set
-              (&sc->details->update_mask, SCFGMASK_CURVE_PLOTSTAT);
-            StripConfigMask_set
-              (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_PLOTSTAT);
-            break;
-
-          case STRIPCURVE_COLOR:
-            sc->details->color = va_arg (ap, cColor *);
-            break;
-            
-          case STRIPCURVE_FUNCDATA:
-            sc->func_data = va_arg (ap, void *);
-            break;
-            
-          case STRIPCURVE_SAMPLEFUNC:
-            sc->get_value = va_arg (ap, StripCurveSampleFunc);
-            break;
-            
+	case STRIPCURVE_NAME:
+	  strcpy (sc->details->name, va_arg (ap, char *));
+	  StripConfigMask_set
+	    (&sc->details->update_mask, SCFGMASK_CURVE_NAME);
+	  StripConfigMask_set
+	    (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_NAME);
+	  break;
+	  
+	case STRIPCURVE_EGU:
+	  strcpy (sc->details->egu, va_arg (ap, char *));
+	  StripConfigMask_set
+	    (&sc->details->update_mask, SCFGMASK_CURVE_EGU);
+	  StripConfigMask_set
+	    (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_EGU);
+	  StripCurve_setstat(sc, STRIPCURVE_EGU_SET);
+	  break;
+	  
+	case STRIPCURVE_COMMENT:
+	  strcpy (sc->details->comment, va_arg (ap, char *));
+	  StripConfigMask_set
+	    (&sc->details->update_mask, SCFGMASK_CURVE_COMMENT);
+	  StripConfigMask_set
+	    (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_COMMENT);
+	  StripCurve_setstat (sc, STRIPCURVE_COMMENT_SET);
+	  break;
+	  
+	case STRIPCURVE_PRECISION:
+	  sc->details->precision = va_arg (ap, int);
+	  sc->details->precision =
+	    max ( sc->details->precision, STRIPMIN_CURVE_PRECISION);
+	  sc->details->precision =
+	    min ( sc->details->precision, STRIPMAX_CURVE_PRECISION);
+	  StripConfigMask_set
+	    (&sc->details->update_mask, SCFGMASK_CURVE_PRECISION);
+	  StripConfigMask_set
+	    (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_PRECISION);
+	  StripCurve_setstat (sc, STRIPCURVE_PRECISION_SET);
+	  break;
+	  
+	case STRIPCURVE_MIN:
+	  sc->details->min = va_arg (ap, double);
+	  StripConfigMask_set
+	    (&sc->details->update_mask, SCFGMASK_CURVE_MIN);
+	  StripConfigMask_set
+	    (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_MIN);
+	  StripCurve_setstat (sc, STRIPCURVE_MIN_SET);
+	  break;
+	  
+	case STRIPCURVE_MAX:
+	  sc->details->max = va_arg (ap, double);
+	  StripConfigMask_set
+	    (&sc->details->update_mask, SCFGMASK_CURVE_MAX);
+	  StripConfigMask_set
+	    (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_MAX);
+	  StripCurve_setstat (sc, STRIPCURVE_MAX_SET);
+	  break;
+	  
+	case STRIPCURVE_SCALE:
+	  sc->details->scale = va_arg (ap, int);
+	  StripConfigMask_set
+	    (&sc->details->update_mask, SCFGMASK_CURVE_SCALE);
+	  StripConfigMask_set
+	    (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_SCALE);
+	  break;
+	  
+	case STRIPCURVE_PLOTSTAT:
+	  sc->details->plotstat = va_arg (ap, int);
+	  StripConfigMask_set
+	    (&sc->details->update_mask, SCFGMASK_CURVE_PLOTSTAT);
+	  StripConfigMask_set
+	    (&sc->scfg->UpdateInfo.update_mask, SCFGMASK_CURVE_PLOTSTAT);
+	  break;
+	  
+	case STRIPCURVE_COLOR:
+	  sc->details->color = va_arg (ap, cColor *);
+	  break;
+	  
+	case STRIPCURVE_FUNCDATA:
+	  sc->func_data = va_arg (ap, void *);
+	  break;
+	  
+	case STRIPCURVE_SAMPLEFUNC:
+	  sc->get_value = va_arg (ap, StripCurveSampleFunc);
+	  break;
+	  
       }
     }
     else break;
   }
-
+  
   va_end (ap);
 #if DEBUG_CONNECTING
   print("*** StripCurve_setattr: Ending\n",
@@ -176,39 +176,39 @@ int             StripCurve_getattr      (StripCurve the_sc, ...)
     if ((ret_val = ((attrib > 0) && (attrib < STRIPCURVE_LAST_ATTRIBUTE))))
       switch (attrib)
       {
-          case STRIPCURVE_NAME:
-            *(va_arg (ap, char **)) = sc->details->name;
-            break;
-          case STRIPCURVE_EGU:
-            *(va_arg (ap, char **)) = sc->details->egu;
-            break;
-          case STRIPCURVE_COMMENT:
-            *(va_arg (ap, char **)) = sc->details->comment;
-            break;
-          case STRIPCURVE_PRECISION:
-            *(va_arg (ap, int *)) = sc->details->precision;
-            break;
-          case STRIPCURVE_MIN:
-            *(va_arg (ap, double *)) = sc->details->min;
-            break;
-          case STRIPCURVE_MAX:
-            *(va_arg (ap, double *)) = sc->details->max;
-            break;
-          case STRIPCURVE_SCALE:
-            *(va_arg (ap, int *)) = sc->details->scale;
-            break;
-          case STRIPCURVE_PLOTSTAT:
-            *(va_arg (ap, int *)) = sc->details->plotstat;
-            break;
-          case STRIPCURVE_COLOR:
-            *(va_arg (ap, cColor **)) = sc->details->color;
-            break;
-          case STRIPCURVE_FUNCDATA:
-            *(va_arg (ap, void **)) = sc->func_data;
-            break;
-          case STRIPCURVE_SAMPLEFUNC:
-            *(va_arg (ap, StripCurveSampleFunc *)) = sc->get_value;
-            break;
+	case STRIPCURVE_NAME:
+	  *(va_arg (ap, char **)) = sc->details->name;
+	  break;
+	case STRIPCURVE_EGU:
+	  *(va_arg (ap, char **)) = sc->details->egu;
+	  break;
+	case STRIPCURVE_COMMENT:
+	  *(va_arg (ap, char **)) = sc->details->comment;
+	  break;
+	case STRIPCURVE_PRECISION:
+	  *(va_arg (ap, int *)) = sc->details->precision;
+	  break;
+	case STRIPCURVE_MIN:
+	  *(va_arg (ap, double *)) = sc->details->min;
+	  break;
+	case STRIPCURVE_MAX:
+	  *(va_arg (ap, double *)) = sc->details->max;
+	  break;
+	case STRIPCURVE_SCALE:
+	  *(va_arg (ap, int *)) = sc->details->scale;
+	  break;
+	case STRIPCURVE_PLOTSTAT:
+	  *(va_arg (ap, int *)) = sc->details->plotstat;
+	  break;
+	case STRIPCURVE_COLOR:
+	  *(va_arg (ap, cColor **)) = sc->details->color;
+	  break;
+	case STRIPCURVE_FUNCDATA:
+	  *(va_arg (ap, void **)) = sc->func_data;
+	  break;
+	case STRIPCURVE_SAMPLEFUNC:
+	  *(va_arg (ap, StripCurveSampleFunc *)) = sc->get_value;
+	  break;
       }
     else break;
   }

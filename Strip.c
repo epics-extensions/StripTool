@@ -465,6 +465,7 @@ Strip   Strip_init      (int    *argc,
     si->display = XtOpenDisplay
       (si->app, 0, 0, STRIP_APP_CLASS, 0, 0, argc, argv);
     if (!si->display) {
+      fprintf (stdout, "Strip_init: cannot initialize display.\n");
       free (si);
       return 0;
     }
@@ -883,13 +884,13 @@ Strip   Strip_init      (int    *argc,
     /* autoscale button*/
     pixmap = XCreatePixmapFromBitmapData
       (si->display, RootWindow (si->display, xvi.screen),
-	  (char *)auto_scaleR_bits, auto_scaleR_width,auto_scaleR_height, fg, bg,
+	  (char *)auto_scaleR_bits, auto_scaleR_width, auto_scaleR_height, fg, bg,
 	  xvi.depth);
     auto_scalePixmap[1] = pixmap ;
     
     pixmap = XCreatePixmapFromBitmapData
       (si->display, RootWindow (si->display, xvi.screen),
-	  (char *)auto_scale_bits, auto_scale_width,auto_scale_height, fg, bg,
+	  (char *)auto_scale_bits, auto_scale_width, auto_scale_height, fg, bg,
 	  xvi.depth);
     auto_scalePixmap[0] = pixmap ;
     
@@ -1667,12 +1668,13 @@ static int changeMinMax( Strip the_strip)
   StripInfo             *si = (StripInfo *)the_strip;
   int i;
   double  widgetMin, widgetMax;
-  int need_refresh=0;
+  int need_refresh = 0;
+
   if (auto_scaleTriger == 1)
   {
     need_refresh=StripAuto_min_max(si->data,(char *)si->graph);
   }
-  else  if (auto_scaleTriger == 0)
+  else if (auto_scaleTriger == 0)
   {
     for (i = 0; i < STRIP_MAX_CURVES; i++)
     {
@@ -1686,9 +1688,12 @@ static int changeMinMax( Strip the_strip)
 	{si->curves[i].details->max=widgetMax;need_refresh =1;}
     }
   }
-  else {return (0);}
-  return(need_refresh);
+  else
+  {
+    return (0);
+  }
 
+  return(need_refresh);
 }
 
 
