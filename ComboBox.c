@@ -44,8 +44,6 @@
  *
  * ---FHDR--- */
 
-
-
 #include        <ctype.h>
 #include        <malloc.h>
 
@@ -62,7 +60,7 @@
 #include        <Xm/XmP.h>
 
 /*
- * These includ file are for the elements of the widget
+ * These includes are for the elements of the widget
  */
 #include        <Xm/Text.h>
 #include        <Xm/ArrowB.h>
@@ -844,12 +842,20 @@ XgComboBoxWidget        w=(XgComboBoxWidget)widget;
         if ( !XgIsComboBox((Widget)widget) )
                 return;
 
+#if 0
+      /* KE: The Destroy method only frees memory and resources
+         allocated by the widget, not memory allocated by Xt.  I am
+         not sure, but I don't think this belongs here.  It seems to
+         be causing FMRs in Purify.  It does not seem to cause MLKs
+         when it is removed. */
+	 
         /*
          * Destroy the dialog shell for the popup list
          */
         if ( w->combobox.popup != NULL )
                 XtDestroyWidget(XtParent(w->combobox.popup));
-
+#endif
+	
         /*
          * Remove the work procedure for the FocusHandler
          */

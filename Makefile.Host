@@ -63,10 +63,12 @@ ifdef WIN32
 else
 # HOST_OPT = NO
 endif
+
+# Use source browser on Solaris
 ifeq ($(HOST_OPT),NO)
   ifeq ($(ANSI),ACC)
     ifeq ($(OS_CLASS),solaris)
-      USR_CFLAGS += -xsb
+#      USR_CFLAGS += -xsb
     endif
   endif
 endif

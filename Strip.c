@@ -10,6 +10,8 @@
 
 #define DEBUG_CONNECTING 0
 
+#undef FIX_FMM
+
 #define USE_RIGHT_CLICK_ON_BUTTONS
 
 #define LARGE_ZOOM_FACTOR 2.0;
@@ -96,11 +98,13 @@
 #include <X11/Xlib.h>
 #include <Xm/ToggleB.h>
 
-#if defined(HP_UX) || defined(SOLARIS) || defined(linux)
-#  include <unistd.h>
-#elif defined(WIN32)
+#ifdef WIN32
+#elif 0
+// KE: Don't know what this is used with and want to make unistd.h be
+// the default.  So leave it out for now.
+# include <vfork.h>
 #else
-#  include <vfork.h>
+# include <unistd.h>
 #endif
 
 #include <math.h>
@@ -1161,7 +1165,9 @@ void    Strip_delete    (Strip the_strip)
   if (si->dialog) StripDialog_delete (si->dialog);
   if (si->config) StripConfig_delete (si->config);
   if (si->pd) free (si->pd);
-  if(si->toplevel) XtDestroyWidget (si->toplevel);
+#ifndef FIX_FMM
+  if (si->toplevel) XtDestroyWidget (si->toplevel);
+#endif
   free (si);
 }
 
