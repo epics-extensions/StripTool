@@ -119,7 +119,8 @@ endif
 
 USR_LIBS_DEFAULT	= Xm Xt X11 Xext
 USR_LIBS_Linux	= Xm Xt X11 Xext Xp
-USR_LIBS	+= ca Db Com
+#USR_LIBS	+= ca Db Com
+USR_LIBS	+= ca Com
 SYS_PROD_LIBS	= m
 
 Xm_DIR		= $(MOTIF_LIB)
