@@ -211,5 +211,8 @@ Fixed fork() was handled backwards causing main process to print
 instead of child.  In 3.14 only main thread was passed to the
 continuing process, and it had a new PID every time printing occurred.
 
-Tue June ??, 2004 - StripTool-2-5-7-0 - evans
-Added timestamps and PV name to connection messages.
+Tue June 24, 2004 - StripTool-2-5-7-0 - evans
+Added timestamps and PV name to connection messages.  Added "Retry
+Connections" to popup menu.  Added StripDAQ to StripInfo.  Moved
+"Dismiss" to bottom of File menu instead of "Quit" to make it harder
+to Quit unintentionally..
