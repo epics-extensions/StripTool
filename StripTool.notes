@@ -59,7 +59,14 @@ Mon Oct 28, 2002 - StripTool-2-5-2-0 - evans
 	name length of 40 chars, as it makes the legend unnecessarily wide.
 	(This may have to be revisited.)
 
-Mon Oct 28 16:23:21 CST 2002 - StripTool-2-5-2-1
+Mon Oct 28 16:23:21 CST 2002 - StripTool-2-5-2-1 - jba
 	Reset curve order when new file loaded.
 	Fix for curve order plot data update.
 	Added pan mode indicator to history data.
+
+Tue Oct 29, 2002 - StripTool-2-5-2-2 - evans
+	Added Tool Tip (Clue) for Auto Scale.  Changed Tool Tips to title
+	case, as in most other programs.  Added SCROLLING message to tool bar
+	to appear when PANNING (added in the previous version) does not.
+	Entirely removed code to make names always be 40 chars for the legend.
+	Redid directions in StripVersion.h.
