@@ -268,7 +268,7 @@ Redisplay       (Widget w, XEvent *event, Region region)
   LegendWidget  cw = (LegendWidget)w;
   XExposeEvent  *expose = 0;
 
-  if (!XtIsRealized (cw)) return;
+  if (!XtIsRealized ((Widget)cw)) return;
   if (!cw->legend.pixmap && cw->legend.use_pixmap) GetPixmap (cw);
 
   /* determine event type */
@@ -479,7 +479,7 @@ QueryGeometry   (Widget                 w,
 static void
 GetPixmap       (LegendWidget cw)
 {
-  if (!XtIsRealized (cw)) return;
+  if (!XtIsRealized ((Widget)cw)) return;
 
   cw->legend.pixmap = XCreatePixmap
     (XtDisplay (cw), XtWindow (cw),

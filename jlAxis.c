@@ -308,6 +308,19 @@ static void     transform_values_normalized     (AxisTransform,
                                            register double *,
                                            register int);
 
+static void     untransform_normalized_values     (AxisTransform,
+                                           AxisValueType,
+                                           AxisEndpointPosition,
+                                           AxisEndpointPosition,
+                                           register double,
+                                           register double,
+                                           register double,
+                                           register double,
+                                           register double,
+                                           register double *,
+                                           register double *,
+                                           register int);
+
 /* converter prototypes
  */
 static Boolean  CvtStringToAxisDirection        (Display *,
@@ -597,7 +610,7 @@ Redisplay       (Widget w, XEvent *event, Region region)
   AxisWidget    cw = (AxisWidget)w;
   XExposeEvent  *expose = 0;
 
-  if (!XtIsRealized (cw)) return;
+  if (!XtIsRealized ((Widget)cw)) return;
   if (!cw->axis.pixmap && cw->axis.use_pixmap) GetPixmap (cw);
 
   /* determine event type */
@@ -948,7 +961,7 @@ FreeEraseGC     (AxisWidget cw)
 static void
 GetPixmap       (AxisWidget cw)
 {
-  if (!XtIsRealized (cw)) return;
+  if (!XtIsRealized ((Widget)cw)) return;
 
   cw->axis.pixmap = XCreatePixmap
     (XtDisplay (cw), XtWindow (cw),
@@ -2347,6 +2360,95 @@ int     XjAxisGetMajorTicOffsets        (Widget w, int *offsets, int n)
 }
 
 
+/* XjAxisTransformValuesNormalized
+ */
+void
+XjAxisTransformValuesNormalized   (Widget           w,
+                                   register double  *x_in,
+                                   register double  *x_out,
+                                   register int     n)
+{
+  AxisWidget      cw = (AxisWidget)w;
+  
+  transform_values_normalized
+    (cw->axis.transform, cw->axis.value_type,
+     MINPOS(cw), MAXPOS(cw), cw->axis.min_val, cw->axis.max_val,
+     cw->axis.log_epsilon, cw->axis.log_epsilon_offset, cw->axis.log_delta,
+     x_in, x_out, n);
+}
+
+
+/* XjAxisTransformValuesRasterized
+ */
+void
+XjAxisTransformValuesRasterized   (Widget           w,
+                                   register double  *x_in,
+                                   register double  *x_out,
+                                   register int     n)
+{
+  AxisWidget      cw = (AxisWidget)w;
+  register int    length = MAXPOS(cw) - MINPOS(cw) + 1;
+
+  transform_values_normalized
+    (cw->axis.transform, cw->axis.value_type,
+     MINPOS(cw), MAXPOS(cw), cw->axis.min_val, cw->axis.max_val,
+     cw->axis.log_epsilon, cw->axis.log_epsilon_offset, cw->axis.log_delta,
+     x_in, x_out, n);
+
+  while (n > 0)
+  {
+    *x_out *= length - 1;
+    n--; x_out++;
+  }
+}
+
+
+/* XjAxisUntransformNormalizedValues
+ */
+void
+XjAxisUntransformNormalizedValues   (Widget           w,
+                                     register double  *x_in,
+                                     register double  *x_out,
+                                     register int     n)
+{
+  AxisWidget      cw = (AxisWidget)w;
+  
+  untransform_normalized_values
+    (cw->axis.transform, cw->axis.value_type,
+     MINPOS(cw), MAXPOS(cw), cw->axis.min_val, cw->axis.max_val,
+     cw->axis.log_epsilon, cw->axis.log_epsilon_offset, cw->axis.log_delta,
+     x_in, x_out, n);
+}
+
+
+/* XjAxisUntransformRasterizedValues
+ */
+void
+XjAxisUntransformRasterizedValues   (Widget           w,
+                                     register double  *x_in,
+                                     register double  *x_out,
+                                     register int     n)
+{
+  AxisWidget      cw = (AxisWidget)w;
+  register int    length = MAXPOS(cw) - MINPOS(cw) + 1;
+  register int    m = n;
+
+  /* first normalize, then untransform */
+  while (m > 0)
+  {
+    *x_in /= length - 1;
+    m--; x_in++;
+  }
+  x_in -= n;
+
+  untransform_normalized_values
+    (cw->axis.transform, cw->axis.value_type,
+     MINPOS(cw), MAXPOS(cw), cw->axis.min_val, cw->axis.max_val,
+     cw->axis.log_epsilon, cw->axis.log_epsilon_offset, cw->axis.log_delta,
+     x_in, x_out, n);
+}
+
+
 /* XjAxisGetTRansform
  */
 void
@@ -2441,6 +2543,49 @@ jlaTransformValuesRasterized    (jlaTransformInfo       *t,
 }
 
 
+/* jlaUntransformNormalizedValues
+ */
+void
+jlaUntransformNormalizedValues(jlaTransformInfo       *t,
+                               register double        *x_in,
+                               register double        *x_out,
+                               register int           n)
+{
+  untransform_normalized_values
+    (t->transform, t->value_type,
+     t->min_pos, t->max_pos, t->min_val, t->max_val,
+     t->log_epsilon, t->log_epsilon_offset, t->log_delta,
+     x_in, x_out, n);
+}
+
+
+/* jlaUntransformRasterizedValues
+ */
+void
+jlaUntransformRasterizedValues(jlaTransformInfo       *t,
+                               register double        *x_in,
+                               register double        *x_out,
+                               register int           n)
+{
+  register int    length = t->max_pos - t->min_pos + 1;
+  register int    m = n;
+
+  /* first normalize, then untransform */
+  while (m > 0)
+  {
+    *x_in /= length - 1;
+    m--; x_in++;
+  }
+  x_in -= n;
+
+  untransform_normalized_values
+    (t->transform, t->value_type,
+     t->min_pos, t->max_pos, t->min_val, t->max_val,
+     t->log_epsilon, t->log_epsilon_offset, t->log_delta,
+     x_in, x_out, n);
+}
+
+
 static void
 transform_values_normalized     (AxisTransform          transform,
                                AxisValueType            value_type,
@@ -2455,7 +2600,6 @@ transform_values_normalized     (AxisTransform          transform,
                                register double  *x_out,
                                register int             n)
 {
-  register int          length = max_pos - min_pos + 1;
   register double       log_x;
 
   /* linear real values, or time values */
@@ -2487,3 +2631,55 @@ transform_values_normalized     (AxisTransform          transform,
       n--; x_in++; x_out++;
     }
 }
+
+
+static void
+untransform_normalized_values (AxisTransform          transform,
+                               AxisValueType          value_type,
+                               AxisEndpointPosition   min_pos,
+                               AxisEndpointPosition   max_pos,
+                               register double        min_val,
+                               register double        max_val,
+                               register double        log_epsilon,
+                               register double        log_epsilon_offset,
+                               register double        log_delta,
+                               register double        *x_in,
+                               register double        *x_out,
+                               register int           n)
+{
+  register double       log_x;
+
+  /* linear real values, or time values */
+  if ((transform == XjAXIS_LINEAR) || (value_type != XjAXIS_REAL))
+    while (n > 0)
+    {
+      *x_out = (*x_in * (max_val - min_val)) + min_val;
+      n--; x_in++; x_out++;
+    }
+
+  /* logarithmic real values */
+  else
+    while (n > 0)
+    {
+      log_x = (ABS(*x_in) <= DBL_EPSILON? log_epsilon : log10 (ABS(*x_in)));
+
+      /* special case: x is in (-e, +e) */
+      if (*x_in == log_epsilon_offset)
+        *x_out = 0.0;
+      
+      /* x positive */
+      else if (*x_in > log_epsilon_offset)
+        *x_out =
+          pow (10.0, (*x_in * log_delta) - log_epsilon_offset + log_epsilon);
+      
+      /* x negative */
+      else
+        *x_out = 
+          pow (10.0, (*x_in * log_delta) + log_epsilon_offset + log_epsilon);
+
+      n--; x_in++; x_out++;
+    }
+}
+
+
+

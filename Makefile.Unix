@@ -46,18 +46,15 @@
 #	ARCHIVE		force archive libraries
 #	SHARED		force shared libraries
 #	NULL		(if not defined) default
-ifndef EPICS
-EPICS   = ../../../..
-endif
 TOP	= $(EPICS)
 include Target.include
 include $(EPICS)/config/CONFIG_EXTENSIONS
 
 LIBTYPE		= DEFAULT
 USE_CLUES	= YES
-#HAVE_XPM	= YES
-#HAVE_XMU	= YES
-#HAVE_X11R6	= YES
+HAVE_XPM	= YES
+HAVE_XMU	= YES
+HAVE_X11R6	= YES
 STRIP_DAQ	= StripCA
 STRIP_HISTORY	= StripHistoryNULL
 
@@ -155,6 +152,7 @@ MODULES		+= $(STRIP_DAQ)
 MODULES		+= jlAxis
 MODULES		+= jlLegend
 MODULES		+= ComboBox
+MODULES		+= FastLabel
 MODULES		+= Tabs
 MODULES		+= x_rotate
 MODULES		+= rotated

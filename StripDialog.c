@@ -1367,11 +1367,9 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
        NULL);
     w = btn;
 
-    i = 0;
-    cbrec.callback = gropt_xgrid_cb;
-    cbrec.closure = sd;
-    XtSetArg (args[i], XmNentryCallback, &cbrec); i++;
-    pulldown = XmCreatePulldownMenu (form, "xgridPulldownMenu", args, i);
+    pulldown = XmCreatePulldownMenu (form, "xgridPulldownMenu", 0, 0);
+    XtAddCallback (pulldown, XmNentryCallback, gropt_xgrid_cb, sd);
+    
     for (i = 0; i < STRIPGRID_NUM_TYPES; i++)
     {
       sprintf (char_buf, "option%dPushBG", i);
@@ -1381,8 +1379,6 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
         (sd->graph_info.xgrid[i], XmNactivateCallback, bogus_cb, (XtPointer)i);
     }
     i = 0;
-    cbrec.callback = gropt_xgrid_cb;
-    cbrec.closure = sd;
     XtSetArg (args[i], XmNsubMenuId, pulldown); i++;
     sd->graph_info.widgets[SDGROPT_GRIDX] = tmp = XmCreateOptionMenu
       (form, "xgridOptionMenu", args, i);
@@ -1406,11 +1402,8 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
        NULL);
     w = tmp;
       
-    i = 0;
-    cbrec.callback = gropt_ygrid_cb;
-    cbrec.closure = sd;
-    XtSetArg (args[i], XmNentryCallback, &cbrec); i++;
-    pulldown = XmCreatePulldownMenu (form, "ygridPulldownMenu", args, i);
+    pulldown = XmCreatePulldownMenu (form, "ygridPulldownMenu", 0, 0);
+    XtAddCallback (pulldown, XmNentryCallback, gropt_ygrid_cb, sd);
     for (i = 0; i < STRIPGRID_NUM_TYPES; i++)
     {
       sprintf (char_buf, "option%dPushBG", i);
@@ -2944,6 +2937,8 @@ static void     helpmenu_cb     (Widget w, XtPointer data, XtPointer BOGUS(1))
 
 static void bogus_cb (Widget BOGUS(1), XtPointer BOGUS(2), XtPointer BOGUS(3))
 {
+  fprintf (stderr, "StripDialog: Bogus callback called!\n");
+  fflush (stderr);
 }
 
 

@@ -26,6 +26,7 @@
 #include <sys/times.h>
 #include <unistd.h>
 
+#include "FastLabel.h"
 #include "jlAxis.h"
 #include "jlLegend.h"
 
@@ -56,7 +57,7 @@ static char     *SGComponentStr[SGCOMP_COUNT] =
 typedef struct
 {
   /* === X Stuff === */
-  Widget                parent, canvas, msg_lbl;
+  Widget                parent, canvas, msg_lbl, loc_lbl;
   Widget                x_axis, y_axis, legend, title_lbl;
   Display               *display;
   Window                window;
@@ -85,6 +86,7 @@ typedef struct
   LegendItem            lgitems[STRIP_MAX_CURVES];
   StripCurveInfo        *selected_curve;
   StripDataSource       data;
+  XPoint                loc_xy;     /* (x,y) of pointer position */
 
   struct _grid
   {
@@ -121,9 +123,18 @@ typedef struct
 
 
 /* prototypes for internal static functions */
-static void     StripGraph_manage_geometry      (StripGraphInfo *sgi);
-static void     StripGraph_plotdata             (StripGraphInfo *strip);
+static void     StripGraph_manage_geometry      (StripGraphInfo *);
+static void     StripGraph_plotdata             (StripGraphInfo *);
+static void     StripGraph_update_loc_lbl       (StripGraphInfo *sgi);
 static void     callback                        (Widget, XtPointer, XtPointer);
+static void     crossing_event_handler          (Widget,
+                                                 XtPointer,
+                                                 XCrossingEvent *,
+                                                 Boolean *);
+static void     motion_event_handler            (Widget,
+                                                 XtPointer,
+                                                 XMotionEvent *,
+                                                 Boolean *);
 static void     y_transform                     (void *,
                                                  double *,
                                                  double *,
@@ -174,7 +185,7 @@ StripGraph StripGraph_init (Widget      parent,
        XmNbottomAttachment,             XmATTACH_FORM,
        0);
     XtAddCallback (sgi->legend, XjNchooseCallback, callback, sgi);
-    
+
     sgi->title_lbl = XtVaCreateManagedWidget
       ("titleLabel",
        xmLabelWidgetClass,              parent,
@@ -217,6 +228,18 @@ StripGraph StripGraph_init (Widget      parent,
        XmNbottomWidget,                 sgi->x_axis,
        0);
 
+    sgi->loc_lbl = XtVaCreateManagedWidget
+      ("locationLabel",
+       xgFastLabelWidgetClass,          parent,
+       XmNmappedWhenManaged,            False,
+       XmNbackground,                   cfg->Color.background.xcolor.pixel,
+       XmNforeground,                   cfg->Color.foreground.xcolor.pixel,
+       XmNtopAttachment,                XmATTACH_NONE,
+       XmNleftAttachment,               XmATTACH_FORM,
+       XmNrightAttachment,              XmATTACH_NONE,
+       XmNbottomAttachment,             XmATTACH_FORM,
+       0);
+
     sgi->msg_lbl = XtVaCreateWidget     /* unmanaged */
       ("messageLabel",
        xmLabelWidgetClass,              parent,
@@ -233,6 +256,16 @@ StripGraph StripGraph_init (Widget      parent,
 
     XtAddCallback (sgi->canvas, XmNresizeCallback, callback, sgi);
     XtAddCallback (sgi->canvas, XmNexposeCallback, callback, sgi);
+
+    /* add event handlers to track pointer */
+    XtAddEventHandler
+      (sgi->canvas, EnterWindowMask | LeaveWindowMask, False,
+       (XtEventHandler)crossing_event_handler,
+       (XtPointer)sgi);
+    XtAddEventHandler
+      (sgi->canvas, PointerMotionMask, False,
+       (XtEventHandler)motion_event_handler,
+       (XtPointer)sgi);
        
 
     /* initializations */
@@ -503,6 +536,7 @@ void StripGraph_draw    (StripGraph     the_graph,
   Pixel                 text_color;
   int                   i, n, w, pos;
   int                   do_it;
+  int                   update_loc_lbl = 0;
   Region                clip_region;
   XFontStruct           *font;
   double                dbl_min, dbl_max;
@@ -551,6 +585,7 @@ void StripGraph_draw    (StripGraph     the_graph,
        XmNbackground,   sgi->config->Color.background.xcolor.pixel,
        0);
     sgi->draw_mask &= ~SGCOMPMASK_XAXIS;
+    update_loc_lbl = 1;
   }
       
   /* ====== y axis ====== */
@@ -605,8 +640,26 @@ void StripGraph_draw    (StripGraph     the_graph,
     }
     
     sgi->draw_mask &= ~SGCOMPMASK_YAXIS;
+    update_loc_lbl = 1;
   }
 
+
+  /* ====== location label ====== */
+  /*
+   * If either of the X or Y axes has changed, then must update the
+   * location label to reflect change in mapping from raster location
+   * to axis value.
+   */
+  if (update_loc_lbl)
+  {
+    XtVaGetValues (sgi->y_axis, XjNtextColor, &text_color, 0);
+    XtVaSetValues
+      (sgi->loc_lbl,
+       XmNforeground,   text_color,
+       XmNbackground,   sgi->config->Color.background.xcolor.pixel,
+       0);
+    StripGraph_update_loc_lbl (sgi);
+  }
 
   /* ====== legend ====== */
   if ((sgi->draw_mask & SGCOMPMASK_LEGEND) &&
@@ -1061,6 +1114,31 @@ unsigned        StripGraph_clearstat    (StripGraph     the_sgi,
 }
 
 
+/*
+ * StripGraph_update_loc_lbl
+ */
+static void     StripGraph_update_loc_lbl (StripGraphInfo *sgi)
+{
+  double    x = sgi->loc_xy.x;
+  double    y = sgi->window_rect.height - 1 - sgi->loc_xy.y;
+  time_t    tt;
+  char      buf[256];
+  char      *p;
+  XmString  xstr;
+  
+  /* Need to translate (x,y) raster location into (time, value). */
+  XjAxisUntransformRasterizedValues (sgi->x_axis, &x, &x, 1);
+  XjAxisUntransformRasterizedValues (sgi->y_axis, &y, &y, 1);
+
+  tt = (time_t)x;
+  buf[0] = '(';
+  strftime (buf+1, 254, "%H:%M:%S", localtime (&tt));
+  p = buf; while (*p) p++;
+  sprintf (p, ", %g)", y);
+  XtVaSetValues (sgi->loc_lbl, XmNstring, buf, 0);
+}
+
+
 static void     callback        (Widget w, XtPointer client, XtPointer call)
 {
   static Region                 expose_region = (Region)0;
@@ -1120,6 +1198,54 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
         break;
       }
   }
+}
+
+
+static void     crossing_event_handler    (Widget           w,
+                                           XtPointer        data,
+                                           XCrossingEvent   *event,
+                                           Boolean          *BOGUS(dispatch))
+{
+  StripGraphInfo  *sgi = (StripGraphInfo *)data;
+
+  if (event->type == EnterNotify)
+  {
+    sgi->loc_xy.x = event->x;
+    sgi->loc_xy.y = event->y;
+    StripGraph_update_loc_lbl (sgi);
+    XtMapWidget (sgi->loc_lbl);
+  }
+  else if (event->type == LeaveNotify)
+  {
+    XtUnmapWidget (sgi->loc_lbl);
+  }
+}
+
+
+static void     motion_event_handler      (Widget           w,
+                                           XtPointer        data,
+                                           XMotionEvent     *event,
+                                           Boolean          *BOGUS(dispatch))
+{
+  StripGraphInfo  *sgi = (StripGraphInfo *)data;
+#if 0
+  Bool            status = False;
+  XEvent          last;
+
+  /* let's discard all but the most recent motion event */
+  last.xmotion = *event;
+  while (status)
+    status = XCheckTypedWindowEvent
+      (event->display, event->window, MotionNotify, &last);
+  
+  sgi->loc_xy.x = last.xmotion.x;
+  sgi->loc_xy.y = last.xmotion.y;
+#else
+  sgi->loc_xy.x = event->x;
+  sgi->loc_xy.y = event->y;
+#endif
+    
+  StripGraph_update_loc_lbl (sgi);
 }
 
 

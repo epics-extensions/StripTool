@@ -17,7 +17,11 @@ String  fallback_resources[] =
 #endif
   SA "*font: *helvetica-medium-r-*-12*",
   SA "*fontList: *helvetica-medium-r-*-12*",
-  SA "*graphPanel.shadowType: XmSHADOW_ETCHED_OUT",
+  SA "*graphPanel.shadowType: XmSHADOW_ETCHED_IN",
+  SA "*StripGraph*graphPanel.shadowType: XmSHADOW_IN",
+  SA "*StripGraph*graphPanel*shadowThickness: 1",
+  SA "*StripGraph*graphPanel.controlsRowColumn*marginHeight: 0",
+  SA "*StripGraph*graphPanel.controlsRowColumn*marginWidth: 0",
   SA "*hintShell.background: White",
   SA "*hintShell.foreground: Black",
   SA "*hintShell.cancelWaitPeriod: 200",
@@ -184,6 +188,10 @@ String  fallback_resources[] =
   SA "*StripGraph*messageLabel.labelString: Out of memory! Try reducing window size.",
   SA "*StripGraph*messageLabel.background: Black",
   SA "*StripGraph*messageLabel.foreground: White",
+
+  SA "*StripGraph*locationLabel.recomputeSize: False",
+  SA "*StripGraph*locationLabel.string: (12:34:56, 78.9012345)",
+  SA "*StripGraph*locationLabel.alignment: XmALIGNMENT_BEGINNING",
   
   SA "*StripGraph*legend.font: *helvetica-bold-r-normal--12*",
   

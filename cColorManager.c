@@ -25,35 +25,35 @@
 
 /* ccmVisualGetClassName
  *
- *      Given a class (from the XVisualInfo structure), returns
- *      the appropriate string describing it.
+ *	Given a class (from the XVisualInfo structure), returns
+ *	the appropriate string describing it.
  */
 #define ccmVisualGetClassName(visual_class) \
-(visual_class == DirectColor? "DirectColor" :   \
- visual_class == GrayScale?   "GrayScale"   :   \
- visual_class == PseudoColor? "PseudoColor" :   \
- visual_class == StaticColor? "StaticColor" :   \
- visual_class == StaticGray?  "StaticGray"  :   \
- visual_class == TrueColor?   "TrueColor"  :    \
+(visual_class == DirectColor? "DirectColor" :	\
+ visual_class == GrayScale?   "GrayScale"   : 	\
+ visual_class == PseudoColor? "PseudoColor" :	\
+ visual_class == StaticColor? "StaticColor" :	\
+ visual_class == StaticGray?  "StaticGray"  :	\
+ visual_class == TrueColor?   "TrueColor"  :	\
  "[Unknown!]")
 
 /* ccmVisualGetClass
  *
- *      Given the address of an XVisualInfo structure, returns
- *      the class member.  This is needed because the XVisualInfo
- *      strucutre is defined differently when compiled with C than
- *      when compiled with C++.
+ *	Given the address of an XVisualInfo structure, returns
+ *	the class member.  This is needed because the XVisualInfo
+ *	strucutre is defined differently when compiled with C than
+ *	when compiled with C++.
  */
 #if defined(__cplusplus) || defined(C_plusplus)
-#  define ccmVisualGetClass(visual_info_ptr)    ((visual_info_ptr)->c_class)
+#  define ccmVisualGetClass(visual_info_ptr)	((visual_info_ptr)->c_class)
 #else
-#  define ccmVisualGetClass(visual_info_ptr)    ((visual_info_ptr)->class)
+#  define ccmVisualGetClass(visual_info_ptr)	((visual_info_ptr)->class)
 #endif
 
 /* ccmVisualSetClass
  *
- *      Sets the class member of the XVisualInfo structure whose
- *      address is passed in.
+ *	Sets the class member of the XVisualInfo structure whose
+ *	address is passed in.
  */
 #if defined(__cplusplus) || defined(C_plusplus)
 #  define ccmVisualSetClass(visual_info_ptr, class_type) \
@@ -66,7 +66,7 @@
 
 /* ccmVisualGetClassIsWritable
  *
- *      Returns true if the visual class is writable visual.
+ *	Returns true if the visual class is writable visual.
  */
 #define ccmVisualIsWritable(visual_class) \
 ((visual_class == DirectColor) || \
@@ -76,58 +76,58 @@
 
 typedef struct _scmKeepStruct
 {
-  Pixel pixel;
-  short writable;
-  short ref;
+  Pixel	pixel;
+  short	writable;
+  short	ref;
 }
 scmKeepStruct;
 
 
 typedef struct _CCMinfo
 {
-  Display       *display;
-  XVisualInfo   xvi;
-  Colormap      cmap;
-  int           private_cmap;
+  Display	*display;
+  XVisualInfo	xvi;
+  Colormap	cmap;
+  int		private_cmap;
 
   /* preallocated pixels */
-  Pixel         grab_pix[CCM_MAX_PREALLOC_CELLS];
-  int           n_grab;
+  Pixel		grab_pix[CCM_MAX_PREALLOC_CELLS];
+  int		n_grab;
 
   /* colors currently being used */
-  scmKeepStruct keep[CCM_MAX_KEEP_CELLS];
-  int           n_keep;
+  scmKeepStruct	keep[CCM_MAX_KEEP_CELLS];
+  int		n_keep;
 
   /* current palette */
-  XColor        palette[CCM_MAX_PALETTE_SIZE];
-  int           palette_size;
+  XColor	palette[CCM_MAX_PALETTE_SIZE];
+  int		palette_size;
 }
 CCMinfo;
 
 
 #if !defined (DEBUG_COLORALLOC)
-#  define XwAllocColor          XAllocColor
-#  define XwAllocColorCells     XAllocColorCells
-#  define XwFreeColors          XFreeColors
+#  define XwAllocColor		XAllocColor
+#  define XwAllocColorCells	XAllocColorCells
+#  define XwFreeColors		XFreeColors
 #else
 /*********************************************************************
  *                 D E B U G G I N G    C O D E
  *********************************************************************/
-#define MAX_ALLOCATED   1024
-static struct   _ColorDebugInfo
+#define MAX_ALLOCATED	1024
+static struct 	_ColorDebugInfo
 {
-  Pixel pixel;
-  int   ref;
+  Pixel	pixel;
+  int	ref;
 } allocated[MAX_ALLOCATED];
 
-static int      n_allocated = 0;
+static int	n_allocated = 0;
 
-static Status   XwAllocColor            (Display        *dpy,
-                                         Colormap       cmap,
-                                         XColor         *colorcell_in_out)
+static Status	XwAllocColor		(Display	*dpy,
+                                         Colormap	cmap,
+                                         XColor		*colorcell_in_out)
 {
-  Status        stat;
-  int           i;
+  Status 	stat;
+  int		i;
 
   if (stat = XAllocColor (dpy, cmap, colorcell_in_out))
   {
@@ -148,16 +148,16 @@ static Status   XwAllocColor            (Display        *dpy,
   return stat;
 }
 
-static Status   XwAllocColorCells       (Display        *dpy,
-                                         Colormap       cmap,
-                                         Bool           contig,
-                                         unsigned long  *plane_masks_return,
-                                         unsigned int   nplanes,
-                                         unsigned long  *pixels_return,
-                                         unsigned int   npixels_return)
+static Status 	XwAllocColorCells	(Display 	*dpy,
+                                         Colormap 	cmap,
+                                         Bool 		contig,
+                                         unsigned long 	*plane_masks_return,
+                                         unsigned int 	nplanes,
+                                         unsigned long	*pixels_return,
+                                         unsigned int	npixels_return)
 {
-  Status        stat;
-  int           i, j;
+  Status 	stat;
+  int		i, j;
 
   stat = XAllocColorCells
     (dpy, cmap, contig,
@@ -174,7 +174,7 @@ static Status   XwAllocColorCells       (Display        *dpy,
         if (pixels_return[i] == allocated[j].pixel)
           break;
 
-      if (j < n_allocated)      /* found? */
+      if (j < n_allocated)	/* found? */
         allocated[j].ref++;
       else if (n_allocated < MAX_ALLOCATED) {
         allocated[n_allocated].pixel = pixels_return[i];
@@ -189,13 +189,13 @@ static Status   XwAllocColorCells       (Display        *dpy,
 }
 
 
-static Status   XwFreeColors            (Display        *dpy,
-                                         Colormap       cmap,
-                                         unsigned long  *pixels,
-                                         int            npixels,
-                                         unsigned long  planes)
+static Status 	XwFreeColors		(Display	*dpy,
+                                         Colormap	cmap,
+                                         unsigned long	*pixels,
+                                         int		npixels,
+                                         unsigned long	planes)
 {
-  int           i, j;
+  int		i, j;
 
   /* search through list of allocated colors and decrement reference
    * count for pixels, remove unreferenced pixels. */
@@ -205,7 +205,7 @@ static Status   XwFreeColors            (Display        *dpy,
       if (pixels[i] == allocated[j].pixel)
         break;
     
-    if (j < n_allocated)        /* found? */
+    if (j < n_allocated)	/* found? */
     {
       if (--allocated[j].ref < 0)
         fprintf
@@ -243,11 +243,11 @@ static Status   XwFreeColors            (Display        *dpy,
 
 /* compare_pixels
  *
- *      comparison function for quicksort.
+ *	comparison function for quicksort.
  */
-int     compare_pixels  (const void *pa, const void *pb)
+int	compare_pixels	(const void *pa, const void *pb)
 {
-  Pixel a = *(Pixel *)pa;
+  Pixel	a = *(Pixel *)pa;
   Pixel b = *(Pixel *)pb;
 
   /* can't just subtract Pixels because they are unsigned */
@@ -258,12 +258,12 @@ int     compare_pixels  (const void *pa, const void *pb)
 
 /* compare_xcolors_by_pixel
  *
- *      comparison function for quicksort.
+ *	comparison function for quicksort.
  */
-int     compare_xcolors_by_pixel        (const void *pa, const void *pb)
+int	compare_xcolors_by_pixel	(const void *pa, const void *pb)
 {
-  XColor        *a = (XColor *)pa;
-  XColor        *b = (XColor *)pb;
+  XColor	*a = (XColor *)pa;
+  XColor 	*b = (XColor *)pb;
   
   /* can't just subtract Pixels because they are unsigned */
   if (a->pixel < b->pixel) return -1;
@@ -273,12 +273,12 @@ int     compare_xcolors_by_pixel        (const void *pa, const void *pb)
 
 /* compare_keep_by_pixel
  *
- *      comparison function for quicksort.
+ *	comparison function for quicksort.
  */
-int     compare_keep_by_pixel   (const void *pa, const void *pb)
+int	compare_keep_by_pixel	(const void *pa, const void *pb)
 {
-  scmKeepStruct *a = (scmKeepStruct *)pa;
-  scmKeepStruct *b = (scmKeepStruct *)pb;
+  scmKeepStruct	*a = (scmKeepStruct *)pa;
+  scmKeepStruct	*b = (scmKeepStruct *)pb;
   
   /* can't just subtract Pixels because they are unsigned */
   if (a->pixel < b->pixel) return -1;
@@ -289,18 +289,18 @@ int     compare_keep_by_pixel   (const void *pa, const void *pb)
 /*
  * cColorManager_getvisual
  *
- *      Fills the passed-in XVisualInfo structure with info for
- *      the visual which matches the masked template (choosing
- *      the one with greatest depth if several match), and
- *      returns the address of the buffer, or NULL pointer if
- *      no compatible visuals are available.
+ *	Fills the passed-in XVisualInfo structure with info for
+ *	the visual which matches the masked template (choosing
+ *	the one with greatest depth if several match), and
+ *	returns the address of the buffer, or NULL pointer if
+ *	no compatible visuals are available.
  */
-XVisualInfo     *getvisual      (Display        *display,
-                                 XVisualInfo    *pxv,
-                                 long           mask)
+XVisualInfo	*getvisual	(Display	*display,
+                                 XVisualInfo	*pxv,
+                                 long		mask)
 {
-  XVisualInfo   xv_template, *xvlist;
-  int           n, i;
+  XVisualInfo	xv_template, *xvlist;
+  int		n, i;
 
   xv_template = *pxv;
   xvlist = XGetVisualInfo (display, mask, &xv_template, &n);
@@ -320,19 +320,19 @@ XVisualInfo     *getvisual      (Display        *display,
 /*
  * cColorManager_init
  */
-cColorManager   cColorManager_init      (Display        *dpy,
-                                         int            n_req)
+cColorManager	cColorManager_init	(Display	*dpy,
+                                         int		n_req)
 {
-  CCMinfo               *scmi;
-  XVisualInfo           xvi;
-  XColor                *cdefs;
-  Pixel                 *pixels;
-  int                   stat;
-  int                   i;
-  int                   visual_class;
-  int                   n_cells;
-  int                   r_shift, g_shift, b_shift;
-  unsigned short        r_max, g_max, b_max;
+  CCMinfo		*scmi;
+  XVisualInfo		xvi;
+  XColor		*cdefs;
+  Pixel			*pixels;
+  int			stat;
+  int			i;
+  int			visual_class;
+  int			n_cells;
+  int			r_shift, g_shift, b_shift;
+  unsigned short	r_max, g_max, b_max;
 
   /* get info about default visual */
   xvi.visualid = XVisualIDFromVisual (DefaultVisual (dpy, DefaultScreen(dpy)));
@@ -353,7 +353,7 @@ cColorManager   cColorManager_init      (Display        *dpy,
    * otherwise fall back to default visual.
    */
   n_req = min (n_req, CCM_MAX_PREALLOC_CELLS);
-  if (n_req > 0)        /* do we want some writable color cells? */
+  if (n_req > 0)	/* do we want some writable color cells? */
   {
     visual_class = ccmVisualGetClass (&xvi);
     if ((visual_class != PseudoColor) && (visual_class != DirectColor))
@@ -603,11 +603,11 @@ cColorManager   cColorManager_init      (Display        *dpy,
 /*
  * cColorManager_delete
  */
-void    cColorManager_delete    (cColorManager the_scm)
+void	cColorManager_delete	(cColorManager the_scm)
 {
-  CCMinfo       *scmi = (CCMinfo *)the_scm;
-  Pixel         pixels[CCM_MAX_PALETTE_SIZE];
-  int           i;
+  CCMinfo	*scmi = (CCMinfo *)the_scm;
+  Pixel		pixels[CCM_MAX_PALETTE_SIZE];
+  int		i;
 
   if (scmi->private_cmap)
     XFreeColormap (scmi->display, scmi->cmap);
@@ -635,20 +635,20 @@ void    cColorManager_delete    (cColorManager the_scm)
 /*
  * cColorManager_build_palette
  */
-int     cColorManager_build_palette     (cColorManager the_scm,
-                                         XColor            *buf,
-                                         int               n_max)
+int	cColorManager_build_palette	(cColorManager the_scm,
+                                         XColor 	   *buf,
+                                         int		   n_max)
 {
-  CCMinfo       *scmi = (CCMinfo *)the_scm;
-  int           visual_class;
-  int           i, j, k;
-  int           stat;
-  int           n_got;
-  int           n_cells, n_writable, n_xcolors;
-  Pixel         *cells;
-  Pixel         pix;
-  XColor        *xcolors;
-  XColor        xcolor;
+  CCMinfo	*scmi = (CCMinfo *)the_scm;
+  int		visual_class;
+  int		i, j, k;
+  int		stat;
+  int		n_got;
+  int		n_cells, n_writable, n_xcolors;
+  Pixel		*cells;
+  Pixel		pix;
+  XColor	*xcolors;
+  XColor	xcolor;
 
   n_max = min (CCM_MAX_PALETTE_SIZE, n_max);
   
@@ -726,7 +726,7 @@ int     cColorManager_build_palette     (cColorManager the_scm,
         (stderr, "Sorry, DirectColor palette is not yet fully implemented.\n");
       return 0;
     }
-    else        /* most likely PseudoColor */
+    else 	/* most likely PseudoColor */
     {
       /* sort the resulting pixels in ascending order */
       if (n_writable > 0)
@@ -741,9 +741,9 @@ int     cColorManager_build_palette     (cColorManager the_scm,
         return 0;
       }
 
-      /* i      indexes into sorted array of writable cells
-       * j      counts number of entries in xcolors array being built
-       * pix    ranges from smaller to larger pixel values for visual
+      /* i 	indexes into sorted array of writable cells
+       * j	counts number of entries in xcolors array being built
+       * pix	ranges from smaller to larger pixel values for visual
        */
       pix = 0; i = 0; j = 0;
       while ((j < n_xcolors) && (pix < n_cells))
@@ -814,14 +814,14 @@ int     cColorManager_build_palette     (cColorManager the_scm,
              * to the same cell */
             XwFreeColors (scmi->display, scmi->cmap, &xcolor.pixel, 1, 0);
       
-      if (!stat)        /* swap ith item for jth item, decrement j */
+      if (!stat)	/* swap ith item for jth item, decrement j */
       {
         xcolor = xcolors[i];
         xcolors[i] = xcolors[j];
         xcolors[j] = xcolor;
         j--;
       }
-      else i++;         /* move to next item */
+      else i++;		/* move to next item */
     }
 
     /* if there are more sharable colormap entries than requested,
@@ -857,13 +857,13 @@ int     cColorManager_build_palette     (cColorManager the_scm,
     free (cells);
     
 
-#else   /* ======================================================*/
+#else	/* ======================================================*/
     if (visual_class == DirectColor)
     {
       fprintf (stderr, "Shit out of luck.\n");
       return 0;
     }
-    else        /* most likely PseudoColor */
+    else 	/* most likely PseudoColor */
     {
       n_cells = scmi->xvi.colormap_size;
       cells = (Pixel *)malloc (n_cells * sizeof(Pixel));
@@ -903,7 +903,7 @@ int     cColorManager_build_palette     (cColorManager the_scm,
         }
       xcolors[j++].pixel = pix;
     }
-    n_cells -= n_writable;      /* should be equivalent to n_cells = j */
+    n_cells -= n_writable;	/* should be equivalent to n_cells = j */
     XQueryColors (scmi->display, scmi->cmap, xcolors, n_cells);
 
     
@@ -949,14 +949,14 @@ int     cColorManager_build_palette     (cColorManager the_scm,
              * to the same cell */
             XwFreeColors (scmi->display, scmi->cmap, &xcolor.pixel, 1, 0);
       
-      if (!stat)        /* swap ith item for jth item, decrement j */
+      if (!stat)	/* swap ith item for jth item, decrement j */
       {
         xcolor = xcolors[i];
         xcolors[i] = xcolors[j];
         xcolors[j] = xcolor;
         j--;
       }
-      else i++;         /* move to next item */
+      else i++;		/* move to next item */
     }
 
     /* if there are more sharable colormap entries than requested,
@@ -990,12 +990,12 @@ int     cColorManager_build_palette     (cColorManager the_scm,
 /*
  * cColorManager_free_palette
  */
-void    cColorManager_free_palette      (cColorManager the_scm)
+void	cColorManager_free_palette	(cColorManager the_scm)
 {
-  CCMinfo       *scmi = (CCMinfo *)the_scm;
-  int           visual_class;
-  int           i, j, k;
-  static Pixel  pixels[CCM_MAX_KEEP_CELLS];
+  CCMinfo	*scmi = (CCMinfo *)the_scm;
+  int		visual_class;
+  int		i, j, k;
+  static Pixel	pixels[CCM_MAX_KEEP_CELLS];
 
   /* don't do anything if the current visual is read-only or if
    * we are using a private colormap: destroying the palette and
@@ -1037,20 +1037,20 @@ void    cColorManager_free_palette      (cColorManager the_scm)
 /*
  * cColorManager_make_color
  */
-int     cColorManager_make_color        (cColorManager  the_scm,
-                                         cColor                 *sc,
-                                         char                   *cname,
-                                         unsigned               mode)
+int	cColorManager_make_color	(cColorManager	the_scm,
+                                         cColor 		*sc,
+                                         char 			*cname,
+                                         unsigned		mode)
 {
-  CCMinfo       *scmi = (CCMinfo *)the_scm;
-  XColor        dummy, black, white;
-  int           visual_class;
-  int           stat = 1;
-  float         dist_min, dist;
-  int           idx_min;
-  int           i;
-  int           r0, g0, b0;
-  float         r, g, b;
+  CCMinfo	*scmi = (CCMinfo *)the_scm;
+  XColor	dummy, black, white;
+  int		visual_class;
+  int		stat = 1;
+  float		dist_min, dist;
+  int		idx_min;
+  int		i;
+  int		r0, g0, b0;
+  float		r, g, b;
 
   /* look up the RGB values from the name, if required */
   if (mode & CCM_MATCH_STR)
@@ -1158,12 +1158,12 @@ int     cColorManager_make_color        (cColorManager  the_scm,
 /*
  * cColorManager_keep_color
  */
-void    cColorManager_keep_color        (cColorManager  the_scm,
-                                         cColor         *sc)
+void	cColorManager_keep_color	(cColorManager 	the_scm,
+                                         cColor		*sc)
 {
-  CCMinfo       *scmi = (CCMinfo *)the_scm;
-  int           i;
-  int           found;
+  CCMinfo	*scmi = (CCMinfo *)the_scm;
+  int		i;
+  int		found;
 
 #if defined (DEBUG_COLORALLOC)
   fprintf (stderr, "+++ keep_color: [%0.3u]\n", sc->xcolor.pixel);
@@ -1218,12 +1218,12 @@ void    cColorManager_keep_color        (cColorManager  the_scm,
 /*
  * cColorManager_free_color
  */
-void    cColorManager_free_color        (cColorManager  the_scm,
-                                         cColor         *sc)
+void	cColorManager_free_color	(cColorManager 	the_scm,
+                                         cColor		*sc)
 {
-  CCMinfo       *scmi = (CCMinfo *)the_scm;
-  int           i;
-  int           found_in_keep, found_in_palette;
+  CCMinfo	*scmi = (CCMinfo *)the_scm;
+  int		i;
+  int		found_in_keep, found_in_palette;
 
 #if defined (DEBUG_COLORALLOC)
   fprintf (stderr, "--- free_color: [%0.3u]\n", sc->xcolor.pixel);
@@ -1288,11 +1288,11 @@ void    cColorManager_free_color        (cColorManager  the_scm,
 /*
  * cColorManager_change_color
  */
-int     cColorManager_change_color      (cColorManager  the_scm,
-                                         cColor         *sc)
+int	cColorManager_change_color	(cColorManager 	the_scm,
+                                         cColor		*sc)
 {
-  CCMinfo       *scmi = (CCMinfo *)the_scm;
-  int           ret;
+  CCMinfo	*scmi = (CCMinfo *)the_scm;
+  int		ret;
 
   if (ret = ccmVisualIsWritable (ccmVisualGetClass (&scmi->xvi)))
     if (ret = sc->writable)
@@ -1309,11 +1309,11 @@ int     cColorManager_change_color      (cColorManager  the_scm,
 /*
  * get_visualinfo
  *
- *      Returns a pointer to the current XVisualInfo structure.
+ *	Returns a pointer to the current XVisualInfo structure.
  */
-XVisualInfo     *cColorManager_get_visinfo      (cColorManager the_scm)
+XVisualInfo	*cColorManager_get_visinfo 	(cColorManager the_scm)
 {
-  CCMinfo       *scmi = (CCMinfo *)the_scm;
+  CCMinfo	*scmi = (CCMinfo *)the_scm;
   return &scmi->xvi;
 }
 
@@ -1321,19 +1321,19 @@ XVisualInfo     *cColorManager_get_visinfo      (cColorManager the_scm)
 /*
  * cColorManager_getcmap
  */
-Colormap        cColorManager_getcmap   (cColorManager the_scm)
+Colormap	cColorManager_getcmap	(cColorManager the_scm)
 {
-  CCMinfo       *scmi = (CCMinfo *)the_scm;
+  CCMinfo	*scmi = (CCMinfo *)the_scm;
   return scmi->cmap;
 }
   
 /*
  * cColorManager_readonly
  */
-int             cColorManager_readonly  (cColorManager the_scm)
+int		cColorManager_readonly	(cColorManager the_scm)
 {
-  CCMinfo       *scmi = (CCMinfo *)the_scm;
-  int           visual_class;
+  CCMinfo	*scmi = (CCMinfo *)the_scm;
+  int		visual_class;
 
   visual_class = ccmVisualGetClass (&scmi->xvi);
   return (!ccmVisualIsWritable (visual_class) || scmi->private_cmap);
@@ -1343,15 +1343,15 @@ int             cColorManager_readonly  (cColorManager the_scm)
 /*
  * cColorManager_grab_writables
  */
-int             cColorManager_grab_writables    (cColorManager  the_scm,
-                                                 Pixel          *cells,
-                                                 int            n_cells)
+int		cColorManager_grab_writables	(cColorManager	the_scm,
+                                                 Pixel 		*cells,
+                                                 int 		n_cells)
 {
-  CCMinfo       *scmi = (CCMinfo *)the_scm;
-  int           i;
-  int           stat;
-  int           n_grabbed;
-  int           n_calls;
+  CCMinfo	*scmi = (CCMinfo *)the_scm;
+  int		i;
+  int		stat;
+  int		n_grabbed;
+  int		n_calls;
 
   i = min (n_cells, scmi->xvi.colormap_size) - 1;
   n_grabbed = 0;
@@ -1367,7 +1367,7 @@ int             cColorManager_grab_writables    (cColorManager  the_scm,
     if (stat)
     {
       n_grabbed += i;
-      if (i > 1) i--;   /* one is a special case */
+      if (i > 1) i--;	/* one is a special case */
     }
     else i /= 2;
   }
@@ -1401,11 +1401,11 @@ int             cColorManager_grab_writables    (cColorManager  the_scm,
 /*
  * cColorManager_free_writables
  */
-void            cColorManager_free_writables    (cColorManager  the_scm,
-                                                 Pixel          *cells,
-                                                 int            n_cells)
+void		cColorManager_free_writables	(cColorManager	the_scm,
+                                                 Pixel 		*cells,
+                                                 int 		n_cells)
 {
-  CCMinfo       *scmi = (CCMinfo *)the_scm;
+  CCMinfo	*scmi = (CCMinfo *)the_scm;
 
   XwFreeColors (scmi->display, scmi->cmap, cells, n_cells, 0);
 }

@@ -71,6 +71,9 @@ FetchStatus     StripHistory_fetch      (StripHistory           the_shi,
   double                x;
   int                   i;
 
+  gettimeofday (&tv, 0);
+  fprintf (stdout, "sec: %d, usec: %u\n", tv.tv_sec, tv.tv_usec);
+
   if (!init)
   {
     for (i = 0; i < MAX_ITEMS; i++)

@@ -144,6 +144,47 @@ int     XjAxisGetMinorTicOffsets    (Widget,
                                      int *,             /* array */
                                      int);              /* array elem count */
 
+
+/* XjAxisTransformValues(Rasterized/Normalized)
+ *
+ *      Rasterized: Transforms given array of values from
+ *        (min, max) --> (minPos, maxPos).
+ *
+ *      Normalized: Transforms given array of values from
+ *        (min, max) --> (0, 1).
+ *
+ * NB:  Input and output buffers may reference the same array,
+ *      with no ill effects, for in-place transform.
+ */
+void  XjAxisTransformValuesRasterized     (Widget,
+                                           double *,  /* input buffer */
+                                           double *,  /* result buffer */
+                                           int);      /* buffer count */
+
+void  XjAxisTransformValuesNormalized     (Widget,
+                                           double *,  /* input buffer */
+                                           double *,  /* result buffer */
+                                           int);      /* buffer count */
+
+
+/* XjAxisUntransform(Rasterized/Normalized)Values
+ *
+ *    Perform inverse transform of above, mapping to a value along the axis.
+ *
+ * NB:  Input and output buffers may reference the same array,
+ *      with no ill effects, for in-place transform.
+ */
+void  XjAxisTransformValuesRasterized     (Widget,
+                                           double *,  /* input buffer */
+                                           double *,  /* result buffer */
+                                           int);      /* buffer count */
+
+void  XjAxisTransformValuesNormalized     (Widget,
+                                           double *,  /* input buffer */
+                                           double *,  /* result buffer */
+                                           int);      /* buffer count */
+
+
 /* jlaTransformInfo
  *
  *      This structure contains pre-computed info needed by the following
@@ -211,5 +252,22 @@ void    jlaTransformValuesNormalized    (jlaTransformInfo *,
                                          double *,      /* result buffer */
                                          int);          /* buffer count */
 
+
+/* jlaUntransform(Rasterized/Normalized)Values
+ *
+ *    Perform inverse transform of above, mapping to a value along the axis.
+ *
+ * NB:  Input and output buffers may reference the same array,
+ *      with no ill effects, for in-place transform.
+ */
+void    jlaUntransformRasterizedValues  (jlaTransformInfo *,
+                                         double *,      /* input buffer */
+                                         double *,      /* result buffer */
+                                         int);          /* buffer count */
+
+void    jlaUntransformNormalizedValues  (jlaTransformInfo *,
+                                         double *,      /* input buffer */
+                                         double *,      /* result buffer */
+                                         int);          /* buffer count */
 
 #endif

@@ -809,8 +809,16 @@ StripDataSource_render  (StripDataSource        the_sds,
     /* Finally, set the rendered data extents.  We are guaranteed that
      * the extents have already been initialized because they are set
      * when a curve is first rendered, and a fast update can not be
-     * done if no data is rendered.  So, we just need to clip the current
-     * extents to the current range */
+     * initiated if no data is rendered.  So, we just need to
+     *
+     *  (a) expand the extents if the corresponding endpoints have expanded
+     *  (b) clip the extents to the current range if they overextend
+     */
+    if (compare_times (&cd->endpoints[0].t, &cd->extents[0]) < 0)
+      cd->extents[0] = cd->endpoints[0].t;
+    if (compare_times (&cd->endpoints[1].t, &cd->extents[1]) > 0)
+      cd->extents[1] = cd->endpoints[1].t;
+    
     if (compare_times (&cd->extents[0], &sds->req_t0) < 0)
       cd->extents[0] = sds->req_t0;
     if (compare_times (&cd->extents[1], &sds->req_t1) > 0)

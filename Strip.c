@@ -22,6 +22,7 @@
 #include "zoom_in.bm"
 #include "zoom_out.bm"
 #include "auto_scroll.bm"
+#include "refresh.bm"
 
 #ifdef USE_XPM
 #  include <X11/xpm.h>          
@@ -131,6 +132,7 @@ enum
   STRIPBTN_ZOOMIN,
   STRIPBTN_ZOOMOUT,
   STRIPBTN_AUTOSCROLL,
+  STRIPBTN_REFRESH,
   STRIPBTN_COUNT
 };
   
@@ -463,7 +465,8 @@ Strip   Strip_init      (int    *argc,
       
     /* pan left button */
     pixmap = XCreatePixmapFromBitmapData
-      (si->display, RootWindow (si->display, xvi.screen), pan_left_bits,
+      (si->display, RootWindow (si->display, xvi.screen),
+       (char *)pan_left_bits,
        pan_left_width, pan_left_height, fg, bg,
        xvi.depth);
     si->btn[STRIPBTN_LEFT] = XtVaCreateManagedWidget
@@ -475,8 +478,8 @@ Strip   Strip_init      (int    *argc,
 
     /* pan right button */
     pixmap = XCreatePixmapFromBitmapData
-      (si->display, RootWindow (si->display, xvi.screen), pan_right_bits,
-       pan_right_width, pan_right_height, fg, bg,
+      (si->display, RootWindow (si->display, xvi.screen),
+       (char *)pan_right_bits, pan_right_width, pan_right_height, fg, bg,
        xvi.depth);
     si->btn[STRIPBTN_RIGHT] = XtVaCreateManagedWidget
       ("panRightButton",
@@ -493,8 +496,8 @@ Strip   Strip_init      (int    *argc,
 
     /* zoom in button */
     pixmap = XCreatePixmapFromBitmapData
-      (si->display, RootWindow (si->display, xvi.screen), zoom_in_bits,
-       zoom_in_width, zoom_in_height, fg, bg,
+      (si->display, RootWindow (si->display, xvi.screen),
+       (char *)zoom_in_bits, zoom_in_width, zoom_in_height, fg, bg,
        xvi.depth);
     si->btn[STRIPBTN_ZOOMIN] = XtVaCreateManagedWidget
       ("zoomInButton",
@@ -505,8 +508,8 @@ Strip   Strip_init      (int    *argc,
 
     /* zoom out button */
     pixmap = XCreatePixmapFromBitmapData
-      (si->display, RootWindow (si->display, xvi.screen), zoom_out_bits,
-       zoom_out_width, zoom_out_height, fg, bg,
+      (si->display, RootWindow (si->display, xvi.screen),
+       (char *)zoom_out_bits, zoom_out_width, zoom_out_height, fg, bg,
        xvi.depth);
     si->btn[STRIPBTN_ZOOMOUT] = XtVaCreateManagedWidget
       ("zoomOutButton",
@@ -523,11 +526,23 @@ Strip   Strip_init      (int    *argc,
 
     /* auto scroll button */
     pixmap = XCreatePixmapFromBitmapData
-      (si->display, RootWindow (si->display, xvi.screen), auto_scroll_bits,
-       auto_scroll_width, auto_scroll_height, fg, bg,
+      (si->display, RootWindow (si->display, xvi.screen),
+       (char *)auto_scroll_bits, auto_scroll_width, auto_scroll_height, fg, bg,
        xvi.depth);
     si->btn[STRIPBTN_AUTOSCROLL] = XtVaCreateManagedWidget
       ("autoScrollButton",
+       xmPushButtonWidgetClass, rowcol,
+       XmNlabelType,            XmPIXMAP,
+       XmNlabelPixmap,          pixmap,
+       0);
+
+    /* refresh button */
+    pixmap = XCreatePixmapFromBitmapData
+      (si->display, RootWindow (si->display, xvi.screen),
+       (char *)refresh_bits, refresh_width, refresh_height, fg, bg,
+       xvi.depth);
+    si->btn[STRIPBTN_REFRESH] = XtVaCreateManagedWidget
+      ("refreshButton",
        xmPushButtonWidgetClass, rowcol,
        XmNlabelType,            XmPIXMAP,
        XmNlabelPixmap,          pixmap,
@@ -547,6 +562,8 @@ Strip   Strip_init      (int    *argc,
       (hintshell, si->btn[STRIPBTN_ZOOMOUT], "Zoom out", 0, 0);
     XcgLiteClueAddWidget
       (hintshell, si->btn[STRIPBTN_AUTOSCROLL], "Auto scroll", 0, 0);
+    XcgLiteClueAddWidget
+      (hintshell, si->btn[STRIPBTN_REFRESH], "Refresh", 0, 0);
 #endif
 
     /* the graph base widget */
@@ -1941,6 +1958,17 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
         {
           si->status &= ~STRIPSTAT_BROWSE_MODE;
         }
+
+        /*
+         * Refresh the screen
+         */
+        else if (w == si->btn[STRIPBTN_REFRESH])
+        {
+          StripGraph_setstat (si->graph, SGSTAT_GRAPH_REFRESH);
+          StripGraph_draw (si->graph, SGCOMPMASK_DATA, (Region *)0);
+        }
+
+        break;
         
         
       case XmCR_INPUT:
@@ -1949,16 +1977,37 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
         {
           x = event->xbutton.x;
           y = event->xbutton.y;
-          
+
+          /* if this is the third button, then popup the menu */
           if (event->xbutton.button == Button3)
           {
             PopupMenu_position
               (si->popup_menu, (XButtonPressedEvent *)cbs->event);
             PopupMenu_popup (si->popup_menu);
           }
+
+          /* if this is the first button, then initiate a comment entry */
+          else if (event->xbutton.button == Button1)
+          {
+#if 0
+            Widget txt;
+            
+            /* pause the graph by putting it in browse mode */
+            si->status |= STRIPSTAT_BROWSE_MODE;
+
+            /* create the text entry widget */
+            txt = XtVaCreateManagedWidget
+              ("commentTextF",
+               xmTextFieldWidgetClass, w,
+               XmNx, x, XmNy, y, 0);
+            XmProcessTraversal (txt, XmTRAVERSE_CURRENT);
+#endif
+          }
         }
+        
         else if (event->xany.type == ButtonRelease)
         {
+          /* nothing here at the moment! */
         }
         break;
   }

@@ -9,7 +9,7 @@
 #
 # STRIP_DAQ
 #	base name of module implementing daq functions.
-#	default is StripCDEV
+#	default is StripCA
 #
 # STRIP_HISTORY
 #	base name of mudule implementing history functions.
@@ -24,46 +24,72 @@
 # HAVE_XPM
 #	YES	use xpm to create cute color icon
 #
+# HAVE_XMU
+#	YES	include editres support
+#
 # USE_CLUES
 #	YES	use pop-up clues for buttons
+#
+# USE_PSPRINTER
+#	YES	use $PSPRINTER environment variable for postscript printer.
+#		Default is to use the printer defined in StripDefines.h
 #
 # PURIFY
 #	YES	Instruments code with purify
 #
+#
 # QUANTIFY
 #	YES	Instruments code with quantify
+#	PRECISE	sets auto data collection off, and includes code to monitor 
+#		specific portions of StripTool.  Requires quantify.h.
 #
 PROGNAME	= StripTool.cdev
 
 USE_CLUES	= YES
-STRIP_DAQ	= StripCA
+#HAVE_XMU	= YES
+#HAVE_X11R6	= YES
+STRIP_DAQ	= StripCDEV
 STRIP_HISTORY	= StripHistoryNULL
 
 TARGET_DIR	= $(LIBDIR)
 ARCH		= hp700
+
+XPM_INC		= $(HOME)/include
+XPM_LIB		= $(HOME)/lib
+XMU_INC		= $(HOME)/include
+XMU_LIB		= $(HOME)/lib
+
+ifeq ($(HAVE_X11R6), YES)
+  X11_INC	:= /usr/include/X11R6
+  MOTIF_INC	:= /usr/include/Motif1.2
+  X11_LIB	:= /usr/lib/X11R6
+  MOTIF_LIB	:= /usr/lib/Motif1.2_R6
+  XMU_INC	:= /usr/contrib/X11R6/include
+  XMU_LIB	:= /usr/contrib/X11R6/lib
+else
+  X11_INC	= -I/usr/include/X11R5
+  MOTIF_INC	= -I/usr/include/Motif1.2
+  X11_LIB	= -L/usr/lib/X11R5 -lXt -lX11
+  MOTIF_LIB	= -L/usr/lib/Motif1.2 -lXm
+endif
 
 # commands
 CC		= cc -Aa -D_HPUX_SOURCE
 CXX		= CC
 CXX_LINK	= CC
 
-
 # includes
 CDEV_INC	= -I$(CDEV)/include
-X11_INC		= -I/usr/include/X11R5
-MOTIF_INC	= -I/usr/include/Motif1.2
 
 # libraries
 CDEV_LIB	= -L$(CDEV)/lib/$(LIBDIR) -lcdev -ly -ll
-X11_LIB		= -L/usr/lib/X11R5 -lXt -lX11
-MOTIF_LIB	= -L/usr/lib/Motif1.2 -lXm
 
 LIBS		= $(MOTIF_LIB) $(X11_LIB) $(CDEV_LIB) $(EPICS_LIB) -lm
 CXX_FLAGS	= $(MOTIF_INC) $(X11_INC) $(CDEV_INC) $(EPICS_INC)
 CXX_FLAGS	+= -g
 CXX_FLAGS	+= -I.
 CXX_FLAGS	+= -DUSE_CDEV -DHP_UX -DUNIX -D__STDC__ -D_HPUX_SOURCE
-CXX_FLAGS	+= -D_OS_MAJOR_=9 -D_OS_MINOR_=7 -D_HAS_CA
+CXX_FLAGS	+= -D_OS_MAJOR_=10 -D_OS_MINOR_=20 -D_HAS_CA
 CXX_FLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
 
 ifeq ($(DEBUG_EVENT), YES)
@@ -81,10 +107,13 @@ else
 endif
 
 ifeq ($(HAVE_XPM), YES)
-  XPM_INC	= -I/usr/user1/larrieu/include/X11
-  XPM_LIB	= -L/usr/user1/larrieu/lib -lXpm
-  CXX_FLAGS	+= -DUSE_XPM $(XPM_INC) 
-  LIBS		:= $(XPM_LIB) $(LIBS)
+  CXX_FLAGS	+= -DUSE_XPM -I$(XPM_INC) 
+  LIBS		:= -L$(XPM_LIB) -lXpm $(LIBS)
+endif
+
+ifeq ($(HAVE_XMU), YES)
+  USR_CFLAGS	+= -DUSE_XMU -I$(XMU_INC)
+  LIBS		:= -L$(XMU_LIB) -lXmu $(LIBS)
 endif
 
 modules		= StripConfig
@@ -92,14 +121,19 @@ modules		+= StripCurve
 modules		+= Strip
 modules		+= StripDialog
 modules		+= StripDataSource
+modules		+= $(STRIP_HISTORY)
 modules		+= StripGraph
 modules		+= StripMisc
-modules		+= StripAxis
-modules		+= StripLegend
 modules		+= cColorManager
 modules		+= ColorDialog
-modules		+= StripCDEV
 modules		+= StripTool
+modules		+= $(STRIP_DAQ)
+modules		+= jlAxis
+modules		+= jlLegend
+modules		+= ComboBox
+modules		+= Tabs
+modules		+= x_rotate
+modules		+= rotated
 
 ifeq ($(USE_CLUES), YES)
   CXX_FLAGS	+= -DUSE_CLUES

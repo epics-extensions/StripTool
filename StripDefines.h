@@ -85,6 +85,9 @@
 /* the default configuration filename */
 #define STRIP_DEFAULT_FILENAME          "StripTool.config"
 
+/* the search path for finding config files specified on command line */
+#define STRIP_FILE_SEARCH_PATH_ENV      "EPICS_DISPLAY_PATH"
+
 /* the default wildcard for finding configuration files */
 #ifndef STRIP_CONFIGFILE_PATTERN
 #define STRIP_CONFIGFILE_PATTERN        "*"
