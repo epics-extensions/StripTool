@@ -2388,6 +2388,15 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
         
       case POPUPMENU_PRINT:
         window_map (si->display, XtWindow(si->shell));
+#if defined(SOLARIS)
+        if (strcmp (si->print_info.device, "ps") == 0)
+         sprintf
+           (cmd_buf,
+           "xwd -id %d | xwdtopnm | pnmtops | lp -d%s -onb",
+           XtWindow (si->graph_form),
+           si->print_info.printer);
+         else
+#endif
         sprintf
           (cmd_buf,
            "xwd -id %d | xpr -device %s | lp -d%s -onb",
