@@ -96,7 +96,7 @@ else
 	USR_CFLAGS 	+= -DSTRIP_CONFIGFILE_DIR=\"/cs/op/lib/stripTool\"
 endif
 
-CFLAGS          += -g
+##CFLAGS          += -g
 
 UNIX_OPT_FLAGS  =
 
@@ -140,29 +140,29 @@ ifeq ($(HAVE_XMU), YES)
 endif
 
 
-SRCS		= StripConfig
-SRCS		+= StripCurve
-SRCS		+= Strip
-SRCS		+= StripDialog
-SRCS		+= StripDataSource
-SRCS		+= $(STRIP_HISTORY)
-SRCS		+= StripGraph
-SRCS		+= StripMisc
-SRCS		+= cColorManager
-SRCS		+= ColorDialog
-SRCS		+= StripTool
-SRCS		+= $(STRIP_DAQ)
-SRCS		+= jlAxis
-SRCS		+= jlLegend
-SRCS		+= ComboBox
-SRCS		+= FastLabel
-SRCS		+= Tabs
-SRCS		+= x_rotate
-SRCS		+= rotated
+SRCS		= StripConfig.c
+SRCS		+= StripCurve.c
+SRCS		+= Strip.c
+SRCS		+= StripDialog.c
+SRCS		+= StripDataSource.c
+SRCS		+= $(STRIP_HISTORY).c
+SRCS		+= StripGraph.c
+SRCS		+= StripMisc.c
+SRCS		+= cColorManager.c
+SRCS		+= ColorDialog.c
+SRCS		+= StripTool.c
+SRCS		+= $(STRIP_DAQ).c
+SRCS		+= jlAxis.c
+SRCS		+= jlLegend.c
+SRCS		+= ComboBox.c
+SRCS		+= FastLabel.c
+SRCS		+= Tabs.c
+SRCS		+= x_rotate.c
+SRCS		+= rotated.c
 
 ifeq ($(USE_CLUES), YES)
   USR_CFLAGS	+= -DUSE_CLUES
-  SRCS		+= LiteClue
+  SRCS		+= LiteClue.c
 endif
 
 PROD		= StripTool
