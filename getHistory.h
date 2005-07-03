@@ -24,12 +24,12 @@ typedef struct _StripHistoryInfo
 StripHistoryInfo;
 
 
-u_long getHistory(StripHistory     the_shi,
+unsigned long getHistory(StripHistory     the_shi,
                   char                   *name,
 		  struct timeval         *begin,  
 		  struct timeval         *end,
 		  struct timeval        **times,
 		  short                 **status,
 		  double                **data,
-		  u_long                 *count);
+		  unsigned long          *count);
 #endif  /* _getHistory_h */

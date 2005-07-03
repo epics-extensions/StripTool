@@ -23,17 +23,17 @@
 #define DEBUG1 0
 #define DEBUG2 0
 
-u_long getHistory(StripHistory     the_shi,
+unsigned long getHistory(StripHistory     the_shi,
 		  char*            name,
 		  struct timeval*  begin,
 		  struct timeval*  end,
 		  struct timeval** times,
 		  short**          status,
 		  double**         data,
-		  u_long *         count)
+		  unsigned long *  count)
 {
   struct timeval right_endpoint;   /* right end for AAPI request */
-  u_long commonCount=0;
+  unsigned long commonCount=0;
   int i;
 
   double *returnedDataIOC =NULL;
