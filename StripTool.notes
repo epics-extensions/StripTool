@@ -227,3 +227,8 @@ size is never reduced.
 
 Mon Jan 31, 2005 - StripTool-2-5-9-0 - evans
 Fixed bug in writing tv_usec part of the time in StripDataSource_dump.
+
+Mon Nov 14, 2005 - StripTool-2-5-10-0 - evans
+Changed u_long to unsigned long for gcc 4.0.  Changed 0 to NULL in
+variable-argument X functions to avoid 64-bit problems (as contributed
+by Ernest Williams).
