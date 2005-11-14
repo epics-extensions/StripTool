@@ -164,9 +164,9 @@ static void     display_color   (ColorDialogInfo *cd, XColor *xcolor)
   float r, g, b;
   Pixel pixel;
   
-  XtVaSetValues (cd->color_area, XmNbackground, xcolor->pixel, 0);
-  XtVaSetValues (cd->cell_lbl, XmNbackground, xcolor->pixel, 0);
-  XtVaSetValues (cd->lbl, XmNbackground, xcolor->pixel, 0);
+  XtVaSetValues (cd->color_area, XmNbackground, xcolor->pixel, NULL);
+  XtVaSetValues (cd->cell_lbl, XmNbackground, xcolor->pixel, NULL);
+  XtVaSetValues (cd->lbl, XmNbackground, xcolor->pixel, NULL);
 
   r = (float)(cd->white.xcolor.red - xcolor->red);
   g = (float)(cd->white.xcolor.green - xcolor->green);
@@ -179,8 +179,8 @@ static void     display_color   (ColorDialogInfo *cd, XColor *xcolor)
   y = (r*r) + (g*g) + (b*b);
 
   pixel = (x > y? cd->white.xcolor.pixel : cd->black.xcolor.pixel);
-  XtVaSetValues (cd->cell_lbl, XmNforeground, pixel, 0);
-  XtVaSetValues (cd->lbl, XmNforeground, pixel, 0);
+  XtVaSetValues (cd->cell_lbl, XmNforeground, pixel, NULL);
+  XtVaSetValues (cd->lbl, XmNforeground, pixel, NULL);
 }
 
 
@@ -225,8 +225,8 @@ static void     apply_cellstat  (ColorDialogInfo *cd, int writable)
     xstr_btn = XmStringCreateLocalized ("Get cell from X-server");
   }
 
-  XtVaSetValues (cd->cell_lbl, XmNlabelString, xstr_lbl, 0);
-  XtVaSetValues (cd->cell_btn, XmNlabelString, xstr_btn, 0);
+  XtVaSetValues (cd->cell_lbl, XmNlabelString, xstr_lbl, NULL);
+  XtVaSetValues (cd->cell_btn, XmNlabelString, xstr_btn, NULL);
   XmStringFree (xstr_lbl);
   XmStringFree (xstr_btn);
 }
@@ -345,22 +345,22 @@ ColorDialog     ColorDialog_init        (Widget                 parent,
        XmNleftAttachment,               XmATTACH_FORM,
        XmNrightAttachment,              XmATTACH_FORM,
        XmNbottomAttachment,             XmATTACH_FORM,
-       0);
+       NULL);
 
     cd->btn_ok = XtVaCreateManagedWidget
-      ("OK", xmPushButtonWidgetClass, rowcol, 0);
+      ("OK", xmPushButtonWidgetClass, rowcol, NULL);
     XtAddCallback (cd->btn_ok, XmNactivateCallback, ctrlbtn_event, cd);
 
     cd->btn_apply = XtVaCreateManagedWidget
-      ("Apply", xmPushButtonWidgetClass, rowcol, 0);
+      ("Apply", xmPushButtonWidgetClass, rowcol, NULL);
     XtAddCallback (cd->btn_apply, XmNactivateCallback, ctrlbtn_event, cd);
       
     cd->btn_dismiss = XtVaCreateManagedWidget
-      ("Dismiss", xmPushButtonWidgetClass, rowcol, 0);
+      ("Dismiss", xmPushButtonWidgetClass, rowcol, NULL);
     XtAddCallback (cd->btn_dismiss, XmNactivateCallback, ctrlbtn_event, cd);
       
     cd->btn_cancel = XtVaCreateManagedWidget
-      ("Cancel", xmPushButtonWidgetClass, rowcol, 0);
+      ("Cancel", xmPushButtonWidgetClass, rowcol, NULL);
     XtAddCallback (cd->btn_cancel, XmNactivateCallback, ctrlbtn_event, cd);
     
     /* separator above button row
@@ -373,7 +373,7 @@ ColorDialog     ColorDialog_init        (Widget                 parent,
        XmNrightAttachment,              XmATTACH_FORM,
        XmNbottomAttachment,             XmATTACH_WIDGET,
        XmNbottomWidget,                 rowcol,
-       0);
+       NULL);
 
     cd->cell_btn = XtVaCreateManagedWidget
       ("cellStatusButton",
@@ -387,7 +387,7 @@ ColorDialog     ColorDialog_init        (Widget                 parent,
        XmNalignment,                    XmALIGNMENT_CENTER,
        XmNsensitive,
        (Bool) !cColorManager_readonly (cd->config->scm),
-       0);
+       NULL);
     XtAddCallback (cd->cell_btn, XmNactivateCallback, cellbtn_event, cd);
 
     bot = XtVaCreateManagedWidget
@@ -398,7 +398,7 @@ ColorDialog     ColorDialog_init        (Widget                 parent,
        XmNrightAttachment,              XmATTACH_FORM,
        XmNbottomAttachment,             XmATTACH_WIDGET,
        XmNbottomWidget,                 cd->cell_btn,
-       0);
+       NULL);
 
 
     /* color palette
@@ -410,7 +410,7 @@ ColorDialog     ColorDialog_init        (Widget                 parent,
        XmNleftAttachment,               XmATTACH_FORM,
        XmNrightAttachment,              XmATTACH_FORM,
        XmNbottomAttachment,             XmATTACH_NONE,
-       0);
+       NULL);
 
     cd->arrow_left = XtVaCreateManagedWidget
       ("arrowLeft",
@@ -420,7 +420,7 @@ ColorDialog     ColorDialog_init        (Widget                 parent,
        XmNrightAttachment,              XmATTACH_NONE,
        XmNbottomAttachment,             XmATTACH_FORM,
        XmNarrowDirection,               XmARROW_LEFT,
-       0);
+       NULL);
     cd->arrow_right = XtVaCreateManagedWidget
       ("arrowRight",
        xmArrowButtonWidgetClass,        form,
@@ -429,7 +429,7 @@ ColorDialog     ColorDialog_init        (Widget                 parent,
        XmNrightAttachment,              XmATTACH_FORM,
        XmNbottomAttachment,             XmATTACH_FORM,
        XmNarrowDirection,               XmARROW_RIGHT,
-       0);
+       NULL);
     XtAddCallback (cd->arrow_left, XmNactivateCallback, arrow_event, cd);
     XtAddCallback (cd->arrow_right, XmNactivateCallback, arrow_event, cd);
 
@@ -442,7 +442,7 @@ ColorDialog     ColorDialog_init        (Widget                 parent,
        XmNrightAttachment,              XmATTACH_WIDGET,
        XmNrightWidget,                  cd->arrow_right,
        XmNbottomAttachment,             XmATTACH_NONE,
-       0);
+       NULL);
     XtAddCallback (cd->palette.canvas, XmNinputCallback, canvas_event, cd);
     XtAddCallback (cd->palette.canvas, XmNexposeCallback, canvas_event, cd);
 
@@ -457,7 +457,7 @@ ColorDialog     ColorDialog_init        (Widget                 parent,
        XmNleftAttachment,               XmATTACH_FORM,
        XmNrightAttachment,              XmATTACH_FORM,
        XmNbottomAttachment,             XmATTACH_NONE,
-       0);
+       NULL);
 
 
     /* color status and RGB controls
@@ -475,7 +475,7 @@ ColorDialog     ColorDialog_init        (Widget                 parent,
        XmNbottomAttachment,             XmATTACH_WIDGET,
        XmNbottomWidget,                 bot,
        XmNbottomOffset,                 DEF_WOFFSET,
-       0);
+       NULL);
     w = XtVaCreateManagedWidget
       ("Color Definition",
        xmLabelWidgetClass,              form,
@@ -483,7 +483,7 @@ ColorDialog     ColorDialog_init        (Widget                 parent,
        XmNleftAttachment,               XmATTACH_FORM,
        XmNrightAttachment,              XmATTACH_NONE,
        XmNbottomAttachment,             XmATTACH_NONE,
-       0);
+       NULL);
 
     cd->slider[Red] = XtVaCreateManagedWidget
       ("redSlider",
@@ -552,7 +552,7 @@ ColorDialog     ColorDialog_init        (Widget                 parent,
        XmNleftAttachment,               XmATTACH_FORM,
        XmNrightAttachment,              XmATTACH_NONE,
        XmNbottomAttachment,             XmATTACH_NONE,
-       0);
+       NULL);
     cd->cell_lbl = XtVaCreateManagedWidget
       ("cellStatusLabel",
        xmLabelWidgetClass,              cd->color_area,
@@ -560,7 +560,7 @@ ColorDialog     ColorDialog_init        (Widget                 parent,
        XmNleftAttachment,               XmATTACH_FORM,
        XmNrightAttachment,              XmATTACH_FORM,
        XmNbottomAttachment,             XmATTACH_FORM,
-       0);
+       NULL);
       
     XtRealizeWidget (cd->shell);
 
@@ -569,7 +569,7 @@ ColorDialog     ColorDialog_init        (Widget                 parent,
       (cd->palette.canvas,
        XmNwidth,                        &cd->palette.w,
        XmNheight,                       &cd->palette.h,
-       0);
+       NULL);
     cd->palette.pixmap = XCreatePixmap
       (cd->display, XtWindow (cd->palette.canvas),
        cd->palette.w, cd->palette.h, config->xvi.depth);
@@ -686,11 +686,11 @@ void            ColorDialog_popup       (ColorDialog    the_cd,
       (cd->config->scm, cd->palette.colors, CCM_MAX_PALETTE_SIZE);
     cd->palette.built = 1;
     cd->palette.shift = 0;
-    XtVaSetValues (cd->arrow_left, XmNsensitive, False, 0);
+    XtVaSetValues (cd->arrow_left, XmNsensitive, False, NULL);
     XtVaSetValues
       (cd->arrow_right,
        XmNsensitive, (Bool)(cd->palette.n_colors > cd->palette.n_entries),
-       0);
+       NULL);
 
     /* sort the palette */
     for (i = 0; i < cd->palette.n_colors; i++)
@@ -908,14 +908,14 @@ static void     arrow_event     (Widget         w,
   if (w == cd->arrow_left)
   {
     if (--cd->palette.shift == 0)
-      XtVaSetValues (w, XmNsensitive, False, 0);
-    XtVaSetValues (cd->arrow_right, XmNsensitive, True, 0);
+      XtVaSetValues (w, XmNsensitive, False, NULL);
+    XtVaSetValues (cd->arrow_right, XmNsensitive, True, NULL);
   }
   else if (w == cd->arrow_right)
   {
     if (++cd->palette.shift == (cd->palette.n_colors / cd->palette.n_entries))
-      XtVaSetValues (w, XmNsensitive, False, 0);
-    XtVaSetValues (cd->arrow_left, XmNsensitive, True, 0);
+      XtVaSetValues (w, XmNsensitive, False, NULL);
+    XtVaSetValues (cd->arrow_left, XmNsensitive, True, NULL);
   }
 
   paint_palette (cd);

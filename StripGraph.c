@@ -185,7 +185,7 @@ StripGraph StripGraph_init (Widget      parent,
        XmNleftAttachment,               XmATTACH_FORM,
        XmNrightAttachment,              XmATTACH_NONE,
        XmNbottomAttachment,             XmATTACH_FORM,
-       0);
+       NULL);
     
     sgi->legend = XtVaCreateManagedWidget
       ("legend",
@@ -196,7 +196,7 @@ StripGraph StripGraph_init (Widget      parent,
        XmNleftAttachment,               XmATTACH_NONE,
        XmNrightAttachment,              XmATTACH_FORM,
        XmNbottomAttachment,             XmATTACH_FORM,
-       0);
+       NULL);
     XtAddCallback (sgi->legend, XjNchooseCallback, callback, sgi);
 
     sgi->title_lbl = XtVaCreateManagedWidget
@@ -210,7 +210,7 @@ StripGraph StripGraph_init (Widget      parent,
        XmNrightAttachment,              XmATTACH_WIDGET,
        XmNrightWidget,                  sgi->legend,
        XmNbottomAttachment,             XmATTACH_NONE,
-       0);
+       NULL);
 
     sgi->x_axis = XtVaCreateManagedWidget
       ("xAxis",
@@ -225,7 +225,7 @@ StripGraph StripGraph_init (Widget      parent,
        XmNrightWidget,                  sgi->legend,
        XmNrightOffset,                  LEGEND_OFFSET,
        XmNbottomAttachment,             XmATTACH_FORM,
-       0);
+       NULL);
 
     sgi->canvas = XtVaCreateManagedWidget
       ("canvas",
@@ -239,7 +239,7 @@ StripGraph StripGraph_init (Widget      parent,
        XmNrightOffset,                  LEGEND_OFFSET,
        XmNbottomAttachment,             XmATTACH_WIDGET,
        XmNbottomWidget,                 sgi->x_axis,
-       0);
+       NULL);
 
     sgi->loc_lbl = XtVaCreateManagedWidget
       ("locationLabel",
@@ -251,7 +251,7 @@ StripGraph StripGraph_init (Widget      parent,
        XmNleftAttachment,               XmATTACH_FORM,
        XmNrightAttachment,              XmATTACH_NONE,
        XmNbottomAttachment,             XmATTACH_FORM,
-       0);
+       NULL);
 
     sgi->msg_lbl = XtVaCreateWidget     /* unmanaged */
       ("messageLabel",
@@ -265,7 +265,7 @@ StripGraph StripGraph_init (Widget      parent,
        XmNrightOffset,                  LEGEND_OFFSET,
        XmNbottomAttachment,             XmATTACH_WIDGET,
        XmNbottomWidget,                 sgi->x_axis,
-       0);
+       NULL);
 
     XtAddCallback (sgi->canvas, XmNresizeCallback, callback, sgi);
     XtAddCallback (sgi->canvas, XmNexposeCallback, callback, sgi);
@@ -374,7 +374,7 @@ int     StripGraph_setattr      (StripGraph the_sgi, ...)
 	      sgi->title = va_arg (ap, char *);
 
             xstr = XmStringCreateLocalized (sgi->title? sgi->title : "");
-            XtVaSetValues (sgi->title_lbl, XmNlabelString, xstr, 0);
+            XtVaSetValues (sgi->title_lbl, XmNlabelString, xstr, NULL);
             XmStringFree (xstr);
             break;
 
@@ -486,7 +486,7 @@ static void StripGraph_manage_geometry (StripGraphInfo *sgi)
     (sgi->x_axis,
      XjNminPos,                 minpos,
      XjNmaxPos,                 maxpos,
-     0);
+     NULL);
 
   /* reset y axis endpoints */
   XtVaGetValues
@@ -501,7 +501,7 @@ static void StripGraph_manage_geometry (StripGraphInfo *sgi)
     (sgi->y_axis,
      XjNminPos,                 minpos,
      XjNmaxPos,                 maxpos,
-     0);
+     NULL);
 
   /* plot area pixmap and "double buffer" pixmap */
   if (sgi->plotpix) XFreePixmap (sgi->display, sgi->plotpix);
@@ -586,7 +586,7 @@ void StripGraph_draw    (StripGraph     the_graph,
       (sgi->title_lbl,
 	  XmNforeground,   sgi->config->Color.foreground.xcolor.pixel,
 	  XmNbackground,   sgi->config->Color.background.xcolor.pixel,
-	  0);
+	  NULL);
     sgi->draw_mask &= ~SGCOMPMASK_TITLE;
   }
   
@@ -602,7 +602,7 @@ void StripGraph_draw    (StripGraph     the_graph,
 	  XmNforeground,   sgi->config->Color.foreground.xcolor.pixel,
 	  XjNtextColor,    sgi->config->Color.foreground.xcolor.pixel,
 	  XmNbackground,   sgi->config->Color.background.xcolor.pixel,
-	  0);
+	  NULL);
     sgi->draw_mask &= ~SGCOMPMASK_XAXIS;
     update_loc_lbl = 1;
   }
@@ -640,7 +640,7 @@ void StripGraph_draw    (StripGraph     the_graph,
          XjNunitString, sgi->selected_curve->details->egu,
          XjNlogEpsilon, &log_epsilon,
          XjNtransform,  transform,
-         0);
+         NULL);
     }
     else
     {
@@ -655,7 +655,7 @@ void StripGraph_draw    (StripGraph     the_graph,
          XjNtextColor,  text_color,
          XjNunitString, 0,
          XjNtransform,  XjAXIS_LINEAR,
-         0);
+         NULL);
     }
     
     sgi->draw_mask &= ~SGCOMPMASK_YAXIS;
@@ -676,7 +676,7 @@ void StripGraph_draw    (StripGraph     the_graph,
       (sgi->loc_lbl,
        XmNforeground,   text_color,
        XmNbackground,   sgi->config->Color.background.xcolor.pixel,
-       0);
+       NULL);
     StripGraph_update_loc_lbl (sgi);
   }
 
@@ -692,7 +692,7 @@ void StripGraph_draw    (StripGraph     the_graph,
           (sgi->legend,
 		XmNforeground,       sgi->config->Color.foreground.xcolor.pixel,
 		XmNbackground,       sgi->config->Color.background.xcolor.pixel,
-		0);
+		NULL);
         sprintf
           (buf,
 		sgi->curves[i]->details->scale == STRIPSCALE_LOG_10?
@@ -1187,7 +1187,7 @@ static void     StripGraph_update_loc_lbl (StripGraphInfo *sgi)
   strftime (buf+1, 254, "%H:%M:%S", localtime (&tt));
   p = buf; while (*p) p++;
   sprintf (p, ", %g)", y);
-  XtVaSetValues (sgi->loc_lbl, XmNstring, buf, 0);
+  XtVaSetValues (sgi->loc_lbl, XmNstring, buf, NULL);
 }
 
 

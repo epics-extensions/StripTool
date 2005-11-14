@@ -109,7 +109,7 @@ char    *time2str (struct timeval *t)
 {
   static char buf[512];
 
-  sprintf (buf, "sec:\t %lu\nusec:\t %ld", t->tv_sec, t->tv_usec);
+  sprintf (buf, "sec:\t %lu\nusec:\t %ld", t->tv_sec, (long)t->tv_usec);
   return buf;
 }
 

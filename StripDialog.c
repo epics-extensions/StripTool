@@ -622,7 +622,7 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
       ("webHelpPushB",
        xmPushButtonGadgetClass,         w,
        XmNuserData,                     sd,
-       0);
+       NULL);
     XtAddCallback
       (tmp, XmNactivateCallback, helpmenu_cb, (XtPointer)HELP_WEBHELP);
     
@@ -631,7 +631,7 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
       ("helpOnHelpPushB",
        xmPushButtonGadgetClass,         w,
        XmNuserData,                     sd,
-       0);
+       NULL);
     XtAddCallback
       (tmp, XmNactivateCallback, helpmenu_cb, (XtPointer)HELP_HELPHELP);
     
@@ -640,7 +640,7 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
       ("aboutPushB",
        xmPushButtonGadgetClass,         w,
        XmNuserData,                     sd,
-       0);
+       NULL);
     XtAddCallback
       (tmp, XmNactivateCallback, helpmenu_cb, (XtPointer)HELP_ABOUT);
       
@@ -660,19 +660,19 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
        XmNrightAttachment,              XmATTACH_FORM,
        XmNrightOffset,                  DEF_WOFFSET,
        XmNbottomAttachment,             XmATTACH_NONE,
-       0);
+       NULL);
     
     XtVaCreateManagedWidget("connectLabel",
 	xmLabelWidgetClass,               rowcol,
-	0);
+	NULL);
     sd->connect_txt = XtVaCreateManagedWidget ("connectText",
 	xmTextWidgetClass,                rowcol,
-	0);
+	NULL);
     XtAddCallback (sd->connect_txt, XmNactivateCallback, connect_btn_cb, sd);
     XtAddCallback (sd->connect_txt, XmNfocusCallback, text_focus_cb, 0);
     btn = XtVaCreateManagedWidget  ("connectButton",
 	xmPushButtonWidgetClass,          rowcol,
-	0);
+	NULL);
     XtAddCallback (btn, XmNactivateCallback, connect_btn_cb, sd);
 
     /* make some nice tabs */
@@ -687,7 +687,7 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
        XmNleftAttachment,               XmATTACH_FORM,
        XmNrightAttachment,              XmATTACH_FORM,
        XmNbottomAttachment,             XmATTACH_NONE,
-       0);
+       NULL);
     XtAddCallback (tabs, XgNactivateCallback, tabs_cb, sd);
 
     /* create the curve area form and controls */
@@ -706,7 +706,7 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
        XmNrightOffset,                  DEF_WOFFSET,
        XmNbottomAttachment,             XmATTACH_FORM,
        XmNbottomOffset,                 DEF_WOFFSET,
-       0);
+       NULL);
     
     curve_column_lbl[i = SDCURVE_NAME] = XtVaCreateManagedWidget
       (SDCurveAttributeWidgetName[SDCURVE_NAME],
@@ -988,7 +988,7 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
        XmNleftOffset,                   DEF_WOFFSET,
        XmNrightAttachment,              XmATTACH_NONE,
        XmNbottomAttachment,             XmATTACH_NONE,
-       0);
+       NULL);
 
     /* create the time control area */
     frame = XtVaCreateManagedWidget
@@ -1411,7 +1411,7 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
     {
       sprintf (char_buf, "option%dPushBG", i);
       sd->graph_info.xgrid[i] = XtVaCreateManagedWidget
-        (char_buf, xmPushButtonGadgetClass, pulldown, 0);
+        (char_buf, xmPushButtonGadgetClass, pulldown, NULL);
       XtAddCallback
         (sd->graph_info.xgrid[i], XmNactivateCallback, bogus_cb, (XtPointer)i);
     }
@@ -1445,7 +1445,7 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
     {
       sprintf (char_buf, "option%dPushBG", i);
       sd->graph_info.ygrid[i] = XtVaCreateManagedWidget
-        (char_buf, xmPushButtonGadgetClass, pulldown, 0);
+        (char_buf, xmPushButtonGadgetClass, pulldown, NULL);
       XtAddCallback
         (sd->graph_info.ygrid[i], XmNactivateCallback, bogus_cb, (XtPointer)i);
     }
@@ -2126,7 +2126,7 @@ static void     setwidgetval_plotstat   (StripDialogInfo        *sd,
                                          int                    stat)
 {
   XtVaSetValues
-    (sd->curve_info[which].widgets[SDCURVE_PLOTSTAT], XmNset, stat, 0);
+    (sd->curve_info[which].widgets[SDCURVE_PLOTSTAT], XmNset, stat, NULL);
 }
 
 
@@ -2140,7 +2140,7 @@ static void     setwidgetval_scale      (StripDialogInfo        *sd,
   XtVaSetValues
     (sd->curve_info[which].widgets[SDCURVE_SCALE],
      XmNset,    (Boolean)(scale == STRIPSCALE_LOG_10),
-     0);
+     NULL);
 }
 
 
@@ -2515,7 +2515,7 @@ static void     setwidgetval_gr_fg              (StripDialogInfo *sd,
                                                  Pixel           pixel)
 {
   XtVaSetValues
-    (sd->graph_info.widgets[SDGROPT_FG], XmNbackground, pixel, 0);
+    (sd->graph_info.widgets[SDGROPT_FG], XmNbackground, pixel, NULL);
 }
 
 
@@ -2523,7 +2523,7 @@ static void     setwidgetval_gr_bg              (StripDialogInfo *sd,
                                                  Pixel           pixel)
 {
   XtVaSetValues
-    (sd->graph_info.widgets[SDGROPT_BG], XmNbackground, pixel, 0);
+    (sd->graph_info.widgets[SDGROPT_BG], XmNbackground, pixel, NULL);
 }
 
 
@@ -2531,7 +2531,7 @@ static void     setwidgetval_gr_gridclr         (StripDialogInfo *sd,
                                                  Pixel           pixel)
 {
   XtVaSetValues
-    (sd->graph_info.widgets[SDGROPT_GRIDCLR], XmNbackground, pixel, 0);
+    (sd->graph_info.widgets[SDGROPT_GRIDCLR], XmNbackground, pixel, NULL);
 }
 
 
@@ -2551,7 +2551,7 @@ static void     setwidgetval_gr_gridx           (StripDialogInfo        *sd,
   XtVaSetValues
     (sd->graph_info.widgets[SDGROPT_GRIDX],
      XmNmenuHistory,    sd->graph_info.xgrid[idx],
-     0);
+     NULL);
 }
 
 
@@ -2561,7 +2561,7 @@ static void     setwidgetval_gr_gridy           (StripDialogInfo        *sd,
   XtVaSetValues
     (sd->graph_info.widgets[SDGROPT_GRIDY],
      XmNmenuHistory,    sd->graph_info.ygrid[idx],
-     0);
+     NULL);
 }
 
 

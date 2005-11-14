@@ -548,7 +548,7 @@ Strip   Strip_init      (int    *argc,
     si->toplevel = XtVaAppCreateShell
       (0, STRIP_APP_CLASS, applicationShellWidgetClass, si->display,
 	  XmNmappedWhenManaged, False,
-	  0);
+	  NULL);
     if(!si->toplevel)
     {
       fprintf (stdout, "Strip_init: cannot initialize toplevel shell.\n");
@@ -596,7 +596,7 @@ Strip   Strip_init      (int    *argc,
         (si->toplevel,
 	    XmNvisual,     xvi.visual,
 	    XmNcolormap,   cColorManager_getcmap (scm),
-	    0);
+	    NULL);
 #ifdef REALIZE_TOPLEVEL_SHELL
 
 	/* KE: It is not necessary to realize this shell */
@@ -711,7 +711,7 @@ Strip   Strip_init      (int    *argc,
     form = XtVaCreateManagedWidget
       ("graphBaseForm",
 	  xmFormWidgetClass,       si->shell,
-	  0);
+	  NULL);
     
     /* the the motif foreground and background colors */
     XtVaGetValues
@@ -728,12 +728,12 @@ Strip   Strip_init      (int    *argc,
 	  XmNleftAttachment,               XmATTACH_FORM,
 	  XmNrightAttachment,              XmATTACH_FORM,
 	  XmNbottomAttachment,             XmATTACH_FORM,
-	  0);
+	  NULL);
     rowcol = XtVaCreateManagedWidget
       ("controlsRowColumn",
 	  xmRowColumnWidgetClass,  si->graph_panel,
 	  XmNorientation,          XmHORIZONTAL,
-	  0);
+	  NULL);
     
     /* pan left button */
     pixmap = XCreatePixmapFromBitmapData
@@ -746,7 +746,7 @@ Strip   Strip_init      (int    *argc,
 	  xmPushButtonWidgetClass, rowcol,
 	  XmNlabelType,            XmPIXMAP,
 	  XmNlabelPixmap,          pixmap,
-	  0);
+	  NULL);
     
     /* pan right button */
     pixmap = XCreatePixmapFromBitmapData
@@ -758,7 +758,7 @@ Strip   Strip_init      (int    *argc,
 	  xmPushButtonWidgetClass, rowcol,
 	  XmNlabelType,            XmPIXMAP,
 	  XmNlabelPixmap,          pixmap,
-	  0);
+	  NULL);
 #if DEBUG_TRANSLATIONS
     {
 	XtTranslations xlations=NULL;
@@ -791,7 +791,7 @@ Strip   Strip_init      (int    *argc,
 	  xmPushButtonWidgetClass, rowcol,
 	  XmNlabelType,            XmPIXMAP,
 	  XmNlabelPixmap,          pixmap,
-	  0);
+	  NULL);
     
     /* pan down button */
     pixmap = XCreatePixmapFromBitmapData
@@ -803,14 +803,14 @@ Strip   Strip_init      (int    *argc,
 	  xmPushButtonWidgetClass, rowcol,
 	  XmNlabelType,            XmPIXMAP,
 	  XmNlabelPixmap,          pixmap,
-	  0);
+	  NULL);
 
     /* separator */
     XtVaCreateManagedWidget
       ("separator",
 	  xmSeparatorWidgetClass,  rowcol,
 	  XmNorientation,          XmVERTICAL,
-	  0);
+	  NULL);
     
     /* zoom in button */
     pixmap = XCreatePixmapFromBitmapData
@@ -822,7 +822,7 @@ Strip   Strip_init      (int    *argc,
 	  xmPushButtonWidgetClass, rowcol,
 	  XmNlabelType,            XmPIXMAP,
 	  XmNlabelPixmap,          pixmap,
-	  0);
+	  NULL);
     
     /* zoom out button */
     pixmap = XCreatePixmapFromBitmapData
@@ -834,7 +834,7 @@ Strip   Strip_init      (int    *argc,
 	  xmPushButtonWidgetClass, rowcol,
 	  XmNlabelType,            XmPIXMAP,
 	  XmNlabelPixmap,          pixmap,
-	  0);
+	  NULL);
     
     /* zoom inY button  Albert*/
     pixmap = XCreatePixmapFromBitmapData
@@ -846,7 +846,7 @@ Strip   Strip_init      (int    *argc,
 	  xmPushButtonWidgetClass, rowcol,
 	  XmNlabelType,            XmPIXMAP,
 	  XmNlabelPixmap,          pixmap,
-	  0);
+	  NULL);
     
     /* zoomY out button Albert*/
     pixmap = XCreatePixmapFromBitmapData
@@ -858,14 +858,14 @@ Strip   Strip_init      (int    *argc,
 	  xmPushButtonWidgetClass, rowcol,
 	  XmNlabelType,            XmPIXMAP,
 	  XmNlabelPixmap,          pixmap,
-	  0);
+	  NULL);
     
     /* separator */
     XtVaCreateManagedWidget
       ("separator",
 	  xmSeparatorWidgetClass,  rowcol,
 	  XmNorientation,          XmVERTICAL,
-	  0);
+	  NULL);
     
 #ifdef STRIP_HISTORY   
     /* FROM-TO button. Albert */
@@ -878,7 +878,7 @@ Strip   Strip_init      (int    *argc,
 	  xmPushButtonWidgetClass, rowcol,
 	  XmNlabelType,		XmPIXMAP,
 	  XmNlabelPixmap,		pixmap,
-	  0);
+	  NULL);
     
     pixmap = XCreatePixmapFromBitmapData
       (si->display, RootWindow (si->display, xvi.screen), alg_bits,
@@ -889,7 +889,7 @@ Strip   Strip_init      (int    *argc,
 	  xmPushButtonWidgetClass, rowcol,
 	  XmNlabelType,		XmPIXMAP,
 	  XmNlabelPixmap,		pixmap,
-	  0);
+	  NULL);
     
     pixmap = XCreatePixmapFromBitmapData
       (si->display, RootWindow (si->display, xvi.screen), replot_bits,
@@ -901,14 +901,14 @@ Strip   Strip_init      (int    *argc,
 	  xmPushButtonWidgetClass, rowcol,
 	  XmNlabelType,		XmPIXMAP,
 	  XmNlabelPixmap,		pixmap,
-	  0);
+	  NULL);
     
     /* separator */
     XtVaCreateManagedWidget
       ("separator",
 	  xmSeparatorWidgetClass,  rowcol,
 	  XmNorientation,          XmVERTICAL,
-	  0);
+	  NULL);
 #endif /* STRIP_HISTORY */
     
     /* reset button */
@@ -921,7 +921,7 @@ Strip   Strip_init      (int    *argc,
 	  xmPushButtonWidgetClass, rowcol,
 	  XmNlabelType,            XmPIXMAP,
 	  XmNlabelPixmap,          pixmap,
-	  0);
+	  NULL);
     
     /* refresh button */
     pixmap = XCreatePixmapFromBitmapData
@@ -933,14 +933,14 @@ Strip   Strip_init      (int    *argc,
 	  xmPushButtonWidgetClass, rowcol,
 	  XmNlabelType,            XmPIXMAP,
 	  XmNlabelPixmap,          pixmap,
-	  0);
+	  NULL);
     
     /* separator */
     XtVaCreateManagedWidget
       ("separator",
 	  xmSeparatorWidgetClass, 	rowcol,
 	  XmNorientation,		XmVERTICAL,
-	  0);
+	  NULL);
     
     /* autoscale button*/
     pixmap = XCreatePixmapFromBitmapData
@@ -960,7 +960,7 @@ Strip   Strip_init      (int    *argc,
 	  xmPushButtonWidgetClass, rowcol,
 	  XmNlabelType,		XmPIXMAP,
 	  XmNlabelPixmap,		pixmap,
-	  0);
+	  NULL);
     
     /* auto scroll button */
     pixmap = XCreatePixmapFromBitmapData
@@ -978,7 +978,7 @@ Strip   Strip_init      (int    *argc,
 	  xmPushButtonWidgetClass, rowcol,
 	  XmNlabelType,            XmPIXMAP,
 	  XmNlabelPixmap,          pixmap,
-	  0);
+	  NULL);
     
     for (i = 0; i < STRIPBTN_COUNT; i++)
       XtAddCallback (si->btn[i], XmNactivateCallback, callback, si);
@@ -1046,7 +1046,7 @@ Strip   Strip_init      (int    *argc,
       ("browseIndicator",
        xmLabelWidgetClass,              rowcol,
        XmNlabelString,                  xstr_notpanning,
-       0);
+       NULL);
 
     /* the graph base widget */
     si->graph_form = XtVaCreateManagedWidget
@@ -1074,7 +1074,7 @@ Strip   Strip_init      (int    *argc,
     XtSetArg (args[n], XmNdropSiteOperations, XmDROP_COPY); n++;
     XtSetArg (args[n], XmNdropProc, Strip_graphdrop_handle); n++;
     XmDropSiteRegister (si->canvas, args, n);
-    XtVaSetValues (si->canvas, XmNuserData, (XtPointer)si, 0);
+    XtVaSetValues (si->canvas, XmNuserData, (XtPointer)si, NULL);
       
 
     /* popup menu, etc. */
@@ -1717,7 +1717,7 @@ int    Strip_auto_scale     (Strip the_strip)
     (si->btn[STRIPBTN_AUTO_SCALE],
 	XmNlabelType,		XmPIXMAP,
 	XmNlabelPixmap,		auto_scalePixmap[auto_scaleTriger],
-	0);
+	NULL);
 
   
   if (changeMinMax(the_strip) == 1) {
@@ -2021,13 +2021,13 @@ static void     Strip_config_callback   (StripConfigMask mask, void *data)
         (si->shell,
 	    XmNtitle,      str_buf,
 	    XmNiconName,   si->config->title,
-	    0);
+	    NULL);
       sprintf (str_buf, "%s Controls", si->config->title);
       XtVaSetValues
         (w_dlg,
 	    XmNtitle,      str_buf,
 	    XmNiconName,   si->config->title,
-	    0);
+	    NULL);
     }
     else
     {
@@ -2035,12 +2035,12 @@ static void     Strip_config_callback   (StripConfigMask mask, void *data)
         (si->shell,
 	    XmNtitle,      STRIPGRAPH_TITLE,
 	    XmNiconName,   STRIPGRAPH_ICON_NAME,
-	    0);
+	    NULL);
       XtVaSetValues
         (w_dlg,
 	    XmNtitle,      STRIPDIALOG_TITLE,
 	    XmNiconName,   STRIPDIALOG_ICON_NAME,
-	    0);
+	    NULL);
     }
   }
 
@@ -2099,11 +2099,11 @@ static void     Strip_config_callback   (StripConfigMask mask, void *data)
       XtVaSetValues
         (si->graph_form,
 	    XmNbackground, si->config->Color.background.xcolor.pixel,
-	    0);
+	    NULL);
       XtVaSetValues
         (si->canvas,
 	    XmNbackground, si->config->Color.background.xcolor.pixel,
-	    0);
+	    NULL);
       
       /* have to redraw everything when the background color changes */
       comp_mask |= SGCOMPMASK_ALL;
@@ -2555,21 +2555,21 @@ static void     Strip_setbrowsemode     (StripInfo *si, int browse)
   if(browse)
   {
     si->status |= STRIPSTAT_BROWSE_MODE;
-    XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_panning, 0);
+    XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_panning, NULL);
     XtVaSetValues	(si->btn[STRIPBTN_AUTOSCROLL],
 	XmNlabelType,		XmPIXMAP,
 	XmNlabelPixmap,		browsePixmap[1],
-	0);
+	NULL);
   }
   else
   {
     auto_scaleNoBrowse = 1;
     si->status &= ~STRIPSTAT_BROWSE_MODE;
-    XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_notpanning, 0);
+    XtVaSetValues (si->browse_lbl, XmNlabelString, xstr_notpanning, NULL);
     XtVaSetValues	(si->btn[STRIPBTN_AUTOSCROLL],
 	XmNlabelType,		XmPIXMAP,
 	XmNlabelPixmap,		browsePixmap[0],
-	0);
+	NULL);
   }
 }
 
@@ -2930,7 +2930,7 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
 	  arch_btn = XtVaCreateManagedWidget("Show points",
 	    xmToggleButtonGadgetClass,panel, NULL);
 	  XtAddCallback (arch_btn,XmNvalueChangedCallback,arch_callback,NULL);
-	  XtVaSetValues (arch_btn, XmNuserData, (XtPointer)si, 0);
+	  XtVaSetValues (arch_btn, XmNuserData, (XtPointer)si, NULL);
 	  
 	  nopPanel = XmCreateRowColumn(panel, "panel", NULL, 0);
 	  XtVaSetValues(nopPanel, XmNorientation,XmHORIZONTAL,NULL);
@@ -2950,7 +2950,7 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
 	  refresh_nop=XtVaCreateManagedWidget("Refresh #",
 	    xmPushButtonWidgetClass, nopPanel, 0);
 	  
-	  XtVaSetValues (refresh_nop, XmNuserData, (XtPointer)si, 0);     
+	  XtVaSetValues (refresh_nop, XmNuserData, (XtPointer)si, NULL);     
 	  
 	  XtAddCallback (refresh_nop,XmNactivateCallback,historyPoints,
 	    text_nop);
@@ -2961,7 +2961,7 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
 	    ("Help", xmPushButtonWidgetClass,panel, 0);
 	  XtAddCallback (btn_radio_help,XmNactivateCallback,radioHelp,NULL);
 	  btn_radio_close = XtVaCreateManagedWidget
-	    ("Close", xmPushButtonWidgetClass,panel, 0);
+	    ("Close", xmPushButtonWidgetClass,panel, NULL);
 	  XtAddCallback (btn_radio_close,XmNactivateCallback,radioClose,NULL);
 	  
 	  XtManageChild(btn_radio_close);
@@ -3061,7 +3061,7 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
 	  txt = XtVaCreateManagedWidget
 	    ("commentTextF",
 		xmTextFieldWidgetClass, w,
-		XmNx, x, XmNy, y, 0);
+		XmNx, x, XmNy, y, NULL);
 	  XmProcessTraversal (txt, XmTRAVERSE_CURRENT);
 #endif
 	}
@@ -3450,7 +3450,7 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
     {
 	XtUnmanageChild (si->graph_panel);
 	XtVaSetValues
-	  (si->graph_form, XmNbottomAttachment, XmATTACH_FORM, 0);
+	  (si->graph_form, XmNbottomAttachment, XmATTACH_FORM, NULL);
     }
     else
     {
@@ -3459,7 +3459,7 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
 	  (si->graph_form,
 	    XmNbottomAttachment,       XmATTACH_WIDGET,
 	    XmNbottomWidget,           si->graph_panel,
-	    0);
+	    NULL);
     }
     break;
 
@@ -3597,24 +3597,24 @@ static PrinterDialog    *PrinterDialog_build    (Widget parent)
   XtAddCallback (pd->msgbox, XmNokCallback, PrinterDialog_cb, 0);
 
   base = XtVaCreateManagedWidget
-    ("baseForm", xmFormWidgetClass, pd->msgbox, 0);
+    ("baseForm", xmFormWidgetClass, pd->msgbox, NULL);
 
   pd->name_textf = XtVaCreateManagedWidget
-    ("nameTextF", xmTextFieldWidgetClass, base, 0);
+    ("nameTextF", xmTextFieldWidgetClass, base, NULL);
   pd->device_combo = XtVaCreateManagedWidget
-    ("deviceCombo", xgComboBoxWidgetClass, base, 0);
-  XtVaCreateManagedWidget ("nameLabel", xmLabelWidgetClass, base, 0);
-  XtVaCreateManagedWidget ("deviceLabel", xmLabelWidgetClass, base, 0);
+    ("deviceCombo", xgComboBoxWidgetClass, base, NULL);
+  XtVaCreateManagedWidget ("nameLabel", xmLabelWidgetClass, base, NULL);
+  XtVaCreateManagedWidget ("deviceLabel", xmLabelWidgetClass, base, NULL);
 
   /* combo box won't use default CDE colors for text & list */
-  XtVaGetValues (pd->name_textf, XmNbackground, &bg, XmNforeground, &fg, 0);
+  XtVaGetValues (pd->name_textf, XmNbackground, &bg, XmNforeground, &fg, NULL);
   XtVaSetValues
     (pd->device_combo,
 	XgNlistForeground,         fg,
 	XgNtextForeground,         fg,
 	XgNlistBackground,         bg,
 	XgNtextBackground,         bg,
-	0);
+	NULL);
 
   return pd;
 }
@@ -3657,7 +3657,7 @@ static void     PrinterDialog_popup     (PrinterDialog *pd, StripInfo *si)
 	XmNx,              (Dimension)win_x,
 	XmNy,              (Dimension)win_y,
 	XmNuserData,       si,                     /* need for callback */
-	0);
+	NULL);
 
   /* pop it up! */
   XtManageChild (pd->msgbox);
@@ -3837,7 +3837,7 @@ static Widget fromToDialog_init (Widget parent, char* title, StripInfo* si)
 	  XmNleftAttachment,		XmATTACH_FORM,
 	  XmNrightAttachment,		XmATTACH_FORM,
 	  XmNorientation,                  XmHORIZONTAL,
-	  0);
+	  NULL);
     
     XtVaCreateManagedWidget((i == 0)?"From:":"   To:",
 	xmLabelGadgetClass,rowcol[i],NULL);
@@ -3921,14 +3921,14 @@ static Widget fromToDialog_init (Widget parent, char* title, StripInfo* si)
 	XmNleftAttachment,		XmATTACH_FORM,
 	XmNrightAttachment,		XmATTACH_FORM,
 	XmNorientation,                  XmHORIZONTAL,
-	0);
+	NULL);
   
   gData.si=si;
   gData.time_textFrom= &timeUnitTextWidget[0][0];
   gData.time_textTo  = &timeUnitTextWidget[1][0];
   
   btn_ok = XtVaCreateManagedWidget
-    ("GO!", xmPushButtonWidgetClass, rowcol[3], 0);
+    ("GO!", xmPushButtonWidgetClass, rowcol[3], NULL);
   XtAddCallback (btn_ok, XmNactivateCallback, fromToGo,
     &gData);
   

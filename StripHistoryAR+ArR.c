@@ -87,12 +87,12 @@ FetchStatus     StripHistory_fetch      (StripHistory           the_shi,
                                          void                   *call_data)
 {
 
-  u_long err;
+  unsigned long err;
 
   struct timeval *times=NULL;
   short  *status=NULL;
   double *data=NULL;
-  u_long count=0;
+  unsigned long count=0;
   
   result->t0 = *begin;
   result->t1 = *end;

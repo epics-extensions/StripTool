@@ -267,7 +267,7 @@ Initialize      (Widget         treq,
      XmNtraversalOn,            False,
      XmNshadowThickness,        (Dimension)0,
      XmNhighlightThickness,     (Dimension)0,
-     0);
+     NULL);
 }
 
 
@@ -1070,7 +1070,7 @@ XjLegendResize  (Widget w)
   h_req = MAX (dims.y, ITEM_INFO_PAD);
 
   if ((w_req != cw->core.width) || (h_req != cw->core.height))
-    XtVaSetValues (w, XmNwidth, w_req, XmNheight, h_req, 0);
+    XtVaSetValues (w, XmNwidth, w_req, XmNheight, h_req, NULL);
 }
 
 /* **************************** Emacs Editing Sequences ***************** */

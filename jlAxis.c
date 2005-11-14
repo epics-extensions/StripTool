@@ -634,7 +634,7 @@ Initialize      (Widget         treq,
      XmNtraversalOn,            False,
      XmNshadowThickness,        (Dimension)0,
      XmNhighlightThickness,     (Dimension)0,
-     0);
+     NULL);
 
   nw->axis.pixmap = 0;
   nw->axis.need_refresh = True;
