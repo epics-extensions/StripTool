@@ -44,6 +44,8 @@
 #include "StripMisc.h"
 #include "StripFallback.h"
 
+#include "Annotation.h"
+
 #include "pan_left.bm"
 #include "pan_right.bm"
 #include "zoom_in.bm"
@@ -73,7 +75,7 @@
 #ifdef WIN32
 /* There is no pwd.h on WIN32 */
 #else
- # include <pwd.h>
+#  include <pwd.h>
 #endif
 
 #ifdef USE_XPM
@@ -258,6 +260,7 @@ typedef struct _StripInfo
   unsigned              status;
   PrintInfo             print_info;
   PrinterDialog         *pd;
+  void                  *annotation_info;
 
   /* == Callback stuff == */
   StripCallback         connect_func, disconnect_func, client_io_func;
@@ -1206,6 +1209,10 @@ Strip   Strip_init      (int    *argc,
 
     Strip_printer_init (si);
     si->pd = PrinterDialog_build (si->shell);
+
+    si->annotation_info = Annotation_init (si->app,si->canvas,si->shell,
+                           si->display, si->graph, &si->curves[0]);
+
   }
 
   return (Strip)si;
@@ -2588,6 +2595,7 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
   StripConfigMask               scfg_mask;
 #endif
   struct timeval                t, tb, t0, t1;
+  Boolean                       statusChanged;
 
 
   cbs = (XmDrawingAreaCallbackStruct *)call;
@@ -3045,26 +3053,46 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
 	{
 	  PopupMenu_position
 	    (si->popup_menu, (XButtonPressedEvent *)cbs->event);
+/*PopupMenu_set_sensitive (si);*/
 	  PopupMenu_popup (si->popup_menu);
 	}
 	
-	/* if this is the first button, then initiate a comment entry */
-	else if (event->xbutton.button == Button1)
-	{
-#if 0
-	  Widget txt;
+        else if (event->xbutton.button == Button1)
+        {
+          if (w == si->canvas ) {
+            /* Toggle annotation select/deselect */
+            Annotation_select ((XButtonEvent *)event,si->annotation_info);
+
+            /* refresh the graph */
+            /* time to 0 and calling dispatch(). */
+            StripGraph_draw (si->graph, SGCOMPMASK_DATA, (Region *)0);
+          }
+        }
+        else if (event->xbutton.button == Button2)
+        {
+          if (w == si->canvas  &&
+            Annotation_select((XButtonEvent *)event,si->annotation_info)) {
+
+            statusChanged = False;
+            /* if not paused, pause the graph by putting it in browse mode */
+            if (!si->status & STRIPSTAT_BROWSE_MODE) {
+              statusChanged = True;
+              Strip_setbrowsemode (si, True);
+            }
 	  
-	  /* pause the graph by putting it in browse mode */
-	  Strip_setbrowsemode (si, True);
-	  
-	  /* create the text entry widget */
-	  txt = XtVaCreateManagedWidget
-	    ("commentTextF",
-		xmTextFieldWidgetClass, w,
-		XmNx, x, XmNy, y, NULL);
-	  XmProcessTraversal (txt, XmTRAVERSE_CURRENT);
-#endif
-	}
+            /* Move annotation */
+            Annotation_move ((XButtonEvent *)event,si->annotation_info);
+
+	    /* resume the graph by taking it out of  browse mode */
+            if (statusChanged) {
+              Strip_setbrowsemode (si, False);
+            } else {
+              /* refresh the graph */
+              /* time to 0 and calling dispatch(). */
+              StripGraph_draw (si->graph, SGCOMPMASK_DATA, (Region *)0);
+            }
+          }
+        }
     }
     
     else if (event->xany.type == ButtonRelease)
@@ -3277,6 +3305,9 @@ typedef enum
 {
   POPUPMENU_CONTROLS = 0,
   POPUPMENU_TOGGLE_SCROLL,
+  POPUPMENU_NEW_ANNOTATION,
+  POPUPMENU_DELETE_ANNOTATION,
+  POPUPMENU_EDIT_ANNOTATION,
   POPUPMENU_PRINTER_SETUP,
   POPUPMENU_PRINT,
   POPUPMENU_SNAPSHOT,
@@ -3292,6 +3323,9 @@ char    *PopupMenuItemStr[POPUPMENU_ITEMCOUNT] =
 {
   "Controls Dialog...",
   "Toggle Buttons",
+  "Annotate selected curve",
+  "Delete selected annotation",
+  "Edit selected annotation",
   "Printer Setup...",
   "Print",
   "Snapshot",
@@ -3305,6 +3339,9 @@ char    PopupMenuItemMnemonic[POPUPMENU_ITEMCOUNT] =
 {
   'C',
   'T',
+  'A',
+  'l',
+  'E',
   'r',
   'P',
   'S',
@@ -3324,11 +3361,17 @@ char    *PopupMenuItemAccelerator[POPUPMENU_ITEMCOUNT] =
   " ",
   " ",
   " ",
+  " ",
+  " ",
+  " ",
   "Ctrl<Key>c"
 };
 
 char    *PopupMenuItemAccelStr[POPUPMENU_ITEMCOUNT] =
 {
+  " ",
+  " ",
+  " ",
   " ",
   " ",
   " ",
@@ -3355,11 +3398,10 @@ static Widget   PopupMenu_build (Widget parent)
   int           n;
 
 
-  for (i = 0; i < POPUPMENU_ITEMCOUNT+2; i++)
+  for (i = 0; i < POPUPMENU_ITEMCOUNT+3; i++)
     buttonType[i] = XmPUSHBUTTON;
 
-  buttonType[2] = buttonType[6] = XmSEPARATOR;
-
+  buttonType[2] = buttonType[6] = buttonType[8] = XmSEPARATOR;
 
   for (i = 0, n = 0; i < POPUPMENU_ITEMCOUNT+2; i++)
   {
@@ -3463,11 +3505,28 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
     }
     break;
 
-        
+
   case POPUPMENU_PRINTER_SETUP:
     PrinterDialog_popup (si->pd, si);
     break;
         
+  case POPUPMENU_NEW_ANNOTATION:
+
+    /* popup annotation dialog */
+    AnnotateDialog_popup (si->annotation_info, (int)1);
+    break;
+        
+  case POPUPMENU_DELETE_ANNOTATION:
+
+    /* delete selected annotation */
+    Annotation_deleteSelected (si->annotation_info);
+    break;
+        
+  case POPUPMENU_EDIT_ANNOTATION:
+
+    /* popup annotation dialog */
+    AnnotateDialog_popup (si->annotation_info, (int)0);
+    break;
         
   case POPUPMENU_PRINT:
     window_map (si->display, XtWindow(si->shell));

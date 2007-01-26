@@ -41,6 +41,7 @@ extern int algorithmLength;
 #include "StripDefines.h"
 #include "StripMisc.h"
 #include "StripDataSource.h" /* Albert */
+#include "Annotation.h"
 
 #define SG_DUMP_MATRIX_FIELDWIDTH       30
 #define SG_DUMP_MATRIX_NUMWIDTH         20
@@ -112,6 +113,7 @@ typedef struct
   unsigned              draw_mask;
   unsigned              status;
 
+  void                  *annotation_info;
   void                  *user_data;
 }
 StripGraphInfo;
@@ -317,6 +319,7 @@ StripGraph StripGraph_init (Widget      parent,
     sgi->draw_mask = SGCOMPMASK_ALL;
     sgi->status = SGSTAT_GRAPH_REFRESH;
 
+    sgi->annotation_info = NULL;
     sgi->user_data = NULL;
   }
   
@@ -394,6 +397,10 @@ int     StripGraph_setattr      (StripGraph the_sgi, ...)
             sgi->t1.tv_usec = ptv->tv_usec;
             break;
 
+          case STRIPGRAPH_ANNOTATION_INFO:
+            sgi->annotation_info = va_arg (ap, char *);
+            break;
+
           case STRIPGRAPH_USER_DATA:
             sgi->user_data = va_arg (ap, char *);
             break;
@@ -447,6 +454,15 @@ int     StripGraph_getattr      (StripGraph the_sgi, ...)
           case STRIPGRAPH_USER_DATA:
             *(va_arg (ap, char **)) = (char *)sgi->user_data;
             break;
+
+          case STRIPGRAPH_TRANSFORMS:
+            *(va_arg (ap, jlaTransformInfo **)) = sgi->transforms;
+            break;
+
+          case STRIPGRAPH_SELECTED_CURVE:
+            *(va_arg (ap, StripCurveInfo **)) = sgi->selected_curve;
+            break;
+
       }
   }
 
@@ -778,6 +794,20 @@ void StripGraph_draw    (StripGraph     the_graph,
       XDrawSegments (sgi->display, sgi->pixmap, sgi->gc, sgi->grid.h_seg, n);
     }
   }
+
+  XSetForeground
+    (sgi->display, sgi->gc, sgi->config->Color.foreground.xcolor.pixel);
+
+  XSetBackground
+    (sgi->display, sgi->gc, sgi->config->Color.background.xcolor.pixel);
+
+  Annotation_draw(sgi->display, sgi->pixmap, sgi->gc,
+                 sgi->window_rect,sgi->annotation_info,
+                 &(sgi->plotted_t0),&(sgi->plotted_t1),
+                 sgi->curves);
+  XSetForeground
+    (sgi->display, sgi->gc, sgi->config->Color.foreground.xcolor.pixel);
+
   
   /* copy pixmap to window */
   if (area) XSetRegion (sgi->display, sgi->gc, *area);

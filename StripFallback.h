@@ -38,6 +38,30 @@ String  fallback_resources[] =
   SA "*HintShell.cancelWaitPeriod: 200",
   SA "*HintShell.fontSet: *-helvetica-medium-r-normal--12-*",
 
+  SA "*AnnotateDialog_popup.title: Enter Annotation Text",
+  SA "*AnnotateDialog*okLabelString: OK",
+  SA "*AnnotateDialog*cancelLabelString: Cancel",
+  SA "*AnnotateDialog*helpLabelString: Help",
+
+  SA "*AnnotateDialog*editText.topAttachment: XmATTACH_FORM",
+  SA "*AnnotateDialog*editText.rightAttachment: XmATTACH_FORM",
+  SA "*AnnotateDialog*editText.bottomAttachment: XmATTACH_FORM",
+  SA "*AnnotateDialog*editText.leftAttachment: XmATTACH_WIDGET",
+  SA "*AnnotateDialog*editText.leftWidget: textLabel",
+  SA "*AnnotateDialog*editText.editMode: XmMULTI_LINE_EDIT",
+  SA "*AnnotateDialog*editText.rows: 3",
+  SA "*AnnotateDialog*editText.columns: 40",
+
+  SA "*AnnotateDialog*textLabel.labelString: Text:",
+  SA "*AnnotateDialog*textLabel.rightOffset: 3",
+  SA "*AnnotateDialog*textLabel.topAttachment: XmATTACH_FORM",
+  SA "*AnnotateDialog*textLabel.leftAttachment: XmATTACH_FORM",
+
+  SA "*canvas*displayText.editable: False",
+  SA "*canvas*displayText.rows: 3",
+  SA "*canvas*displayText.columns: 40",
+  SA "*canvas*displayText.wordWrap: True",
+
   SA "*PrinterDialog_popup.title: Printer Selector",
   SA "*PrinterDialog*okLabelString: OK",
   SA "*PrinterDialog*cancelLabelString: Cancel",

@@ -71,6 +71,9 @@ typedef enum
   STRIPGRAPH_BEGIN_TIME,        /* (struct timeval *)                   rw */
   STRIPGRAPH_END_TIME,          /* (struct timeval *)                   rw */
   STRIPGRAPH_USER_DATA,         /* (void *)  miscellaneous client data  rw */
+  STRIPGRAPH_ANNOTATION_INFO,   /* (void *)  miscellaneous client data  rw */
+  STRIPGRAPH_SELECTED_CURVE,    /* (StripCurveInfo *)                   rw */
+  STRIPGRAPH_TRANSFORMS,        /* (jlaTransformInfo *)                 rw */
   STRIPGRAPH_LAST_ATTRIBUTE
 } StripGraphAttribute;
 

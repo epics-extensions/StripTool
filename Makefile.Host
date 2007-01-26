@@ -64,7 +64,7 @@ XPM_LIB		?= $(X11_LIB)
 # Purify
 ifeq ($(OS_CLASS),solaris)
 #PURIFY=YES
-PURIFY_FLAGS = -first-only -chain-length=26
+PURIFY_FLAGS = -first-only -chain-length=50
 #PURIFY_FLAGS = -first-only -chain-length=26 -max_threads=256
 #PURIFY_FLAGS = -first-only -chain-length=26 -always-use-cache-dir -cache-dir=/tmp/purifycache
 #PURIFY_FLAGS = -first-only -chain-length=26 -enable-new-cache-scheme
@@ -72,6 +72,12 @@ PURIFY_FLAGS = -first-only -chain-length=26
 
 # Put the cache files in the appropriate bin directory
 PURIFY_FLAGS += -always-use-cache-dir -cache-dir=$(shell $(PERL) $(TOP)/config/fullPathName.pl .)
+
+USE_SDDS=NO
+CC  = purify $(PURIFY_FLAGS) $($(ANSI)_$(CMPLR))
+CXX = purify $(PURIFY_FLAGS) $($(CPLUSPLUS)_$(CXXCMPLR))
+HOST_OPT=NO
+
 endif
 
 # libXm.so.4 Purify debugging for Sun
@@ -154,6 +160,7 @@ SRCS		+= Tabs.c
 SRCS		+= x_rotate.c
 SRCS		+= rotated.c
 SRCS		+= browserHelp.c
+SRCS		+= Annotation.c
 
 ifeq ($(USE_CLUES), YES)
   SRCS		+= LiteClue.c
