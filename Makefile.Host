@@ -73,10 +73,10 @@ PURIFY_FLAGS = -first-only -chain-length=50
 # Put the cache files in the appropriate bin directory
 PURIFY_FLAGS += -always-use-cache-dir -cache-dir=$(shell $(PERL) $(TOP)/config/fullPathName.pl .)
 
-USE_SDDS=NO
-CC  = purify $(PURIFY_FLAGS) $($(ANSI)_$(CMPLR))
-CXX = purify $(PURIFY_FLAGS) $($(CPLUSPLUS)_$(CXXCMPLR))
-HOST_OPT=NO
+#USE_SDDS=NO
+#CC  = purify $(PURIFY_FLAGS) $($(ANSI)_$(CMPLR))
+#CXX = purify $(PURIFY_FLAGS) $($(CPLUSPLUS)_$(CXXCMPLR))
+#HOST_OPT=NO
 
 endif
 
