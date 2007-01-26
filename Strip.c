@@ -3389,10 +3389,10 @@ char    *PopupMenuItemAccelStr[POPUPMENU_ITEMCOUNT] =
 static Widget   PopupMenu_build (Widget parent)
 {
   Widget        menu;
-  XmString      label[POPUPMENU_ITEMCOUNT+2];
-  XmString      acc_lbl[POPUPMENU_ITEMCOUNT+2];
-  KeySym        keySyms[POPUPMENU_ITEMCOUNT+2];
-  XmButtonType  buttonType[POPUPMENU_ITEMCOUNT+2];
+  XmString      label[POPUPMENU_ITEMCOUNT+3];
+  XmString      acc_lbl[POPUPMENU_ITEMCOUNT+3];
+  KeySym        keySyms[POPUPMENU_ITEMCOUNT+3];
+  XmButtonType  buttonType[POPUPMENU_ITEMCOUNT+3];
   int           i;
   Arg           args[16];
   int           n;
@@ -3401,9 +3401,9 @@ static Widget   PopupMenu_build (Widget parent)
   for (i = 0; i < POPUPMENU_ITEMCOUNT+3; i++)
     buttonType[i] = XmPUSHBUTTON;
 
-  buttonType[2] = buttonType[6] = buttonType[8] = XmSEPARATOR;
+  buttonType[2] = buttonType[6] = buttonType[10] = XmSEPARATOR;
 
-  for (i = 0, n = 0; i < POPUPMENU_ITEMCOUNT+2; i++)
+  for (i = 0, n = 0; i < POPUPMENU_ITEMCOUNT+3; i++)
   {
     if (buttonType[i] == XmPUSHBUTTON) {
       label[i]   = XmStringCreateLocalized (PopupMenuItemStr[n]);
@@ -3419,7 +3419,7 @@ static Widget   PopupMenu_build (Widget parent)
   }
 
   n = 0;
-  XtSetArg(args[n], XmNbuttonCount,           POPUPMENU_ITEMCOUNT+2); n++;
+  XtSetArg(args[n], XmNbuttonCount,           POPUPMENU_ITEMCOUNT+3); n++;
   XtSetArg(args[n], XmNbuttonType,            buttonType); n++;
   XtSetArg(args[n], XmNbuttons,               label); n++;
   XtSetArg(args[n], XmNbuttonMnemonics,       keySyms); n++;
@@ -3428,7 +3428,7 @@ static Widget   PopupMenu_build (Widget parent)
 
   menu = XmCreateSimplePopupMenu(parent, "popup", args, n);
  
-  for (i = 0; i < POPUPMENU_ITEMCOUNT+2; i++)
+  for (i = 0; i < POPUPMENU_ITEMCOUNT+3; i++)
   {
     if (label[i])   XmStringFree (label[i]);
     if (acc_lbl[i]) XmStringFree (acc_lbl[i]);
