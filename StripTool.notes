@@ -232,3 +232,11 @@ Mon Nov 14, 2005 - StripTool-2-5-10-0 - evans
 Changed u_long to unsigned long for gcc 4.0.  Changed 0 to NULL in
 variable-argument X functions to avoid 64-bit problems (as contributed
 by Ernest Williams).
+
+Fri Jan 26 16:27:17 CST 2007  -   StripTool-2-5-11-0
+   Added curve annotations facility.
+
+Thu Mar  8 12:38:17 CST 2007  -   StripTool-2-5-11-1
+   Allow annotate dialog popup to stay placed where user puts it.
+   Bug fix for calculation of annotation raster y value.
+   Minor annotation code cleanUp. Added code to delete annotations at exit.
