@@ -455,10 +455,6 @@ int     StripGraph_getattr      (StripGraph the_sgi, ...)
             *(va_arg (ap, char **)) = (char *)sgi->user_data;
             break;
 
-          case STRIPGRAPH_TRANSFORMS:
-            *(va_arg (ap, jlaTransformInfo **)) = sgi->transforms;
-            break;
-
           case STRIPGRAPH_SELECTED_CURVE:
             *(va_arg (ap, StripCurveInfo **)) = sgi->selected_curve;
             break;
@@ -1415,6 +1411,24 @@ void CurveLegendRefresh(StripCurveInfo *c, StripGraph sg, double a)
       }
     
     LegendRefresh(cw);
+}
+
+jlaTransformInfo* StripGraph_getTransform(StripGraph the_sgi, StripCurveInfo *curve)
+{
+  StripGraphInfo        *sgi = (StripGraphInfo *)the_sgi;
+  int m,n;
+
+  if (!curve) return 0;
+
+  /* for each plotted curve ... */
+  for (m = 0; m < STRIP_MAX_CURVES; m++)
+  {
+    n = sgi->config->Curves.plot_order[m];
+    if (curve == sgi->curves[n]) {
+      return &sgi->transforms[n];
+    } 
+  }
+  return  0;
 }
 
 
