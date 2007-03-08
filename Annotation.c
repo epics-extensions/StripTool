@@ -117,12 +117,11 @@ void  Annotation_draw(Display *display, Window window, GC gc,
 {
   Annotation       *annotation;
   Annotation       *next;
-  jlaTransformInfo *transforms;
   int               i;
-  jlaTransformInfo *transform = NULL;
-  double           rasterY;
-  int              rasterTextX,rasterTextY;
-  double           tempY;
+  jlaTransformInfo *transform;
+  double            rasterY;
+  int               rasterTextX,rasterTextY;
+  double            tempY;
   char             *ptr;
   char             *newptr;
   int               len,diff;
@@ -136,23 +135,15 @@ void  Annotation_draw(Display *display, Window window, GC gc,
   if (!ai->annotationList) return; 
   if (!ai->annotationList->count) return; 
 
-  StripGraph_getattr (ai->graph, STRIPGRAPH_TRANSFORMS, &transforms, 0);
-
   XGetGCValues(display, gc, GCForeground|GCBackground, &gcValues);
 
   annotation = (Annotation*)ellFirst(ai->annotationList);
+  if (!annotation) return;
   while (annotation) {
     transform = NULL;
     next = (Annotation*)ellNext((ELLNODE*)annotation);
 
-    if (annotation->curve) {
-      for (i = 0; i < STRIP_MAX_CURVES; i++) {
-        if (annotation->curve == curves[i]) {
-          transform=&transforms[i];
-          break;
-        }
-      }
-    }
+    transform=StripGraph_getTransform(ai->graph, annotation->curve);
     if (!transform) {
 
       /* Delete the annotation if it's curve was deleted */
@@ -281,6 +272,16 @@ void Annotation_deleteSelected(AnnotationInfo *ai)
 }
 
 
+void Annotation_deleteAll(AnnotationInfo *ai)
+{
+  Annotation * annotation;
+
+  while ( (annotation = (Annotation*)ellFirst(ai->annotationList)) ) {
+    Annotation_delete(ai, annotation);
+  }
+}
+
+
 void Annotation_delete(AnnotationInfo *ai, Annotation *annotation)
 {
 
@@ -304,7 +305,7 @@ void Annotation_delete(AnnotationInfo *ai, Annotation *annotation)
 
 static Annotation * findTouchedAnnotation(XButtonEvent *event, AnnotationInfo *ai)
 {
-  Position x0, y0;
+  Position     x0, y0;
   Annotation * annotation;
 
   if (!ai || !ai->annotationList || !ai->annotationList->count ) return 0;
@@ -346,7 +347,6 @@ int Annotation_select(XButtonEvent *event, AnnotationInfo *ai)
 static AnnotateDialog *AnnotateDialog_build (Widget parent, void *ptr)
 {
   AnnotateDialog *ad;
-  Widget        base;
 
   ad = (AnnotateDialog *)malloc (sizeof (AnnotateDialog));
   if (!ad) return 0;
@@ -372,11 +372,6 @@ void AnnotateDialog_popup (AnnotationInfo *ai, int newAnnotation)
 {
   Annotation           *annotation;
   AnnotateDialog       *ad = ai->ad;
-  Window                root, child;
-  Dimension             width, height;
-  int                   root_x, root_y;
-  int                   win_x, win_y;
-  unsigned              mask;
   StripCurveInfo       *curve;
 
   if (newAnnotation) {
@@ -407,23 +402,8 @@ void AnnotateDialog_popup (AnnotationInfo *ai, int newAnnotation)
     }
   }
 
-#if 0
-  /* find out where the pointer is */
-  XQueryPointer
-    (XtDisplay (ad->popupWidget), DefaultRootWindow (XtDisplay (ad->popupWidget)),
-  	&root, &child, &root_x, &root_y, &win_x, &win_y, &mask);
-#endif
-
-  /* place popup box so it centers the window on the screen */
-  XtVaGetValues (ad->popupWidget, XmNwidth, &width, XmNheight, &height, 0);
-
-  win_x = root_x - (width / 2);         if (win_x < 0) win_x = 0;
-  win_y = root_y - (height / 2);        if (win_y < 0) win_y = 0;
-
   XtVaSetValues
     (ad->popupWidget,
-	XmNx,              (Dimension)win_x,
-	XmNy,              (Dimension)win_y,
 	XmNuserData,       (XtPointer)newAnnotation,
 	0);
 
@@ -431,26 +411,6 @@ void AnnotateDialog_popup (AnnotationInfo *ai, int newAnnotation)
   XtManageChild (ad->popupWidget);
 
   XmProcessTraversal(ad->textWidget,XmTRAVERSE_CURRENT);
-
-#if 0
- XGrabPointer(XtDisplay(ad->textWidget), DefaultRootWindow(XtDisplay (ad->textWidget)),
-   False,0,
-   GrabModeAsync,GrabModeAsync,
-   DefaultRootWindow(XtDisplay (XtParent(ad->textWidget))),None,CurrentTime);
- /* Grab the server to ensure that XORing will be okay */
- XGrabServer(XtDisplay (ad->textWidget));
-
- XUngrabPointer(XtDisplay(ad->textWidget), CurrentTime);
-#endif
-
-#if 0
-  XmProcessTraversal(ad->popupWidget,XmTRAVERSE_CURRENT);
-
-  XtVaSetValues (ad->popupWidget, XmNinitialFocus, ad->baseWidget, 0);
-  XtVaSetValues (ad->baseWidget, XmNinitialFocus, ad->textWidget, 0);
-
-  XtAddGrab (ad->textWidget,True,False);
-#endif
 
 }
 
@@ -583,7 +543,7 @@ AnnotationInfo *Annotation_init ( XtAppContext app, Widget canvas,
   Widget shell, Display *display, void* graph, StripCurveInfo *curves) 
 {
     AnnotationInfo *ai;
-    XFontStruct* font_info;
+    XFontStruct    *font_info;
 
     ai = (AnnotationInfo*)calloc(1,sizeof(AnnotationInfo));
     ai->annotationList = (ELLLIST*)calloc(1,sizeof(ELLLIST));
@@ -627,16 +587,16 @@ static Boolean doDragging(XtAppContext appContext, Widget w,
   Position initialX, Position initialY,      /* initial cursor location */
   Position *finalX, Position *finalY)      /* final cursor location */
 {
-    Display * display;
-    Window  window,rootWindow;
-    XEvent  event;
-    Dimension daWidth, daHeight;   /* display width and height */
-    Boolean returnVal = True;
-    int x, y, xOffset, yOffset;
-    int minX, maxX, minY, maxY, groupWidth, groupHeight,
-      groupDeltaX0, groupDeltaY0, groupDeltaX1, groupDeltaY1;
-    int nelements;
-    GC xorGC;
+    Display   *display;
+    Window     window,rootWindow;
+    XEvent     event;
+    Dimension  daWidth, daHeight;   /* display width and height */
+    Boolean    returnVal = True;
+    int        x, y, xOffset, yOffset;
+    int        minX, maxX, minY, maxY, groupWidth, groupHeight,
+               groupDeltaX0, groupDeltaY0, groupDeltaX1, groupDeltaY1;
+    int        nelements;
+    GC         xorGC;
     
     /* If no current widget, simply return */
     if(!w) return(False);
@@ -807,7 +767,6 @@ print("  finalX=%d finalY=%d\n",*finalX,*finalY);
 #if DEBUG_EVENTS > 3
 	    print("  Default: %s\n",getEventName(event.type));
 	    fflush(stdout);
-print("  Default:\n");
 #endif
 	    XtDispatchEvent(&event);
 	}
@@ -817,12 +776,12 @@ print("  Default:\n");
 
 void Annotation_move(XButtonEvent *event, AnnotationInfo *ai)
 {
-  Position finalX=0, finalY=0;      /* final cursor location */
-  XRectangle rec;
-  Annotation *annotation;
-  int status;
-  Dimension             width;
-  Dimension             height;
+  Position     finalX=0, finalY=0;      /* final cursor location */
+  XRectangle   rec;
+  Annotation  *annotation;
+  int          status;
+  Dimension    width;
+  Dimension    height;
   
   annotation = ai->selectedAnnotation;
   rec.x = (short)annotation->box.rasterX;
@@ -853,10 +812,8 @@ void Annotation_transformRasterValues(AnnotationInfo *ai, int width, int height)
   struct timeval        t0,t1,dll;
   double                dl,db;
   double                inY, outY;
-  jlaTransformInfo *transforms;
-  jlaTransformInfo *transform = NULL;
-  int i;
-  Annotation *annotation;
+  jlaTransformInfo     *transform = NULL;
+  Annotation           *annotation;
 
   annotation = ai->selectedAnnotation;
   annotation->box.x = 0;
@@ -869,17 +826,11 @@ void Annotation_transformRasterValues(AnnotationInfo *ai, int width, int height)
   db = dl/(width - 1);
   annotation->box.x = annotation->box.rasterX*db + time2dbl(&t0);
 
-  /* transform rasterY */
-  StripGraph_getattr (ai->graph, STRIPGRAPH_TRANSFORMS, &transforms, 0);
-  for (i = 0; i < STRIP_MAX_CURVES; i++) {
-    if (annotation->curve == &ai->curves[i]) {
-      transform= &transforms[i];
-      break;
-    }
-  }
+  transform=StripGraph_getTransform(ai->graph, annotation->curve);
   if (transform) {
-    /* transform raster location to a data value */
+    /* transform raster location to a curve value */
     inY = height - 1 - annotation->box.rasterY;
+    outY = 0.0;
     jlaUntransformRasterizedValues (transform, &inY, &outY, 1);
     annotation->box.y = outY;
   }
