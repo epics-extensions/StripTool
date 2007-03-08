@@ -3053,7 +3053,6 @@ static void     callback        (Widget w, XtPointer client, XtPointer call)
 	{
 	  PopupMenu_position
 	    (si->popup_menu, (XButtonPressedEvent *)cbs->event);
-/*PopupMenu_set_sensitive (si);*/
 	  PopupMenu_popup (si->popup_menu);
 	}
 	
@@ -3267,6 +3266,7 @@ static void     dlgrequest_quit (void *client, void *BOGUS(1))
 {
   StripInfo     *si = (StripInfo *)client;
   
+  Annotation_deleteAll(si->annotation_info);
   dlgrequest_clear (client, NULL);
   window_unmap (si->display, XtWindow(si->shell));
   StripDialog_popdown (si->dialog);
@@ -3641,7 +3641,6 @@ static void     PopupMenu_cb    (Widget w, XtPointer client, XtPointer BOGUS(1))
     exit (1);
   }
 }
-
 
 static PrinterDialog    *PrinterDialog_build    (Widget parent)
 {

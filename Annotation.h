@@ -37,4 +37,5 @@ void AnnotateDialog_popup (AnnotationInfo *ai, int newAnnotation);
 int Annotation_select(XButtonEvent *event, AnnotationInfo *ai);
 AnnotationInfo *Annotation_init ( XtAppContext app, Widget canvas, Widget shell, 
          Display *display, void* graph, StripCurveInfo *curves);
+void Annotation_deleteAll(AnnotationInfo *ai);
 #endif
