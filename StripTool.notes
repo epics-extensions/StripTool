@@ -243,3 +243,6 @@ Thu Mar  8 12:38:17 CST 2007  -   StripTool-2-5-11-1
 
 Thu Jun 21 16:45:07 CDT 2007 - StripTool-2-5-11-2
    Fixed annotation y values and cursor y values when log10 is selected.
+
+Thu Jun 21 16:45:07 CDT 2007 - StripTool-2-5-12-0
+   Converted to R3.14 Makefiles.
