@@ -2943,6 +2943,7 @@ transform_values_normalized     (AxisTransform          transform,
 }
 
 
+#if 0
 static void
 untransform_normalized_values (AxisTransform          transform,
                                AxisValueType          value_type,
@@ -2990,6 +2991,47 @@ untransform_normalized_values (AxisTransform          transform,
       n--; x_in++; x_out++;
     }
 }
+#endif
 
 
+static void
+untransform_normalized_values (AxisTransform          transform,
+                               AxisValueType          value_type,
+                               AxisEndpointPosition   min_pos,
+                               AxisEndpointPosition   max_pos,
+                               register double        min_val,
+                               register double        max_val,
+                               register double        log_epsilon,
+                               register double        log_epsilon_offset,
+                               register double        log_delta,
+                               register double        *x_in,
+                               register double        *x_out,
+                               register int           n)
+{
+  double log_max, log_min;
+  register double       log_x;
+
+  /* linear real values, or time values */
+  if ((transform == XjAXIS_LINEAR) || (value_type != XjAXIS_REAL))
+    while (n > 0)
+    {
+      *x_out = (*x_in * (max_val - min_val)) + min_val;
+      n--; x_in++; x_out++;
+    }
+
+  /* logarithmic real values */
+  else {
+    log_max = (ABS(max_val) <= DBL_EPSILON? log_epsilon : log10 (ABS(max_val)));
+    log_min = (ABS(min_val) <= DBL_EPSILON? log_epsilon : log10 (ABS(min_val)));
+    if (max_val < 0. ) log_max = -log_max;
+    if (min_val < 0. ) log_min = -log_min;
+    while (n > 0)
+    {
+      log_x = *x_in * (log_max - log_min) + log_min;
+      *x_out = pow (10.0 ,ABS(log_x));
+      if ( log_x < 0. ) *x_out = *x_out * -1.0;
+      n--; x_in++; x_out++;
+    }
+  }
+}
 
