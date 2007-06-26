@@ -34,20 +34,20 @@
 
 /* ====== Annotation stuff ====== */
 
-typedef struct _Rectangle
+typedef struct _STRectangle
 {
   double        x, y;             /* in time2dbl(time),value */
   int           rasterX, rasterY;    /* raster */
   Dimension     width, height;    /* raster */
 }
-Rectangle;
+STRectangle;
 
 typedef struct _Annotation
 {
   ELLNODE         node;
   char*           text;
   StripCurveInfo  *curve;
-  Rectangle       box;
+  STRectangle       box;
   int             numLines;
 }
 Annotation;
