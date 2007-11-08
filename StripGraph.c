@@ -515,12 +515,12 @@ static void StripGraph_manage_geometry (StripGraphInfo *sgi)
      XjNmaxPos,                 maxpos,
      NULL);
 
+  /* need to catch failure */
+  XSynchronize (sgi->display, True);
+
   /* plot area pixmap and "double buffer" pixmap */
   if (sgi->plotpix) XFreePixmap (sgi->display, sgi->plotpix);
   if (sgi->pixmap) XFreePixmap (sgi->display, sgi->pixmap);
-
-  /* need to catch failure */
-  XSynchronize (sgi->display, True);
 
   Strip_x_error_code = Success;
   sgi->plotpix = XCreatePixmap
