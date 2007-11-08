@@ -66,8 +66,10 @@ int StripTool_main (int argc, char *argv[])
   print("STRIPCURVE_COMMENT_SET=%d\n",STRIPCURVE_COMMENT_SET);
 #endif  
 
-#ifdef WIN32
-  /* Hummingbird Exceed XDK initialization for WIN32 */
+  /* WIN32 initialization */
+#if defined(WIN32) & 0
+  // This has not been needed since at least Exceed 7 and the
+  // prototype is no longer available in Exceed 12
     HCLXmInit();
 #endif
 
