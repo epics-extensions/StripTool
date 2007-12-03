@@ -252,3 +252,6 @@ Mon Oct 15 10:14:27 CDT 2007
 
 Fri Nov  9 14:45:21 CST 2007
    Added annotation information to the StripTool User's Guide html file.
+   Added note in User's Guide about configuring StripTool by uncommenting 
+   USE_SDDS=NO in Makefile.
+
