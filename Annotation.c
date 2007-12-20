@@ -31,6 +31,7 @@
 
 #include "jlAxis.h"
 #include "StripGraph.h"
+#include "StripMisc.h"
 
 /* ====== Annotation stuff ====== */
 
@@ -130,6 +131,9 @@ void  Annotation_draw(Display *display, Window window, GC gc,
   int               fontHeight;
   XGCValues         gcValues;
   int               linewidth = 1;
+  StripDataSource   sds;
+  struct timeval    sg_t0,sg_t1,sds_t0;
+  double            mintime;
 
   if (!ai) return; 
   if (!ai->annotationList) return; 
@@ -139,9 +143,23 @@ void  Annotation_draw(Display *display, Window window, GC gc,
 
   annotation = (Annotation*)ellFirst(ai->annotationList);
   if (!annotation) return;
+
   while (annotation) {
     transform = NULL;
     next = (Annotation*)ellNext((ELLNODE*)annotation);
+
+    /* Delete the annotation if it's location is out of data range and plot range */
+    StripGraph_getattr (ai->graph, STRIPGRAPH_BEGIN_TIME, &sg_t0, 0);
+    StripGraph_getattr (ai->graph, STRIPGRAPH_END_TIME, &sg_t1, 0);
+    StripGraph_getattr (ai->graph, STRIPGRAPH_DATA_SOURCE, &sds, 0);
+    StripDataSource_getattr (sds, SDS_BEGIN_TIME, &sds_t0, 0);
+    /* delete if box.x is out of plot range by at least one plot width */
+    mintime = time2dbl(&sg_t0) - (time2dbl(&sg_t1) - time2dbl(&sg_t0));
+    if (annotation->box.x < mintime && annotation->box.x < time2dbl(&sds_t0)) {
+      Annotation_delete(ai, annotation);
+      annotation = next;
+      continue;
+    }
 
     transform=StripGraph_getTransform(ai->graph, annotation->curve);
     if (!transform) {
@@ -269,6 +287,10 @@ void Annotation_deleteSelected(AnnotationInfo *ai)
   annotation = ai->selectedAnnotation;
   ai->selectedAnnotation = NULL;
   Annotation_delete(ai,annotation);
+
+  /* refresh the graph */
+  /* time to 0 and calling dispatch(). */
+  StripGraph_draw (ai->graph, SGCOMPMASK_DATA, (Region *)0);
 }
 
 
@@ -296,10 +318,6 @@ void Annotation_delete(AnnotationInfo *ai, Annotation *annotation)
     if (annotation->text) XtFree(annotation->text);
     free(annotation);
   }
-
-  /* refresh the graph */
-  /* time to 0 and calling dispatch(). */
-  StripGraph_draw (ai->graph, SGCOMPMASK_DATA, (Region *)0);
 }
 
 

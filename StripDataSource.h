@@ -107,6 +107,7 @@ typedef enum
 typedef enum
 {
   SDS_NUMSAMPLES = 1,   /* (size_t)     number of samples to keep       rw */
+  SDS_BEGIN_TIME = 2,   /* (struct timeval *) */
   SDS_LAST_ATTRIBUTE
 } SDSAttribute;
 

@@ -255,3 +255,7 @@ Fri Nov  9 14:45:21 CST 2007
    Added note in User's Guide about configuring StripTool by uncommenting 
    USE_SDDS=NO in Makefile.
 
+Thu Dec 20 13:00:43 CST 2007 = StripTool-2-5-12-1
+   Added code to delete an annotation if it's location is out of source 
+   data range and out of plot range by at least one plot width.
+   Updated the documentation html file.

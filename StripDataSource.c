@@ -279,6 +279,7 @@ StripDataSource_getattr (StripDataSource the_sds, ...)
   StripDataSourceInfo   *sds = (StripDataSourceInfo *)the_sds;
   int                   attrib;
   int                   ret_val = 1;
+  size_t                index;
 
   
   va_start (ap, the_sds);
@@ -292,6 +293,13 @@ StripDataSource_getattr (StripDataSource the_sds, ...)
 	case SDS_NUMSAMPLES:
 	  *(va_arg (ap, size_t *)) = sds->buf_size;
 	  break;
+
+	case SDS_BEGIN_TIME:
+	  if (sds->count == sds->buf_size) index = (sds->cur_idx + 1) % sds->buf_size; 
+	  else index = 1;
+	  *(va_arg (ap, struct timeval *)) = sds->times[index];
+	  break;
+
       }
   }
 
