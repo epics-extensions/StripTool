@@ -217,7 +217,7 @@ String  fallback_resources[] =
   SA "*StripDialog*appMenubar*helpPulldown*aboutPushB.labelString: About...",
   SA "*StripDialog*appMenubar*helpPulldown*aboutPushB.mnemonic: A",
  
-  SA "*StripGraph.width: 800",    /* 550 Albert */
+  SA "*StripGraph.width: 792",    /* 550 Albert */
   SA "*StripGraph.height: 600",   /* 350 Albert */
   
   SA "*StripGraph*yAxis.direction: XjAXIS_LEFT",
