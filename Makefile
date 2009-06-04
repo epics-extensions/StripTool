@@ -43,6 +43,9 @@ include $(TOP)/configure/CONFIG
 # Options
 # ==========================================================================
 
+USE_CLUES	?= YES
+USE_SDDS	?= YES
+
 STRIP_HISTORY      ?= StripHistoryAR+ArR.c
 ARCHIVER_CALL      ?= NONE
 USE_ARCHIVE_RECORD ?= NO
@@ -69,15 +72,13 @@ PURIFY_FLAGS = -first-only -chain-length=50
 #PURIFY_FLAGS = -first-only -chain-length=26 -always-use-cache-dir -cache-dir=/tmp/purifycache
 #PURIFY_FLAGS = -first-only -chain-length=26 -enable-new-cache-scheme
 #PURIFY_FLAGS = -first-only -chain-length=26 -enable-new-cache-scheme -always-use-cache-dir -cache-dir=/tmp/purifycache
-
 # Put the cache files in the appropriate bin directory
 PURIFY_FLAGS += -always-use-cache-dir -cache-dir=$(shell $(PERL) $(TOP)/config/fullPathName.pl .)
-
-#USE_SDDS=NO
-#CC  = purify $(PURIFY_FLAGS) $($(ANSI)_$(CMPLR))
-#CXX = purify $(PURIFY_FLAGS) $($(CPLUSPLUS)_$(CXXCMPLR))
+# Don't use SDDS when debugging with purify
+USE_SDDS=NO
+# Uncomment following 2 lines to link with purify on solaris build
+#DEBUGCMD = purify $(PURIFY_FLAGS)
 #HOST_OPT=NO
-
 endif
 
 # libXm.so.4 Purify debugging for Sun
@@ -111,8 +112,6 @@ endif
 
 STRIP_DAQ	= StripCA.c
 #STRIP_HISTORY	= StripHistoryNULL.c
-USE_CLUES	?= YES
-USE_SDDS	?= YES
 
 ifeq ($(STRIP_DAQ),StripCDEV.cc)
   USE_CDEV	= YES
