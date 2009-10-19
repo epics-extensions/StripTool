@@ -44,7 +44,7 @@ include $(TOP)/configure/CONFIG
 # ==========================================================================
 
 USE_CLUES	?= YES
-USE_SDDS	?= YES
+USE_SDDS	?= NO
 
 STRIP_HISTORY      ?= StripHistoryAR+ArR.c
 ARCHIVER_CALL      ?= NONE
