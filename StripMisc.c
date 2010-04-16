@@ -631,7 +631,7 @@ void print(const char *fmt, ...)
 char *timeStamp(void)
 {
   static char timeStampStr[16];
-  long now;
+  time_t now;
   struct tm *tblock;
   
   time(&now);
