@@ -236,6 +236,39 @@ static XtResource       resources[] =
     offset (axis.text_color),
     XmRImmediate,
     (XtPointer)XtDefaultForeground
+  }, 
+
+  /* ptr min_val */
+  {
+    XjNpMinVal,
+    XjCPMinVal,
+    XtRPointer,
+    sizeof (double *),
+    offset (axis.pmin_val),
+    XmRImmediate,
+    (double *)0
+  },
+
+  /* ptr max_val */
+  {
+    XjNpMaxVal,
+    XjCPMaxVal,
+    XtRPointer,
+    sizeof (double *),
+    offset (axis.pmax_val),
+    XmRImmediate,
+    (double *)0
+  },
+
+  /* ptr log epsilon */
+  {
+    XjNpLogEpsilon,
+    XjCPLogEpsilon,
+    XtRPointer,
+    sizeof (double *),
+    offset (axis.plog_epsilon),
+    XmRImmediate,
+    (double *)0
   }
 };
 
@@ -709,6 +742,17 @@ SetValues       (Widget cur_w,
   AxisWidget    nw = (AxisWidget) new_w;
   Boolean             do_redisplay = False;
   Boolean             do_recompute = False;
+  ArgList       arg;
+  Cardinal      nargs=*num_args;
+
+  for (arg=args; nargs!=0; nargs--,arg++) {
+      if (strcmp(arg->name,XjNpMinVal)==0 && arg->value) 
+           nw->axis.min_val=*(double *)arg->value;
+      if (strcmp(arg->name,XjNpMaxVal)==0 && arg->value) 
+           nw->axis.max_val=*(double *)arg->value;
+      if (strcmp(arg->name,XjNpLogEpsilon)==0 && arg->value) 
+           nw->axis.log_epsilon=*(double *)arg->value;
+  }
 
   /* new text gc? */
   if ((cur->axis.text_color != nw->axis.text_color) ||
@@ -1132,6 +1176,11 @@ Draw            (AxisWidget cw, Drawable canvas)
   int           i, j;
   int           z;
   int           length = 0;
+
+  line.y1=0;
+  line.y2=0;
+  line.x1=0;
+  line.x2=0;
 
   /* clear the drawable */
   XFillRectangle

@@ -108,6 +108,9 @@ AxisTransform;
 #define XjNminMargin            "minMargin"
 #define XjNusePixmap            "usePixmap"
 #define XjNtextColor            "textColor"
+#define XjNpMinVal              "pMinVal"
+#define XjNpMaxVal              "pMaxVal"
+#define XjNpLogEpsilon          "pLogEpsilon"
 
 
 /* ====== New resource classes ======
@@ -124,6 +127,9 @@ AxisTransform;
 #define XjCMinMargin            "MinMargin"
 #define XjCUsePixmap            "UsePixmap"
 #define XjCTextColor            "TextColor"
+#define XjCPMinVal              "PMinVal"
+#define XjCPMaxVal              "PMaxVal"
+#define XjCPLogEpsilon          "PLogEpsilon"
 
 
 /* ====== New resource types ======

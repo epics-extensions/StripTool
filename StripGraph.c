@@ -480,7 +480,7 @@ static void StripGraph_manage_geometry (StripGraphInfo *sgi)
      XmNheight,         &h,
      XmNx,              &x,
      XmNy,              &y,
-     0);
+     NULL);
 
   sgi->window_rect.width = w;
   sgi->window_rect.height = h;
@@ -490,7 +490,7 @@ static void StripGraph_manage_geometry (StripGraphInfo *sgi)
     (sgi->x_axis,
      XmNx,                      &xx,
      XmNwidth,                  &w,
-     0);
+     NULL);
   minpos = x + sgi->window_rect.x - xx;
   maxpos = minpos + sgi->window_rect.width - 1;
   
@@ -505,7 +505,7 @@ static void StripGraph_manage_geometry (StripGraphInfo *sgi)
     (sgi->y_axis,
      XmNy,                      &yy,
      XmNheight,                 &h,
-     0);
+     NULL);
   minpos = (yy + h) - (y + sgi->window_rect.y + sgi->window_rect.height);
   maxpos = minpos + sgi->window_rect.height - 1;
 
@@ -609,8 +609,8 @@ void StripGraph_draw    (StripGraph     the_graph,
     dbl_max = time2dbl (&sgi->t1);
     XtVaSetValues
       (sgi->x_axis,
-	  XjNminVal,       &dbl_min,
-	  XjNmaxVal,       &dbl_max,
+	  XjNpMinVal,      &dbl_min,
+	  XjNpMaxVal,      &dbl_max,
 	  XmNforeground,   sgi->config->Color.foreground.xcolor.pixel,
 	  XjNtextColor,    sgi->config->Color.foreground.xcolor.pixel,
 	  XmNbackground,   sgi->config->Color.background.xcolor.pixel,
@@ -644,13 +644,13 @@ void StripGraph_draw    (StripGraph     the_graph,
       
       XtVaSetValues
         (sgi->y_axis,
-         XjNminVal,     &sgi->selected_curve->details->min,
-         XjNmaxVal,     &sgi->selected_curve->details->max,
+         XjNpMinVal,    &sgi->selected_curve->details->min,
+         XjNpMaxVal,    &sgi->selected_curve->details->max,
          XmNforeground, sgi->config->Color.foreground.xcolor.pixel,
          XmNbackground, sgi->config->Color.background.xcolor.pixel,
          XjNtextColor,  text_color,
          XjNunitString, sgi->selected_curve->details->egu,
-         XjNlogEpsilon, &log_epsilon,
+         XjNpLogEpsilon, &log_epsilon,
          XjNtransform,  transform,
          NULL);
     }
@@ -660,8 +660,8 @@ void StripGraph_draw    (StripGraph     the_graph,
       dbl_max = 1;
       XtVaSetValues
         (sgi->y_axis,
-         XjNminVal,     &dbl_min,
-         XjNmaxVal,     &dbl_max,
+         XjNpMinVal,     &dbl_min,
+         XjNpMaxVal,     &dbl_max,
          XmNforeground, sgi->config->Color.foreground.xcolor.pixel,
          XmNbackground, sgi->config->Color.background.xcolor.pixel,
          XjNtextColor,  text_color,
@@ -683,7 +683,7 @@ void StripGraph_draw    (StripGraph     the_graph,
    */
   if (update_loc_lbl)
   {
-    XtVaGetValues (sgi->y_axis, XjNtextColor, &text_color, 0);
+    XtVaGetValues (sgi->y_axis, XjNtextColor, &text_color, NULL);
     XtVaSetValues
       (sgi->loc_lbl,
        XmNforeground,   text_color,

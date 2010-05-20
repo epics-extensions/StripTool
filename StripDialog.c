@@ -20,6 +20,13 @@
 
 #include <stdlib.h>
 #include <errno.h>
+/* If not MS Visual C++ or MS Visual C++ is 2010 or later */
+#if !defined(_MSC_VER) || _MSC_VER >= 1600
+#include <inttypes.h>
+#else
+#define PRIiPTR "i"
+#endif
+
 
 #ifdef USE_XMU
 #  include <X11/Xmu/Editres.h>
@@ -388,7 +395,7 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
   Widget                leftmost_col, rightmost_col;
   Widget                sep;
   Widget                menu, tabs;
-  int                   i, j;
+  intptr_t              i, j;
   Dimension             dim1, dim2;
   Dimension             widths[SDCURVE_LAST_ATTRIBUTE];
   Dimension             row_height;
@@ -594,7 +601,7 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
        NULL);
     for (i = 0; i < MAX_WINDOW_MENU_ITEMS; i++)
     {
-      sprintf (char_buf, "window%dPushB", i);
+      sprintf (char_buf, "window%"PRIiPTR"PushB", i);
       sd->window_menu_info.items[i].entry = w = XtVaCreateManagedWidget
         (char_buf,
          xmPushButtonGadgetClass,   sd->window_menu_info.menu,
@@ -1409,7 +1416,7 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
     
     for (i = 0; i < STRIPGRID_NUM_TYPES; i++)
     {
-      sprintf (char_buf, "option%dPushBG", i);
+      sprintf (char_buf, "option%"PRIiPTR"PushBG", i);
       sd->graph_info.xgrid[i] = XtVaCreateManagedWidget
         (char_buf, xmPushButtonGadgetClass, pulldown, NULL);
       XtAddCallback
@@ -1443,7 +1450,7 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
     XtAddCallback (pulldown, XmNentryCallback, gropt_ygrid_cb, sd);
     for (i = 0; i < STRIPGRID_NUM_TYPES; i++)
     {
-      sprintf (char_buf, "option%dPushBG", i);
+      sprintf (char_buf, "option%"PRIiPTR"PushBG", i);
       sd->graph_info.ygrid[i] = XtVaCreateManagedWidget
         (char_buf, xmPushButtonGadgetClass, pulldown, NULL);
       XtAddCallback
@@ -2648,7 +2655,7 @@ static void     color_btn_cb    (Widget w, XtPointer data, XtPointer BOGUS(1))
   StripDialogInfo       *sd;
   StripCurveInfo        *sc;
   cColor                *pcolor;
-  int                   which = (int)data;
+  intptr_t              which = (intptr_t)data;
   int                   i;
 
   XtVaGetValues (w, XmNuserData, &sd, NULL);
@@ -2673,7 +2680,7 @@ static void     modify_btn_cb   (Widget w, XtPointer data, XtPointer BOGUS(1))
   StripDialogInfo       *sd;
   StripCurveInfo        *sc;
   StripConfigMask       mask;
-  int                   which = (int)data;
+  intptr_t              which = (intptr_t)data;
   int                   ival;
   double                a, b, tmp;
 
@@ -2739,7 +2746,7 @@ static void     plotstat_tgl_cb (Widget w, XtPointer data, XtPointer call)
   XmToggleButtonCallbackStruct  *cbs = (XmToggleButtonCallbackStruct *)call;
   StripDialogInfo               *sd;
   StripCurve                    *sc;
-  int                           idx = (int)data;
+  intptr_t                     idx = (intptr_t)data;
   StripConfigMask               mask;
 
   XtVaGetValues (w, XmNuserData, &sd, NULL);
@@ -2758,7 +2765,7 @@ static void     scale_tgl_cb    (Widget w, XtPointer data, XtPointer call)
   XmToggleButtonCallbackStruct  *cbs = (XmToggleButtonCallbackStruct *)call;
   StripDialogInfo               *sd;
   StripCurve                    *sc;
-  int                           idx = (int)data;
+  intptr_t                      idx = (intptr_t)data;
   StripConfigMask               mask;
 
   XtVaGetValues (w, XmNuserData, &sd, NULL);
@@ -2785,7 +2792,7 @@ static void     remove_btn_cb   (Widget w, XtPointer data, XtPointer BOGUS(1))
 {
   StripDialogInfo       *sd;
   StripCurve            sc;
-  int                   idx = (int)data;
+  intptr_t              idx = (intptr_t)data;
   
   XtVaGetValues (w, XmNuserData, &sd, NULL);
   sc = sd->curve_info[idx].curve;
@@ -2949,7 +2956,7 @@ static void      gropt_xgrid_cb  (Widget w, XtPointer data, XtPointer call)
   StripConfigMask              mask;
 
   if (StripConfig_setattr
-      (sd->config, STRIPCONFIG_OPTION_GRID_XON, (int)cbs->data, 0))
+      (sd->config, STRIPCONFIG_OPTION_GRID_XON, (intptr_t)cbs->data, 0))
   {
     StripConfigMask_clear (&mask);
     StripConfigMask_set (&mask, SCFGMASK_OPTION_GRID_XON);
@@ -2966,7 +2973,7 @@ static void      gropt_ygrid_cb  (Widget w, XtPointer data, XtPointer call)
   StripConfigMask              mask;
 
   if (StripConfig_setattr
-      (sd->config, STRIPCONFIG_OPTION_GRID_YON, (int)cbs->data, 0))
+      (sd->config, STRIPCONFIG_OPTION_GRID_YON, (intptr_t)cbs->data, 0))
   {
     StripConfigMask_clear (&mask);
     StripConfigMask_set (&mask, SCFGMASK_OPTION_GRID_YON);
@@ -3020,7 +3027,7 @@ static void     filemenu_cb     (Widget w, XtPointer data, XtPointer BOGUS(1))
 {
   StripDialogInfo       *sd;
   int                   i;
-  int                   which = (int)data;
+  intptr_t              which = (intptr_t)data;
 
   XtVaGetValues (w, XmNuserData, &sd, NULL);
 
@@ -3049,7 +3056,7 @@ static void     filemenu_cb     (Widget w, XtPointer data, XtPointer BOGUS(1))
 static void     windowmenu_cb   (Widget w, XtPointer data, XtPointer BOGUS(1))
 {
   StripDialogInfo       *sd;
-  int                   i = (int)data;
+  intptr_t              i = (intptr_t)data;
 
   XtVaGetValues (w, XmNuserData, &sd, NULL);
   sd->window_menu_info.items[i].info.cb_func
@@ -3061,7 +3068,7 @@ static void     windowmenu_cb   (Widget w, XtPointer data, XtPointer BOGUS(1))
 static void helpmenu_cb (Widget w, XtPointer data, XtPointer BOGUS(1))
 {		
   StripDialogInfo       *sd;
-  int                   i = (int)data;
+  intptr_t              i = (intptr_t)data;
 
   XtVaGetValues (w, XmNuserData, &sd, NULL);
   switch(i)
@@ -3144,7 +3151,7 @@ static void     ctrl_btn_cb     (Widget w, XtPointer data, XtPointer BOGUS(1))
   StripDialogInfo       *sd;
   StripDialogCallback   which = (StripDialogCallback)data;
 
-  XtVaGetValues (w, XmNuserData, &sd, 0);
+  XtVaGetValues (w, XmNuserData, &sd, NULL);
   if (sd->callback[which].func)
     sd->callback[which].func (sd->callback[which].data, 0);
 }
@@ -3178,13 +3185,13 @@ static void     fsdlg_cb        (Widget w, XtPointer data, XtPointer call)
 {
   XmFileSelectionBoxCallbackStruct      *cbs;
   StripDialogInfo                       *sd;
-  int                                   mode = (int)data;
+  intptr_t                              mode = (intptr_t)data;
   char                                  *fname;
   int                                   i;
 
   XtUnmanageChild (w);
   cbs = (XmFileSelectionBoxCallbackStruct *)call;
-  XtVaGetValues (w, XmNuserData, &sd, 0);
+  XtVaGetValues (w, XmNuserData, &sd, NULL);
 
   if (mode == FSDLG_OK)
   {

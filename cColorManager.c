@@ -337,6 +337,17 @@ cColorManager	cColorManager_init	(Display	*dpy,
   int			r_shift, g_shift, b_shift;
   unsigned short	r_max, g_max, b_max;
 
+  /* initializations of xvi added to eliminate compile warnings */
+  xvi.bits_per_rgb=0;
+  xvi.blue_mask=0;
+  xvi.green_mask=0;
+  xvi.red_mask=0;
+  xvi.visual=0;
+  xvi.depth=0;
+  xvi.screen=0;
+  xvi.colormap_size=0;
+  xvi.class=0;
+
   /* get info about default visual */
   xvi.visualid = XVisualIDFromVisual (DefaultVisual (dpy, DefaultScreen(dpy)));
   if (!getvisual (dpy, &xvi, VisualIDMask))

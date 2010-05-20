@@ -58,6 +58,9 @@ typedef struct _AxisPart
   Dimension                   min_margin;
   double                      log_epsilon;
   Boolean                     use_pixmap;
+  double               *pmin_val;
+  double               *pmax_val;
+  double               *plog_epsilon;
   
   
   /* private state */

@@ -723,7 +723,7 @@ StripDataSource_init_range      (StripDataSource        the_sds,
   CurveData             *cd;
   struct timeval        t1, t_tmp;
   struct timeval        h0, h1, *h_end;
-  long                  r0, r1;
+  long                  r0, r1 = 0;
   int                   have_data = 0;
   int                   i;
 
@@ -1215,6 +1215,9 @@ segmentify      (StripDataSourceInfo    *sds,
   int                   offset;
   int                   n_processed;
   Boolean               zero_points;
+
+  p1.x=0;
+  p1.y=0;
 
   /* NB: For this algorithm, we'll adopt the convention that
    * the first point in a segment will always hold the min
