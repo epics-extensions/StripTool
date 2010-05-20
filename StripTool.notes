@@ -259,3 +259,6 @@ Thu Dec 20 13:00:43 CST 2007 = StripTool-2-5-12-1
    Added code to delete an annotation if it's location is out of source 
    data range and out of plot range by at least one plot width.
    Updated the documentation html file.
+
+Thu May 20 10:42:35 CDT 2010 - StripTool-2-5-13-0
+   Portability code changes for 64 bit builds.
