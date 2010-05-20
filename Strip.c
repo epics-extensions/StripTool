@@ -73,7 +73,6 @@
 #endif /* USE_AAPI */
 
 #ifdef WIN32
-JJJJJJJJJJJJJJJ
 /* There is no pwd.h on WIN32 */
 #else
 #  include <pwd.h>
