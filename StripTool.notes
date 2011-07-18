@@ -262,3 +262,7 @@ Thu Dec 20 13:00:43 CST 2007 = StripTool-2-5-12-1
 
 Thu May 20 10:42:35 CDT 2010 - StripTool-2-5-13-0
    Portability code changes for 64 bit builds.
+
+Mon Jul 18 13:27:16 CDT 2011
+   Fixed core dump after dumpdata problem.
+   Added code for dumpdata to a comma separated values (csv) file.
