@@ -1766,6 +1766,139 @@ StripDataSource_dump    (StripDataSource        the_sds,
 }
 
 
+/*
+ * StripDataSource_dump_csv
+ */
+int
+StripDataSource_dump_csv    (StripDataSource        the_sds,
+  FILE                   *outfile,char * cgi)
+{
+  StripDataSourceInfo   *sds = (StripDataSourceInfo *)the_sds;
+  char                  buf[SDS_DUMP_FIELDWIDTH+1];
+  int                   i, j;
+  struct timeval Start,End;
+  struct timeval StartCopy,EndCopy;
+  CurveData *cd;
+
+  struct timeval *timeP=0;
+  StripGraph sg = (StripGraph) cgi;
+
+  /* if range is not initialized, return failure 
+     if (sds->idx_t0 == sds->idx_t1) return 0; */
+
+  /* if no curves, return failure */
+  for (i = 0; i < STRIP_MAX_CURVES; i++) if (sds->buffers[i].curve) break;
+  if (i >= STRIP_MAX_CURVES) { if(DEBUG1)perror("No one curvers");return 0; }
+
+  StripGraph_getattr (sg, STRIPGRAPH_BEGIN_TIME, &Start, 0);
+  StripGraph_getattr (sg, STRIPGRAPH_END_TIME,   &End,   0);
+
+  memcpy(&StartCopy,&Start,sizeof(struct timeval));
+  memcpy(  &EndCopy,&End,  sizeof(struct timeval));
+
+  if(DEBUG1)printf("Start=%s",ctime(&(Start.tv_sec)));
+  if(DEBUG1)printf("End=%s",ctime(&(End.tv_sec)));
+
+  if(!cursor) cursor = XCreateFontCursor(XtDisplay(history_topShell),XC_watch);
+  XDefineCursor(XtDisplay(history_topShell),
+    XtWindow(history_topShell), cursor);
+  XFlush(XtDisplay(history_topShell));
+
+  for (i = 0; i < STRIP_MAX_CURVES; i++) {
+    if (!sds->buffers[i].curve) continue; 
+    cd = &sds->buffers[i];
+    StripHistory_fetch
+      (sds->history, cd->curve->details->name, &StartCopy, &EndCopy,
+	  &cd->history, 0, 0);
+  }
+
+  /* this is very straightforward:
+   * (a) for every curve, print out its name across the top
+   * (b) for every time on the range
+   *     (1) print out the time
+   *     (2) for every curve, print out its value
+   */
+
+  /* (a) */
+  /* (a) */
+  fprintf (outfile, "%s", "Time");
+  for (i = 0; i < STRIP_MAX_CURVES; i++)
+    if (sds->buffers[i].curve) fprintf(outfile, ",%s [%s]", 
+	sds->buffers[i].curve->details->name,sds->buffers[i].curve->details->egu);
+  fprintf (outfile, "\n");
+  
+  /* (b) */
+  timeP=&StartCopy;
+
+  while(findNextTime(timeP,timeP,sds) ==0) 
+  {
+    if(compare_times(timeP,&Start)<0) continue;
+    if(compare_times(timeP,&End)>0) break;
+
+    /* (b-1) */
+    memset(buf,0,SDS_DUMP_FIELDWIDTH+1);
+    strftime(buf, SDS_DUMP_FIELDWIDTH, "%m/%d/%Y,%H:%M:%S",
+	localtime (&(timeP->tv_sec)));
+    fprintf (outfile, "%s.%06d",buf,(int)timeP->tv_usec);
+      
+    /* (b-2) */
+    for (j = 0; j < STRIP_MAX_CURVES; j++)
+	if (sds->buffers[j].curve)
+	{
+	  cd = &sds->buffers[j];
+	  memset(buf,0,SDS_DUMP_FIELDWIDTH+1);
+	  printData(timeP,cd,buf);
+	  fprintf (outfile, ",%s",buf);
+	}
+      
+    /* finally, the end-line */
+    fprintf (outfile, "\n");
+  } /* end of history while() handeling */
+
+  
+  if(DEBUG1)printf("Start=%s",ctime(&(Start.tv_sec)));
+  if(DEBUG1)printf("End=%s",ctime(&(End.tv_sec)));
+
+  if (sds->idx_t0 != sds->idx_t1) 
+  {
+    for (i = sds->idx_t0; i != sds->idx_t1; i = (i+1) % sds->buf_size)
+    {
+	if(compare_times(&(sds->times[i]),&End)>0) 
+	{if(DEBUG1)printf("T[%d]>End   break\n",i); break;}
+	if(compare_times(&(sds->times[i]),&Start)<0) 
+	{if(DEBUG1)
+	  printf("Start > T[%d]=%s",i,ctime(&(sds->times[i].tv_sec))); 
+	continue;}
+	if(DEBUG1)printf("Good i=%d\n",i);
+	
+	/* (b-1) */
+	memset(buf,0,SDS_DUMP_FIELDWIDTH+1);
+	strftime(buf, SDS_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
+	  localtime (&(sds->times[i].tv_sec)));
+	fprintf (outfile, "%s.%06d",buf,(int)sds->times[i].tv_usec); 
+	/* (b-2) */
+	for (j = 0; j < STRIP_MAX_CURVES; j++)
+	  if (sds->buffers[j].curve)
+	  {
+	    if (sds->buffers[j].stat[i] & DATASTAT_PLOTABLE)
+		fprintf (outfile, ",%g",sds->buffers[j].val[i]);
+	    else fprintf (outfile, ",%s",SDS_DUMP_BADVALUESTR);
+	  }
+	
+	/* finally, the end-line */
+	fprintf (outfile, "\n");
+    }
+  } else {if(DEBUG1) perror("DUMP:NO CURRENT DATA");}
+
+
+  if(DEBUG1)printf("Last i=%d\n",i);
+
+  fflush (outfile);
+  XUndefineCursor(XtDisplay(history_topShell),
+    XtWindow(history_topShell));
+  return 1;
+}
+
 
 /* ====== Static Functions ====== */
 static long

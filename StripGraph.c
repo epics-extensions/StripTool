@@ -1151,6 +1151,16 @@ int     StripGraph_dumpdata     (StripGraph the_sgi, FILE *f)
 
 
 /*
+ * StripGraph_dumpdata_csv
+ */
+int     StripGraph_dumpdata_csv     (StripGraph the_sgi, FILE *f)
+{
+  StripGraphInfo        *sgi = (StripGraphInfo *)the_sgi;
+  
+  return StripDataSource_dump_csv (sgi->data, f,the_sgi);
+}
+
+/*
  * StripGraph_print
  */
 void StripGraph_print (StripGraph the_sgi)

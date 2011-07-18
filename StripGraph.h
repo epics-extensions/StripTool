@@ -146,6 +146,15 @@ void    StripGraph_draw         (StripGraph,
 int     StripGraph_dumpdata     (StripGraph, FILE *);
 
 
+/*
+ * StripGraph_dumpdata_csv
+ *
+ *      Causes all data for the curves on the current time range, to be
+ *      dumped out to the specified comma separated values file.
+ */
+int     StripGraph_dumpdata_csv     (StripGraph, FILE *);
+
+
 #ifdef USE_SDDS
 /*
  * StripGraph_dumpdata_sdds
