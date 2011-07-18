@@ -217,6 +217,7 @@ stripFdInfo;
 typedef enum
 {
   DFSDLG_TGL_ASCII = 0,
+  DFSDLG_TGL_CSV,
 #ifdef USE_SDDS
   DFSDLG_TGL_SDDS,
 #endif
@@ -227,6 +228,7 @@ DmpFsDlgTglFileTypes;
 char    *DfsDlgTglStr[DFSDLG_TGL_COUNT] =
 {
   "ASCII",
+  "Comma Separated Values",
 #ifdef USE_SDDS
   "SDDS binary"
 #endif
@@ -1798,9 +1800,11 @@ int     Strip_dumpdata  (Strip the_strip, char *fname)
 	case DFSDLG_TGL_ASCII:
 	  ret_val = StripGraph_dumpdata (si->graph, f);
 	  break;
+	case DFSDLG_TGL_CSV:
+	  ret_val = StripGraph_dumpdata_csv (si->graph, f);
+	  break;
 #ifdef USE_SDDS
 	case DFSDLG_TGL_SDDS:
-	  fclose (f);
 	  ret_val = StripGraph_dumpdata_sdds (si->graph, fname);
 	  break;
 #endif
