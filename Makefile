@@ -73,7 +73,8 @@ PURIFY_FLAGS = -first-only -chain-length=50
 #PURIFY_FLAGS = -first-only -chain-length=26 -enable-new-cache-scheme
 #PURIFY_FLAGS = -first-only -chain-length=26 -enable-new-cache-scheme -always-use-cache-dir -cache-dir=/tmp/purifycache
 # Put the cache files in the appropriate bin directory
-PURIFY_FLAGS += -always-use-cache-dir -cache-dir=$(shell $(PERL) $(TOP)/config/fullPathName.pl .)
+PURIFY_FLAGS += -always-use-cache-dir -cache-dir=$(shell $(PERL) $(EPICS_BASE_BIN)/fullPathName.pl .)
+
 # Don't use SDDS when debugging with purify
 USE_SDDS=NO
 # Uncomment following 2 lines to link with purify on solaris build
