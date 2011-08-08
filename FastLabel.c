@@ -288,7 +288,7 @@ static void ComputeSize(Widget widget, int *width, int *height)
   if ( w->fastlabel.my_string != NULL )
   {
     text_width = XTextWidth(font, w->fastlabel.my_string,
-                            strlen(w->fastlabel.my_string));
+                            (int)strlen(w->fastlabel.my_string));
   }
   else
     text_width = text_height;
@@ -484,10 +484,10 @@ static Boolean SetValues(Widget wcur, Widget wreq,
     int	len = -1, newlen = -1;
 
     if ( new->fastlabel.my_string != NULL )
-      len = strlen(new->fastlabel.my_string);
+      len = (int)strlen(new->fastlabel.my_string);
 
     if ( ptr != NULL )
-      newlen = strlen(ptr);
+      newlen = (int)strlen(ptr);
 		
 
     if ( newlen > len  )

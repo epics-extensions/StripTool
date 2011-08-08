@@ -851,7 +851,7 @@ void Annotation_transformRasterValues(AnnotationInfo *ai, int width, int height)
     /* transform raster location to a curve value */
     inY = height - 1 - annotation->box.rasterY;
     outY = 0.0;
-    jlaUntransformRasterizedValues (transform, &inY, &outY, 1);
+    jlaUntransformRasterizedValues (transform, &inY, &outY, (int)1);
     annotation->box.y = outY;
   }
 }
