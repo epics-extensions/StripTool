@@ -67,16 +67,16 @@ XPM_LIB		?= $(X11_LIB)
 # Purify
 ifeq ($(OS_CLASS),solaris)
 #PURIFY=YES
-PURIFY_FLAGS = -first-only -chain-length=50
+#PURIFY_FLAGS = -first-only -chain-length=50
 #PURIFY_FLAGS = -first-only -chain-length=26 -max_threads=256
 #PURIFY_FLAGS = -first-only -chain-length=26 -always-use-cache-dir -cache-dir=/tmp/purifycache
 #PURIFY_FLAGS = -first-only -chain-length=26 -enable-new-cache-scheme
 #PURIFY_FLAGS = -first-only -chain-length=26 -enable-new-cache-scheme -always-use-cache-dir -cache-dir=/tmp/purifycache
 # Put the cache files in the appropriate bin directory
-PURIFY_FLAGS += -always-use-cache-dir -cache-dir=$(shell $(PERL) $(EPICS_BASE_BIN)/fullPathName.pl .)
+#PURIFY_FLAGS += -always-use-cache-dir -cache-dir=$(shell $(PERL) $(EPICS_BASE_BIN)/fullPathName.pl .)
 
 # Don't use SDDS when debugging with purify
-USE_SDDS=NO
+#USE_SDDS=NO
 # Uncomment following 2 lines to link with purify on solaris build
 #DEBUGCMD = purify $(PURIFY_FLAGS)
 #HOST_OPT=NO
@@ -355,15 +355,3 @@ xxxx:
 # Local Variables:
 # mode: makefile
 # End:
-
-
-xxx:
-	@echo "CFLAGS = $($(BUILD_CLASS)_CFLAGS) $(POSIX_CFLAGS) $(OPT_CFLAGS) $(DEBUG_CFLAGS)"
-	@echo "$(PIPE_CFLAGS) $(WARN_CFLAGS) $(TARGET_CFLAGS) $(USR_CFLAGS) $(ARCH_DEP_CFLAGS)"
-	@echo "$(CODE_CFLAGS) $(STATIC_CFLAGS) $(OP_SYS_CFLAGS) $(LIBRARY_SRC_CFLAGS) $(HDEPENDS_CFLAGS)"
-	@echo "CODE_CFLAGS=$(CODE_CFLAGS)"
-	@echo "STATIC_CFLAGS=$(STATIC_CFLAGS)"
-	@echo "OP_SYS_CFLAGS=$(OP_SYS_CFLAGS)"
-	@echo "LIBRARY_SRC_CFLAGS=$(LIBRARY_SRC_CFLAGS)"
-	@echo "HDEPENDS_CFLAGS=$(HDEPENDS_CFLAGS)"
-
