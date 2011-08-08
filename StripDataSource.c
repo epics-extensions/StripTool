@@ -1663,8 +1663,8 @@ StripDataSource_dump    (StripDataSource        the_sds,
   memcpy(&StartCopy,&Start,sizeof(struct timeval));
   memcpy(  &EndCopy,&End,  sizeof(struct timeval));
 
-  if(DEBUG1)printf("Start=%s",ctime(&(Start.tv_sec)));
-  if(DEBUG1)printf("End=%s",ctime(&(End.tv_sec)));
+  if(DEBUG1)printf("Start=%s",ctime((const time_t *)&(Start.tv_sec)));
+  if(DEBUG1)printf("End=%s",ctime((const time_t *)&(End.tv_sec)));
 
   if(!cursor) cursor = XCreateFontCursor(XtDisplay(history_topShell),XC_watch);
   XDefineCursor(XtDisplay(history_topShell),
@@ -1704,7 +1704,7 @@ StripDataSource_dump    (StripDataSource        the_sds,
     /* (b-1) */
     memset(buf,0,SDS_DUMP_FIELDWIDTH+1);
     strftime(buf, SDS_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
-	localtime (&(timeP->tv_sec)));
+	localtime ((const time_t *)&(timeP->tv_sec)));
     fprintf (outfile, "%s.%06d\t",buf,(int)timeP->tv_usec);
       
     /* (b-2) */
@@ -1722,8 +1722,8 @@ StripDataSource_dump    (StripDataSource        the_sds,
   } /* end of history while() handeling */
 
   
-  if(DEBUG1)printf("Start=%s",ctime(&(Start.tv_sec)));
-  if(DEBUG1)printf("End=%s",ctime(&(End.tv_sec)));
+  if(DEBUG1)printf("Start=%s",ctime((const time_t *)&(Start.tv_sec)));
+  if(DEBUG1)printf("End=%s",ctime((const time_t *)&(End.tv_sec)));
 
   if (sds->idx_t0 != sds->idx_t1) 
   {
@@ -1733,14 +1733,14 @@ StripDataSource_dump    (StripDataSource        the_sds,
 	{if(DEBUG1)printf("T[%d]>End   break\n",i); break;}
 	if(compare_times(&(sds->times[i]),&Start)<0) 
 	{if(DEBUG1)
-	  printf("Start > T[%d]=%s",i,ctime(&(sds->times[i].tv_sec))); 
+	  printf("Start > T[%d]=%s",i,ctime((const time_t *)&(sds->times[i].tv_sec))); 
 	continue;}
 	if(DEBUG1)printf("Good i=%d\n",i);
 	
 	/* (b-1) */
 	memset(buf,0,SDS_DUMP_FIELDWIDTH+1);
 	strftime(buf, SDS_DUMP_FIELDWIDTH, "%m/%d/%Y %H:%M:%S",
-	  localtime (&(sds->times[i].tv_sec)));
+	  localtime ((const time_t *)&(sds->times[i].tv_sec)));
 	fprintf (outfile, "%s.%06d\t",buf,(int)sds->times[i].tv_usec); 
 	/* (b-2) */
 	for (j = 0; j < STRIP_MAX_CURVES; j++)
