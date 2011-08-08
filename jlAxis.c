@@ -1639,7 +1639,7 @@ ComputeTimeTics         (AxisWidget cw)
     if(ptm) cal = *ptm;
 #endif    
 
-    interval = (time_t)m_minor;
+    interval = (int)m_minor;
     switch (best)
     {
     case Seconds:
@@ -1786,7 +1786,7 @@ ComputeTimeTics         (AxisWidget cw)
   else
   {
     find_good_linear_tics (cw, False, a, b, &q, &m_minor, &m_major);
-    interval = (time_t)(m_major * q);
+    interval = (int)(m_major * q);
     if ((cw->axis.value_type != XjAXIS_RELTIME_NUMBERS) && (interval != 1))
       multiplier = &interval;
     
