@@ -270,3 +270,6 @@ Mon Jul 18 13:27:16 CDT 2011 - StripTool-2-5-14-0
 Mon Aug  8 12:44:09 CDT 2011 - StripTool-2-5-14-1
    More portability code changes.
 
+Thu Jun 21 14:46:11 CDT 2012 - StripTool-2-5-15-0
+   Modified to work with Xming X server.
+
