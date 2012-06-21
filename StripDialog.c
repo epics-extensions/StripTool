@@ -20,8 +20,7 @@
 
 #include <stdlib.h>
 #include <errno.h>
-/* If not MS Visual C++ or MS Visual C++ is 2010 or later */
-#if !defined(_MSC_VER) || _MSC_VER >= 1600
+#if !defined(_MSC_VER)
 #include <inttypes.h>
 #else
 #define PRIiPTR "i"

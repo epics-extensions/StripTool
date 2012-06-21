@@ -3656,7 +3656,11 @@ static PrinterDialog    *PrinterDialog_build    (Widget parent)
   pd = (PrinterDialog *)malloc (sizeof (PrinterDialog));
   if (!pd) return 0;
   
+#ifndef WIN32
   pd->msgbox = XmCreateTemplateDialog (parent, "PrinterDialog", 0, 0);
+#else
+  pd->msgbox = XmCreateMessageDialog (parent, "PrinterDialog", 0, 0);
+#endif
   XtAddCallback (pd->msgbox, XmNokCallback, PrinterDialog_cb, 0);
 
   base = XtVaCreateManagedWidget
@@ -4267,7 +4271,11 @@ static void radioHelp(widget, unused , call_data)
 {
   MessageBox_popup(history_topShell,
     (Widget *) XmCreateMessageDialog(history_topShell,"Help",NULL,0),
+#ifndef WIN32
     XmDIALOG_INFORMATION, 
+#else
+    XmDIALOG_MESSAGE, 
+#endif
     "ArchiveMethods", 
     "OK",
     "You can \n"

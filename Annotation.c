@@ -369,7 +369,11 @@ static AnnotateDialog *AnnotateDialog_build (Widget parent, void *ptr)
   ad = (AnnotateDialog *)malloc (sizeof (AnnotateDialog));
   if (!ad) return 0;
   
+#ifndef WIN32
   ad->popupWidget = XmCreateTemplateDialog (parent, "AnnotateDialog", 0, 0);
+#else
+  ad->popupWidget = XmCreateMessageDialog (parent, "AnnotateDialog", 0, 0);
+#endif
   XtAddCallback (ad->popupWidget, XmNokCallback, AnnotateDialog_cb, 
      (XtPointer)ptr);
   XtAddCallback (ad->popupWidget, XmNcancelCallback, AnnotateDialog_cb, 0);
