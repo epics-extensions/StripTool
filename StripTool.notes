@@ -273,3 +273,5 @@ Mon Aug  8 12:44:09 CDT 2011 - StripTool-2-5-14-1
 Thu Jun 21 14:46:11 CDT 2012 - StripTool-2-5-15-0
    Modified to work with Xming X server.
 
+Fri Jul 11 15:40:55 CDT 2014  - StripTool-2-5-16-0
+   Modified to build and run with SDDS 3.2.1 and later.
