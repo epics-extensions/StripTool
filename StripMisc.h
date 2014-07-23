@@ -29,8 +29,12 @@
 #ifdef WIN32
 /* Hummingbird extra functions including lprintf */
 # include <X11/XlibXtra.h>
+#if defined(_WIN32) && !defined(_MINGW) && (_MSC_VER < 1800)
 /* In MSVC timeval is in winsock.h, winsock2.h, ws2spi.h, nowhere else */
 # include <X11/Xwinsock.h>
+#else
+# include <X11/Xos.h>
+#endif
 /* _MAX_PATH in stdlib.h for WIN32 */
 # define STRIP_PATH_MAX _MAX_PATH
 /* Path delimiter is different */
