@@ -18,7 +18,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #ifdef WIN32
-#if defined(_WIN32) && !defined(_MINGW) && (_MSC_VER < 1800
+#if defined(_WIN32) && !defined(_MINGW) && (_MSC_VER < 1800 )
 /* In MSVC timeval is in winsock.h, winsock2.h, ws2spi.h, nowhere else */
 #include <X11/Xwinsock.h>
 #else
