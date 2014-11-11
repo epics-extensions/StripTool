@@ -578,7 +578,7 @@ static void Question_cb(Widget w, XtPointer clientdata, XtPointer calldata)
   }
 }
 
-
+#ifndef _GNU_SOURCE
 char    *basename       (char *path)
 {
   char  *p = 0;
@@ -596,6 +596,7 @@ char    *basename       (char *path)
 
   return p;
 }
+#endif
 
 /* Albert */
 extern Widget history_topShell;

@@ -235,11 +235,13 @@ char    *dbl2str        (double,        /* value */
 
 char    *int2str        (int x, char buf[], int n);
 
+#ifndef _GNU_SOURCE
 /* basename
  *
  *      Returns the filename portion of a fully qualified path.
  */
 char    *basename       (char *);
+#endif
 void History_MessageBox_popup(char *title,char *btn_txt,char *str);
 
 /* General purpose output routine

@@ -276,3 +276,6 @@ Thu Jun 21 14:46:11 CDT 2012 - StripTool-2-5-15-0
 Fri Jul 11 15:40:55 CDT 2014  - StripTool-2-5-16-0
    Modified to build and run with SDDS 3.2.1 and later.
    Modified to build and run with MSVS 2013 and later.
+
+Tue Nov 11 16:16:39 CST 2014
+   Define basename if GNU_SOURCE is not defined.
