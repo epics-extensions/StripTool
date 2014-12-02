@@ -44,7 +44,7 @@ include $(TOP)/configure/CONFIG
 # ==========================================================================
 
 USE_CLUES	?= YES
-USE_SDDS	?= NO
+USE_SDDS	?= YES
 
 STRIP_HISTORY      ?= StripHistoryAR+ArR.c
 ARCHIVER_CALL      ?= NONE
@@ -246,6 +246,7 @@ ifeq ($(USE_CDEV), YES)
 endif
 
 ifeq ($(USE_SDDS), YES)
+  USR_INCLUDES		+= -I$(EPICS_EXTENSIONS)/src/SDDS/lzma
   USR_CPPFLAGS		+= -DUSE_SDDS
 endif
 
