@@ -1841,7 +1841,7 @@ int     Strip_writeconfig       (Strip                  the_strip,
   if ((ret_val = StripConfig_write (si->config, f, m)))
   {
     StripConfig_setattr (si->config, STRIPCONFIG_FILENAME, fname, 0);
-    StripConfig_setattr (si->config, STRIPCONFIG_TITLE, basename (fname), 0);
+    StripConfig_setattr (si->config, STRIPCONFIG_TITLE, basename_st (fname), 0);
     StripConfigMask_set (&m, SCFGMASK_FILENAME);
     StripConfigMask_set (&m, SCFGMASK_TITLE);
     StripConfig_update (si->config, m);
@@ -1863,7 +1863,7 @@ int     Strip_readconfig        (Strip                  the_strip,
   if ((ret_val = StripConfig_load (si->config, f, m)))
   {
     StripConfig_setattr (si->config, STRIPCONFIG_FILENAME, fname, 0);
-    StripConfig_setattr (si->config, STRIPCONFIG_TITLE, basename (fname), 0);
+    StripConfig_setattr (si->config, STRIPCONFIG_TITLE, basename_st (fname), 0);
     StripConfigMask_set (&m, SCFGMASK_FILENAME);
     StripConfigMask_set (&m, SCFGMASK_TITLE);
     StripConfig_update (si->config, m);

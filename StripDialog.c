@@ -3396,7 +3396,7 @@ static void     save_config     (StripDialogInfo        *sd,
     if (StripConfig_write (sd->config, f, mask))
     {
       StripConfig_setattr (sd->config, STRIPCONFIG_FILENAME, fname, 0);
-      StripConfig_setattr (sd->config, STRIPCONFIG_TITLE, basename (fname), 0);
+      StripConfig_setattr (sd->config, STRIPCONFIG_TITLE, basename_st (fname), 0);
       StripConfigMask_clear (&mask);
       StripConfigMask_set (&mask, SCFGMASK_FILENAME);
       StripConfigMask_set (&mask, SCFGMASK_TITLE);
@@ -3428,7 +3428,7 @@ static void     load_config     (StripDialogInfo        *sd,
     if (StripConfig_load (sd->config, f, mask))
     {
       StripConfig_setattr (sd->config, STRIPCONFIG_FILENAME, fname, 0);
-      StripConfig_setattr (sd->config, STRIPCONFIG_TITLE, basename (fname), 0);
+      StripConfig_setattr (sd->config, STRIPCONFIG_TITLE, basename_st (fname), 0);
       StripConfigMask_set (&mask, SCFGMASK_FILENAME);
       StripConfigMask_set (&mask, SCFGMASK_TITLE);
       StripConfig_update (sd->config, mask);
