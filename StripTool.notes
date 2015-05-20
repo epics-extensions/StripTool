@@ -277,6 +277,6 @@ Fri Jul 11 15:40:55 CDT 2014  - StripTool-2-5-16-0
    Modified to build and run with SDDS 3.2.1 and later.
    Modified to build and run with MSVS 2013 and later.
 
-Tue Nov 11 16:16:39 CST 2014 - StripTool-2-5-17-0
+Mon May 11 16:16:39 CST 2014 - StripTool-2-5-17-0
    Added name change for basename and precision value changes suggested 
    by Dr. Han Lee Jeong.
