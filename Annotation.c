@@ -354,7 +354,10 @@ int Annotation_select(XButtonEvent *event, AnnotationInfo *ai)
   touchedAnnotation = findTouchedAnnotation(event,ai);
   if (touchedAnnotation == NULL || ((event->button == Button1) &&
       touchedAnnotation == ai->selectedAnnotation) ) {
-    ai->selectedAnnotation  = NULL;
+    /* This is commented out based on a bug report that StripTool
+       was segfaulting on Ubuntu Xenial when left mouse clicked unless
+       this was commented out. */
+    /*ai->selectedAnnotation  = NULL;*/
     return 0;
   } else {
     ai->selectedAnnotation  = touchedAnnotation;
