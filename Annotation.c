@@ -842,6 +842,8 @@ void Annotation_transformRasterValues(AnnotationInfo *ai, int width, int height)
   Annotation           *annotation;
 
   annotation = ai->selectedAnnotation;
+  if (!annotation)
+  	return;
   annotation->box.x = 0;
   annotation->box.y = 0;
 
