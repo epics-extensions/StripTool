@@ -1135,6 +1135,7 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
        XmNtopWidget,                    w,
        XmNleftAttachment,               XmATTACH_POSITION,
        XmNleftPosition,                 1,
+       XmNwidth,			80,
        NULL);
     XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
     sd->time_info.num_samples_lbl = XtVaCreateManagedWidget
@@ -1185,6 +1186,7 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
        XmNtopWidget,                    w,
        XmNleftAttachment,               XmATTACH_POSITION,
        XmNleftPosition,                 1,
+       XmNwidth,			80,
        NULL);
     XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
     sd->time_info.ds_lbl = XtVaCreateManagedWidget
@@ -1235,6 +1237,7 @@ StripDialog     StripDialog_init        (Widget parent, StripConfig *cfg)
        XmNtopWidget,                    w,
        XmNleftAttachment,               XmATTACH_POSITION,
        XmNleftPosition,                 1,
+       XmNwidth,			80,
        NULL);
     XtAddCallback (txt, XmNfocusCallback, text_focus_cb, (XtPointer)0);
     sd->time_info.gr_lbl = XtVaCreateManagedWidget

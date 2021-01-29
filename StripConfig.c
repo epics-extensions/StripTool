@@ -458,9 +458,21 @@ int     StripConfig_setattr (StripConfig *scfg, ...)
             
 	case STRIPCONFIG_FILENAME:
 	  tmp.str = va_arg (ap, char *);
-	  if (scfg->filename) free (scfg->filename);
-	  if (tmp.str) scfg->filename = strdup (tmp.str);
-	  else scfg->filename = 0;
+	  
+	  /* Changes by Dmitry Teytelman on 20191015
+	     When called from File->Save, tmp.str is the same
+             as scfg->filename. Need to detect that case and do nothing
+	  */
+	  if (scfg->filename != tmp.str)
+	  {
+	    if (scfg->filename)
+	      free (scfg->filename);
+
+	    if (tmp.str)
+	      scfg->filename = strdup (tmp.str);
+	    else
+	      scfg->filename = NULL;
+          }
 	  StripConfigMask_set
 	    (&scfg->UpdateInfo.update_mask, SCFGMASK_FILENAME);
 	  break;
